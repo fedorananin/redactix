@@ -1,0 +1,1109 @@
+/* css/redactix.css */
+
+/* ================================
+   Variables
+   ================================ */
+:root {
+    --redactix-primary: #2563eb;
+    --redactix-primary-hover: #1d4ed8;
+    --redactix-danger: #dc2626;
+    --redactix-danger-hover: #b91c1c;
+    --redactix-border: #e5e7eb;
+    --redactix-bg: #ffffff;
+    --redactix-bg-hover: #f3f4f6;
+    --redactix-bg-active: #e5e7eb;
+    --redactix-text: #374151;
+    --redactix-text-muted: #6b7280;
+    --redactix-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --redactix-radius: 6px;
+}
+
+/* ================================
+   Wrapper
+   ================================ */
+.redactix-wrapper {
+    border: 1px solid var(--redactix-border);
+    border-radius: var(--redactix-radius);
+    background: var(--redactix-bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    position: relative;
+    overflow: clip;
+}
+
+/* ================================
+   Toolbar
+   ================================ */
+.redactix-toolbar {
+    background: #f9fafb;
+    border-bottom: 1px solid var(--redactix-border);
+    padding: 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    z-index: 100;
+    border-top-left-radius: var(--redactix-radius);
+    border-top-right-radius: var(--redactix-radius);
+}
+
+.redactix-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--redactix-text);
+    transition: all 0.15s ease;
+}
+
+/* Кнопка поиска — первая в правой группе */
+.redactix-btn[data-command="find"] {
+    margin-left: auto;
+}
+
+.redactix-btn:hover {
+    background: var(--redactix-bg-hover);
+}
+
+.redactix-btn:active {
+    background: var(--redactix-bg-active);
+}
+
+.redactix-btn.active {
+    background: var(--redactix-primary);
+    color: white;
+}
+
+.redactix-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.redactix-toolbar-separator {
+    width: 1px !important;
+    height: 24px !important;
+    background: var(--redactix-border) !important;
+    margin: 0 6px !important;
+}
+
+/* ================================
+   Editor
+   ================================ */
+.redactix-editor {
+    padding: 20px;
+    padding-left: 40px;
+    min-height: 300px;
+    outline: none;
+    overflow-y: auto;
+    line-height: 1.7;
+    font-size: 16px;
+    color: var(--redactix-text);
+    white-space: pre-wrap;
+    /* Скругление углов снизу */
+    border-bottom-left-radius: var(--redactix-radius);
+    border-bottom-right-radius: var(--redactix-radius);
+}
+
+.redactix-editor.is-empty::before {
+    content: attr(data-placeholder);
+    color: var(--redactix-text-muted);
+    pointer-events: none;
+    position: absolute;
+}
+
+.redactix-editor p {
+    margin: 0 0 1em 0;
+}
+
+.redactix-editor h1, 
+.redactix-editor h2, 
+.redactix-editor h3 {
+    margin: 1.5em 0 0.5em 0;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+/* Убираем верхний отступ у первого элемента */
+.redactix-editor > *:first-child {
+    margin-top: 0;
+}
+
+.redactix-editor h1 { font-size: 2em; }
+.redactix-editor h2 { font-size: 1.5em; }
+.redactix-editor h3 { font-size: 1.25em; }
+
+/* Blockquote - базовый стиль (стандартная) */
+.redactix-editor blockquote {
+    margin: 1em 0;
+    padding: 0.5em 1em;
+    border-left: 4px solid var(--redactix-primary);
+    background: #f8fafc;
+    color: var(--redactix-text-muted);
+}
+
+/* Blockquote presets */
+.redactix-editor blockquote.big {
+    font-size: 1.5em;
+    text-align: center;
+    border-left: none;
+    border-top: 3px solid var(--redactix-primary);
+    border-bottom: 3px solid var(--redactix-primary);
+    padding: 1em;
+    background: transparent;
+    color: var(--redactix-text);
+    font-style: italic;
+}
+
+/* Callout (aside) - базовый стиль (серый, без класса) */
+.redactix-editor aside {
+    margin: 1em 0;
+    padding: 1em;
+    border-radius: var(--redactix-radius);
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    color: #374151;
+}
+
+/* Callout presets */
+.redactix-editor aside.warning {
+    background: #fef3c7;
+    border-color: #f59e0b;
+    color: #92400e;
+}
+
+.redactix-editor aside.danger {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #991b1b;
+}
+
+.redactix-editor aside.information {
+    background: #dbeafe;
+    border-color: #3b82f6;
+    color: #1e40af;
+}
+
+.redactix-editor aside.success {
+    background: #dcfce7;
+    border-color: #22c55e;
+    color: #166534;
+}
+
+.redactix-editor ul,
+.redactix-editor ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.redactix-editor li {
+    margin: 0.25em 0;
+}
+
+.redactix-editor a {
+    color: var(--redactix-primary);
+    text-decoration: underline;
+}
+
+.redactix-editor code {
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 0.9em;
+    background: #f3f4f6;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    color: #e11d48;
+}
+
+.redactix-editor mark {
+    background: #fef08a;
+    padding: 0.1em 0.2em;
+    border-radius: 2px;
+    color: inherit;
+}
+
+.redactix-editor .spoiler {
+    background: #374151;
+    color: #374151;
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.redactix-editor .spoiler:hover,
+.redactix-editor .spoiler:focus {
+    background: #f3f4f6;
+    color: inherit;
+}
+
+.redactix-editor pre {
+    margin: 1em 0;
+    padding: 1em;
+    background: #1f2937;
+    border-radius: var(--redactix-radius);
+    overflow-x: auto;
+    cursor: pointer;
+}
+
+.redactix-editor pre code {
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 0.9em;
+    background: transparent;
+    padding: 0;
+    color: #e5e7eb;
+    white-space: pre;
+}
+
+/* ================================
+   Word/Character Counter
+   ================================ */
+.redactix-counter {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 12px;
+    color: var(--redactix-text-muted);
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2px 8px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.redactix-editor img {
+    max-width: 100%;
+    max-height: 450px;
+    width: auto;
+    height: auto;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.redactix-editor img:hover {
+    opacity: 0.85;
+}
+
+.redactix-editor hr {
+    margin: 0; /* Отступы управляются оберткой */
+    border: none;
+    height: auto;
+    border-top: 2px solid var(--redactix-border);
+    cursor: default;
+    user-select: none;
+    pointer-events: none; /* События будет ловить обертка */
+}
+
+.redactix-separator {
+    margin: 1.5em 0;
+    padding: 10px 0;
+    cursor: default;
+    user-select: none;
+    display: block;
+}
+
+.redactix-editor figure,
+.redactix-figure {
+    margin: 1em 0;
+    padding: 0;
+    text-align: center;
+}
+
+.redactix-editor figcaption,
+.redactix-figure figcaption {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--redactix-text-muted);
+    text-align: center;
+}
+
+/* Плейсхолдер для пустого figcaption */
+.redactix-editor figcaption:empty::before,
+.redactix-editor figcaption:has(> br:only-child)::before {
+    content: 'Add caption...';
+    color: #9ca3af;
+    font-style: italic;
+    pointer-events: none;
+}
+
+/* Скрываем оригинальную textarea */
+textarea.redactix[style*="display: none"] {
+    display: none !important;
+}
+
+/* ================================
+   Modal
+   ================================ */
+.redactix-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 10000;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(2px);
+}
+
+.redactix-modal-overlay.is-open {
+    display: flex;
+}
+
+.redactix-modal-content {
+    background: white;
+    padding: 24px;
+    border-radius: 12px;
+    width: 720px;
+    max-width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    animation: modalFadeIn 0.2s ease;
+}
+
+/* Модальное окно - адаптивная сетка для полей */
+.redactix-modal-content .redactix-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0 20px;
+}
+
+.redactix-modal-content .redactix-modal-grid > div {
+    min-width: 0;
+}
+
+/* Полноширинные элементы в сетке */
+.redactix-modal-content .redactix-modal-full-width {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 600px) {
+    .redactix-modal-content {
+        width: 95%;
+        max-width: 95%;
+        padding: 16px;
+    }
+    
+    .redactix-modal-content .redactix-modal-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.redactix-modal-content h3 {
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--redactix-text);
+}
+
+.redactix-modal-content label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--redactix-text);
+}
+
+.redactix-modal-content input[type="text"],
+.redactix-modal-content input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    box-sizing: border-box;
+    border: 1px solid var(--redactix-border);
+    border-radius: var(--redactix-radius);
+    font-size: 14px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.redactix-modal-content input:focus {
+    outline: none;
+    border-color: var(--redactix-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Кнопки управления внутри формы (не в футере) */
+.redactix-modal-content .redactix-modal-grid button,
+.redactix-modal-content .redactix-upload-group button {
+    padding: 10px 20px;
+    border: 1px solid var(--redactix-border);
+    border-radius: var(--redactix-radius);
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: var(--redactix-bg);
+    color: var(--redactix-text);
+}
+
+.redactix-modal-content .redactix-modal-grid button:hover,
+.redactix-modal-content .redactix-upload-group button:hover {
+    background: var(--redactix-bg-hover);
+}
+
+/* ================================
+   Table
+   ================================ */
+.redactix-editor table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+}
+
+.redactix-editor td, 
+.redactix-editor th {
+    border: 1px solid var(--redactix-border);
+    padding: 10px 12px;
+    text-align: left;
+}
+
+.redactix-editor th {
+    background: #f9fafb;
+    font-weight: 600;
+}
+
+/* Table Context Menu */
+.redactix-table-menu {
+    position: absolute;
+    background: white;
+    border: 1px solid var(--redactix-border);
+    box-shadow: var(--redactix-shadow);
+    border-radius: 8px;
+    padding: 6px;
+    z-index: 100;
+    min-width: 200px;
+    animation: menuFadeIn 0.15s ease;
+}
+
+/* Table Handles */
+.redactix-table-handle {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: white;
+    border: 1px solid var(--redactix-border);
+    border-radius: 4px;
+    color: #9ca3af;
+    z-index: 50;
+    transition: all 0.15s ease;
+}
+
+.redactix-table-handle:hover {
+    background: var(--redactix-bg-hover);
+    color: var(--redactix-text);
+    border-color: var(--redactix-primary);
+}
+
+.redactix-table-cell-handle {
+    background: #fef3c7;
+    border-color: #f59e0b;
+}
+
+.redactix-table-cell-handle:hover {
+    background: #fde68a;
+    color: #92400e;
+}
+
+.redactix-table-row-handle {
+    background: #dbeafe;
+    border-color: #3b82f6;
+}
+
+.redactix-table-row-handle:hover {
+    background: #bfdbfe;
+    color: #1d4ed8;
+}
+
+/* ================================
+   Video Wrapper
+   ================================ */
+.redactix-video-wrapper {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    margin: 1em 0;
+    border-radius: var(--redactix-radius);
+    overflow: hidden;
+}
+
+.redactix-video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* ================================
+   Block Handle
+   ================================ */
+.redactix-block-handle {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    color: #9ca3af;
+    user-select: none;
+    z-index: 10;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.redactix-block-handle:hover {
+    background: var(--redactix-bg-hover);
+    color: var(--redactix-text);
+}
+
+.redactix-block-handle.dragging {
+    cursor: grabbing;
+    background: var(--redactix-primary);
+    color: white;
+}
+
+/* Ручка для списка целиком */
+.redactix-list-handle {
+    background: #fef3c7;
+    border: 1px dashed #f59e0b;
+}
+
+.redactix-list-handle:hover {
+    background: #fde68a;
+    color: #92400e;
+}
+
+.redactix-block-dragging {
+    background: #dbeafe !important;
+    opacity: 0.8;
+    border-radius: 4px;
+}
+
+/* ================================
+   Block Menu
+   ================================ */
+.redactix-block-menu {
+    position: absolute;
+    background: white;
+    border: 1px solid var(--redactix-border);
+    box-shadow: var(--redactix-shadow);
+    border-radius: 8px;
+    padding: 6px;
+    z-index: 100;
+    min-width: 180px;
+    animation: menuFadeIn 0.15s ease;
+}
+
+@keyframes menuFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.redactix-menu-group {
+    margin-bottom: 4px;
+}
+
+.redactix-menu-group-label {
+    padding: 6px 10px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--redactix-text-muted);
+    letter-spacing: 0.5px;
+}
+
+.redactix-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--redactix-text);
+    border-radius: 4px;
+    transition: background 0.1s ease;
+}
+
+.redactix-menu-item:hover {
+    background: var(--redactix-bg-hover);
+}
+
+.redactix-menu-item-danger {
+    color: var(--redactix-danger);
+}
+
+.redactix-menu-item-danger:hover {
+    background: #fef2f2;
+}
+
+.redactix-menu-icon {
+    width: 20px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.redactix-menu-divider {
+    height: 1px;
+    background: var(--redactix-border);
+    margin: 6px 0;
+}
+
+/* ================================
+   Floating Toolbar
+   ================================ */
+.redactix-floating-toolbar {
+    position: absolute;
+    display: none;
+    align-items: center;
+    gap: 2px;
+    padding: 6px;
+    background: #1f2937;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    z-index: 1000;
+    animation: floatingFadeIn 0.15s ease;
+}
+
+@keyframes floatingFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.redactix-floating-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #e5e7eb;
+    transition: all 0.1s ease;
+}
+
+.redactix-floating-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.redactix-floating-btn.active {
+    background: var(--redactix-primary);
+    color: white;
+}
+
+.redactix-floating-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.redactix-floating-separator {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 0 4px;
+}
+
+/* ================================
+   Drag Ghost
+   ================================ */
+.redactix-drag-ghost {
+    position: fixed;
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid var(--redactix-border);
+    border-radius: var(--redactix-radius);
+    box-shadow: var(--redactix-shadow);
+    font-size: 13px;
+    color: var(--redactix-text-muted);
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    z-index: 10000;
+}
+
+.redactix-drag-placeholder {
+    height: 2px;
+    background: var(--redactix-primary);
+    margin: 4px 0;
+    border-radius: 1px;
+}
+
+/* ================================
+   Built-in Code Editor
+   ================================ */
+.redactix-code-editor {
+    display: flex;
+    border-top: 1px solid var(--redactix-border);
+    background: #1e1e1e;
+    min-height: 300px;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace;
+    font-size: 14px;
+    line-height: 21px;
+}
+
+.redactix-code-lines {
+    flex-shrink: 0;
+    padding-top: 16px;
+    background: #252526;
+    color: #858585;
+    text-align: right;
+    user-select: none;
+    line-height: 21px;
+}
+
+.redactix-code-line-number {
+    padding: 0 12px 0 16px;
+    height: 21px;
+    line-height: 21px;
+}
+
+.redactix-code-textarea {
+    flex: 1;
+    margin: 0;
+    padding: 16px;
+    padding-top:24px !important;
+    border: none;
+    outline: none;
+    resize: none;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace;
+    font-size: 14px;
+    line-height: 21px;
+    white-space: pre;
+    overflow-x: auto;
+    overflow-y: hidden;
+    tab-size: 2;
+}
+
+.redactix-code-textarea::selection {
+    background: #264f78;
+}
+
+/* Скроллбар для редактора кода */
+.redactix-code-textarea::-webkit-scrollbar {
+    height: 10px;
+}
+
+.redactix-code-textarea::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+.redactix-code-textarea::-webkit-scrollbar-thumb {
+    background: #424242;
+    border-radius: 5px;
+}
+
+.redactix-code-textarea::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* ================================
+   Fullscreen Mode
+   ================================ */
+body.redactix-fullscreen-active {
+    overflow: hidden;
+}
+
+.redactix-wrapper.redactix-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    border-radius: 0;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    background: var(--redactix-bg);
+}
+
+.redactix-fullscreen .redactix-toolbar {
+    border-radius: 0;
+    flex-shrink: 0;
+    width: 100%;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    box-shadow: none !important;
+}
+
+.redactix-fullscreen .redactix-editor {
+    flex: 1;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+    border-radius: 0;
+    overflow-y: auto;
+}
+
+/* HTML editor в полноэкранном режиме - без ограничения ширины */
+.redactix-fullscreen .redactix-code-editor {
+    flex: 1;
+    max-width: none;
+    width: 100%;
+    overflow-y: auto;
+}
+
+.redactix-fullscreen .redactix-code-textarea {
+    flex: 1;
+    overflow-y: auto !important;
+}
+
+/* Счётчик в полноэкранном режиме */
+.redactix-fullscreen .redactix-counter {
+    position: fixed;
+    bottom: 16px;
+    right: 24px;
+}
+
+/* ================================
+   Find & Replace Panel
+   ================================ */
+.redactix-find-panel {
+    position: absolute;
+    top: 50px;
+    right: 12px;
+    background: var(--redactix-bg);
+    border: 1px solid var(--redactix-border);
+    border-radius: var(--redactix-radius);
+    box-shadow: var(--redactix-shadow);
+    padding: 8px;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: findPanelFadeIn 0.15s ease;
+}
+
+@keyframes findPanelFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.redactix-find-row,
+.redactix-replace-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.redactix-find-input,
+.redactix-replace-input {
+    padding: 6px 10px;
+    border: 1px solid var(--redactix-border);
+    border-radius: 4px;
+    font-size: 14px;
+    width: 200px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.redactix-find-input:focus,
+.redactix-replace-input:focus {
+    border-color: var(--redactix-primary);
+}
+
+.redactix-find-count {
+    font-size: 12px;
+    color: var(--redactix-text-muted);
+    min-width: 70px;
+    text-align: center;
+}
+
+.redactix-find-count.not-found {
+    color: var(--redactix-danger);
+}
+
+.redactix-find-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--redactix-text);
+    transition: all 0.15s ease;
+}
+
+.redactix-find-btn:hover {
+    background: var(--redactix-bg-hover);
+}
+
+.redactix-find-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.redactix-replace-btn {
+    width: auto;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Highlight найденного текста */
+.redactix-find-highlight {
+    background: #fef08a;
+    color: inherit;
+    border-radius: 2px;
+}
+
+.redactix-find-highlight.redactix-find-current {
+    background: #f97316;
+    color: white;
+}
+
+/* ================================
+   Image Upload
+   ================================ */
+
+/* Drag & drop state for editor */
+.redactix-editor.redactix-dragover {
+    background: #eff6ff;
+    outline: 2px dashed var(--redactix-primary);
+    outline-offset: -4px;
+}
+
+/* Upload placeholder during loading */
+.redactix-upload-placeholder {
+    margin: 1em 0;
+    padding: 24px;
+    background: #f9fafb;
+    border: 2px dashed var(--redactix-border);
+    border-radius: var(--redactix-radius);
+    text-align: center;
+}
+
+.redactix-upload-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--redactix-text-muted);
+    font-size: 14px;
+}
+
+.redactix-upload-loading svg {
+    animation: redactix-spin 1s linear infinite;
+}
+
+@keyframes redactix-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Upload error state */
+.redactix-upload-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--redactix-danger);
+    font-size: 14px;
+}
+
+.redactix-upload-error-close {
+    margin-left: 10px;
+    padding: 4px 12px;
+    background: var(--redactix-danger);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.redactix-upload-error-close:hover {
+    background: var(--redactix-danger-hover);
+}
+
+/* Base64 image upload indicator */
+.redactix-editor figure.redactix-uploading {
+    position: relative;
+}
+
+.redactix-editor figure.redactix-uploading::after {
+    content: 'Uploading...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    pointer-events: none;
+}
+
+/* ================================
+   Mobile Responsive
+   ================================ */
+@media (max-width: 768px) {
+    .redactix-editor {
+        padding-left: 20px;
+    }
+    
+    .redactix-block-handle {
+        left: 2px !important;
+    }
+    
+    .redactix-floating-toolbar {
+        flex-wrap: wrap;
+        max-width: 280px;
+    }
+}
+
