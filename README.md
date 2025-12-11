@@ -596,42 +596,9 @@ MIT License - feel free to use in personal and commercial projects.
 
 ---
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-### Development Setup
-
-```bash
-git clone https://github.com/yourusername/redactix.git
-cd redactix
-# No build step required - pure vanilla JS!
-# Just open index.html in your browser
-```
-
-### Code Style
-
-- Use ES6 modules
-- Follow existing code structure
-- Comment complex logic
-- Keep modules focused and single-purpose
-
----
-
-## 🌟 Credits
-
-Created with ❤️ for content creators who need a powerful, lightweight editor without the bloat of heavy frameworks.
-
-Inspired by:
-- Notion's elegant UI
-- Medium's focused writing experience
-- WordPress Gutenberg's block concept
-
----
-
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/redactix/issues)
+- **Issues**: [GitHub Issues](https://github.com/fedorananin/redactix/issues)
 - **Documentation**: See `index.html` for live examples
 - **Questions**: Open a discussion on GitHub
 
