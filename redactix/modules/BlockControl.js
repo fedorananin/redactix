@@ -832,6 +832,9 @@ export default class BlockControl extends Module {
 
         if (!elementBelow) return;
 
+        // Prevent dragging outside the editor
+        if (!this.instance.editorEl.contains(elementBelow) && elementBelow !== this.instance.editorEl) return;
+
         // Ищем целевой блок
         let targetBlock = elementBelow;
         while (targetBlock && targetBlock !== this.instance.editorEl) {
@@ -1111,6 +1114,9 @@ export default class BlockControl extends Module {
         this.dragGhost.style.display = 'block';
 
         if (!elementBelow) return;
+
+        // Prevent dragging outside the editor
+        if (!this.instance.editorEl.contains(elementBelow) && elementBelow !== this.instance.editorEl) return;
 
         // Ищем целевой блок
         let targetBlock = elementBelow;
