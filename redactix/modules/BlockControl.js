@@ -13,6 +13,7 @@ export default class BlockControl extends Module {
         this.dragPlaceholder = null;
         this.dragGhost = null;
         this.activeHandle = null;  // Какая ручка активна
+        this.liteMode = instance.config.liteMode || false; // Lite mode
         
         // Пресеты для callout (aside)
         this.calloutPresets = [
@@ -297,18 +298,21 @@ export default class BlockControl extends Module {
             this.duplicateBlock();
         }));
 
-        actionsGroup.appendChild(this.createMenuItem('⚙', 'Attributes', () => {
-            const attributesModule = this.instance.modules.find(m => m.constructor.name === 'Attributes');
-            if (attributesModule) {
-                let target = this.currentBlock;
-                // Если это обертка разделителя, редактируем сам HR
-                if (target.classList.contains('redactix-separator')) {
-                    const hr = target.querySelector('hr');
-                    if (hr) target = hr;
+        // Атрибуты не показываем в lite mode
+        if (!this.liteMode) {
+            actionsGroup.appendChild(this.createMenuItem('⚙', 'Attributes', () => {
+                const attributesModule = this.instance.modules.find(m => m.constructor.name === 'Attributes');
+                if (attributesModule) {
+                    let target = this.currentBlock;
+                    // Если это обертка разделителя, редактируем сам HR
+                    if (target.classList.contains('redactix-separator')) {
+                        const hr = target.querySelector('hr');
+                        if (hr) target = hr;
+                    }
+                    attributesModule.openModal(target);
                 }
-                attributesModule.openModal(target);
-            }
-        }));
+            }));
+        }
         
         actionsGroup.appendChild(this.createMenuItem('🗑', 'Delete', () => {
             this.deleteBlock();

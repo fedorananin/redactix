@@ -11,6 +11,11 @@ export default class HtmlMode extends Module {
     }
 
     getButtons() {
+        // В lite mode не показываем кнопку редактирования HTML
+        if (this.instance.config.liteMode) {
+            return [];
+        }
+        
         return [
             {
                 name: 'html',

@@ -8,6 +8,7 @@ export default class FloatingToolbar extends Module {
         this.isVisible = false;
         this.hideTimeout = null;
         this.savedRange = null;
+        this.liteMode = instance.config.liteMode || false;
     }
 
     init() {
@@ -224,6 +225,12 @@ export default class FloatingToolbar extends Module {
     }
 
     openLinkModal() {
+        // В lite mode используем упрощённую версию
+        if (this.liteMode) {
+            this.openLiteLinkModal();
+            return;
+        }
+        
         const selection = window.getSelection();
         
         // Проверяем, есть ли уже ссылка
@@ -353,6 +360,101 @@ export default class FloatingToolbar extends Module {
                     if (nofollowCheck.checked) relParts.push('nofollow');
                     if (relExtra) relParts.push(relExtra);
                     if (relParts.length > 0) a.rel = relParts.join(' ');
+                    
+                    this.instance.selection.insertNode(a);
+                    this.instance.sync();
+                }
+            }
+        });
+    }
+
+    /**
+     * Упрощённая модалка для ссылок в lite mode
+     * Только URL и текст, всегда nofollow, без title/rel настроек
+     */
+    openLiteLinkModal() {
+        const selection = window.getSelection();
+        
+        // Проверяем, есть ли уже ссылка
+        let existingLink = null;
+        if (selection.rangeCount) {
+            let node = selection.getRangeAt(0).commonAncestorContainer;
+            while (node && node !== this.instance.editorEl) {
+                if (node.tagName === 'A') {
+                    existingLink = node;
+                    break;
+                }
+                node = node.parentNode;
+            }
+        }
+        
+        // Если выделена часть ссылки - расширяем выделение на всю ссылку
+        if (existingLink) {
+            const range = document.createRange();
+            range.selectNodeContents(existingLink);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+        
+        // Сохраняем выделение
+        this.instance.selection.save();
+        
+        const selectedText = selection.toString();
+
+        // Создаем простую форму
+        const form = document.createElement('div');
+        
+        // URL
+        const urlGroup = this.createInputGroup('URL', 'text', existingLink ? existingLink.href : 'https://');
+        const urlInput = urlGroup.querySelector('input');
+        urlInput.placeholder = 'https://example.com';
+        
+        // Текст ссылки
+        const textGroup = this.createInputGroup('Link Text', 'text', selectedText);
+        const textInput = textGroup.querySelector('input');
+
+        form.append(urlGroup, textGroup);
+
+        this.hide();
+
+        // Подготовка дополнительных кнопок (Remove для существующей ссылки)
+        const extraButtons = [];
+        if (existingLink) {
+            extraButtons.push({
+                text: 'Remove Link',
+                danger: true,
+                onClick: () => {
+                    this.instance.selection.restore();
+                    document.execCommand('unlink');
+                    this.instance.sync();
+                    this.instance.modal.close();
+                    this.hide();
+                }
+            });
+        }
+
+        this.instance.modal.open({
+            title: existingLink ? 'Edit Link' : 'Insert Link',
+            body: form,
+            extraButtons: extraButtons,
+            onSave: () => {
+                const url = urlInput.value;
+                const text = textInput.value || url;
+                
+                if (url && url !== 'https://') {
+                    this.instance.selection.restore();
+                    
+                    // Удаляем старую ссылку если есть
+                    if (existingLink) {
+                        document.execCommand('unlink');
+                    }
+                    
+                    // Создаем ссылку - в lite mode всегда nofollow и _blank
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.textContent = text;
+                    a.rel = 'nofollow';
+                    a.target = '_blank';
                     
                     this.instance.selection.insertNode(a);
                     this.instance.sync();

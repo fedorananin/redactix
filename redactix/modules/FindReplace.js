@@ -12,6 +12,11 @@ export default class FindReplace extends Module {
     }
 
     init() {
+        // В lite mode полностью отключаем поиск и замену
+        if (this.instance.config.liteMode) {
+            return;
+        }
+        
         // Ctrl+F / Ctrl+H для открытия поиска и замены
         // Используем e.code для корректной работы с любой раскладкой
         document.addEventListener('keydown', (e) => {
@@ -32,6 +37,11 @@ export default class FindReplace extends Module {
     }
 
     getButtons() {
+        // В lite mode не показываем кнопку поиска
+        if (this.instance.config.liteMode) {
+            return [];
+        }
+        
         return [
             {
                 name: 'find',

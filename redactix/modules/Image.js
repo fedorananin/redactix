@@ -5,6 +5,7 @@ export default class Image extends Module {
     constructor(instance) {
         super(instance);
         this.currentFigure = null; // Для редактирования существующего изображения
+        this.liteMode = instance.config.liteMode || false; // Lite mode - упрощённый режим
         this.uploadUrl = instance.config.uploadUrl || null; // URL для загрузки изображений
         this.browseUrl = instance.config.browseUrl || null; // URL для просмотра изображений
         this.allowDelete = instance.config.allowImageDelete || false; // Разрешить удаление изображений
@@ -26,13 +27,14 @@ export default class Image extends Module {
             }
         });
 
-        // Drag & Drop загрузка
-        if (this.uploadUrl) {
+        // Drag & Drop загрузка (отключено в lite mode)
+        if (this.uploadUrl && !this.liteMode) {
             this.initDragDrop();
             this.initPasteUpload();
         }
         
         // Обработка base64 изображений после вставки (из Google Docs и т.п.)
+        // В lite mode base64 изображения удаляются
         this.initBase64Handler();
     }
     
@@ -68,8 +70,8 @@ export default class Image extends Module {
      * Обработка одного base64 изображения
      */
     async handleBase64Image(img) {
-        // Если нет uploadUrl - удаляем base64 изображение (слишком тяжёлое)
-        if (!this.uploadUrl) {
+        // В lite mode или если нет uploadUrl - удаляем base64 изображение
+        if (!this.uploadUrl || this.liteMode) {
             const figure = img.closest('figure');
             if (figure) {
                 figure.remove();
@@ -77,7 +79,7 @@ export default class Image extends Module {
                 img.remove();
             }
             this.instance.sync();
-            console.warn('Redactix: Base64 image removed (no uploadUrl configured)');
+            console.warn('Redactix: Base64 image removed' + (this.liteMode ? ' (lite mode)' : ' (no uploadUrl configured)'));
             return;
         }
         
@@ -405,6 +407,12 @@ export default class Image extends Module {
     }
 
     openModal(existingFigure = null, existingImg = null) {
+        // В lite mode используем упрощённую версию модалки
+        if (this.liteMode) {
+            this.openLiteModal(existingFigure, existingImg);
+            return;
+        }
+        
         this.instance.selection.save();
         this.currentFigure = existingFigure;
         
@@ -836,6 +844,151 @@ export default class Image extends Module {
                 }
             }
         });
+    }
+
+    /**
+     * Упрощённая модалка для lite mode
+     * Только URL и alt, без загрузки, srcset, ссылок и т.д.
+     */
+    openLiteModal(existingFigure = null, existingImg = null) {
+        this.instance.selection.save();
+        this.currentFigure = existingFigure;
+        
+        // Извлекаем существующие данные
+        let existingData = {
+            url: 'https://',
+            alt: ''
+        };
+        
+        if (existingFigure) {
+            const img = existingFigure.querySelector('img');
+            if (img) {
+                existingData.url = img.getAttribute('src') || 'https://';
+                existingData.alt = img.getAttribute('alt') || '';
+            }
+        } else if (existingImg) {
+            existingData.url = existingImg.getAttribute('src') || 'https://';
+            existingData.alt = existingImg.getAttribute('alt') || '';
+        }
+        
+        const isEditing = existingFigure || existingImg;
+
+        const form = document.createElement('div');
+        
+        // Только URL и Alt - простая форма
+        const urlGroup = this.createInputGroup('Image URL *', 'text', existingData.url);
+        const urlInput = urlGroup.querySelector('input');
+        urlInput.placeholder = 'https://example.com/image.jpg';
+
+        const altGroup = this.createInputGroup('Alt text (description)', 'text', existingData.alt);
+        const altInput = altGroup.querySelector('input');
+        altInput.placeholder = 'Describe the image';
+
+        form.append(urlGroup, altGroup);
+
+        // Подготовка дополнительных кнопок (Delete для редактирования)
+        const extraButtons = [];
+        if (isEditing) {
+            extraButtons.push({
+                text: 'Remove Image',
+                danger: true,
+                onClick: () => {
+                    if (existingFigure) {
+                        existingFigure.remove();
+                    } else if (existingImg) {
+                        existingImg.remove();
+                    }
+                    this.instance.sync();
+                    this.instance.modal.close();
+                }
+            });
+        }
+
+        this.instance.modal.open({
+            title: isEditing ? 'Edit Image' : 'Insert Image',
+            body: form,
+            extraButtons: extraButtons,
+            onSave: () => {
+                const url = urlInput.value;
+                const alt = altInput.value;
+
+                if (url && url !== 'https://') {
+                    if (isEditing) {
+                        // Обновляем существующее изображение (упрощённо)
+                        this.updateImageLite(existingFigure, existingImg, { url, alt });
+                    } else {
+                        this.instance.selection.restore();
+                        this.insertImageLite({ url, alt });
+                    }
+                    this.instance.sync();
+                }
+            }
+        });
+    }
+
+    /**
+     * Обновление изображения в lite mode
+     */
+    updateImageLite(existingFigure, existingImg, options) {
+        const { url, alt } = options;
+        
+        if (existingFigure) {
+            let img = existingFigure.querySelector('img');
+            if (!img) {
+                img = document.createElement('img');
+                img.setAttribute('loading', 'lazy'); // По умолчанию lazy в lite mode
+                existingFigure.insertBefore(img, existingFigure.firstChild);
+            }
+            img.setAttribute('src', url);
+            if (alt) img.setAttribute('alt', alt); else img.removeAttribute('alt');
+            // Убеждаемся что loading="lazy" установлен
+            if (!img.hasAttribute('loading')) {
+                img.setAttribute('loading', 'lazy');
+            }
+        } else if (existingImg) {
+            // Оборачиваем в figure для консистентности
+            const figure = document.createElement('figure');
+            figure.contentEditable = 'false';
+            
+            existingImg.setAttribute('src', url);
+            if (alt) existingImg.setAttribute('alt', alt); else existingImg.removeAttribute('alt');
+            existingImg.setAttribute('loading', 'lazy');
+            
+            existingImg.parentNode.insertBefore(figure, existingImg);
+            figure.appendChild(existingImg);
+            
+            // Добавляем пустой figcaption
+            const figcaption = document.createElement('figcaption');
+            figcaption.contentEditable = 'true';
+            figcaption.innerHTML = '<br>';
+            figure.appendChild(figcaption);
+        }
+    }
+
+    /**
+     * Вставка изображения в lite mode
+     */
+    insertImageLite(options) {
+        const { url, alt } = options;
+        
+        // Создаём figure для консистентности с полной версией
+        const figure = document.createElement('figure');
+        figure.contentEditable = 'false';
+        
+        const img = document.createElement('img');
+        img.setAttribute('src', url);
+        img.setAttribute('loading', 'lazy'); // По умолчанию lazy в lite mode
+        if (alt) img.setAttribute('alt', alt);
+        
+        figure.appendChild(img);
+        
+        // Добавляем пустой figcaption для возможности ввода подписи
+        const figcaption = document.createElement('figcaption');
+        figcaption.contentEditable = 'true';
+        figcaption.innerHTML = '<br>';
+        figure.appendChild(figcaption);
+
+        this.instance.selection.insertNode(figure);
     }
 
     /**

@@ -827,13 +827,27 @@
                     <span class="demo-dot demo-dot-green"></span>
                 </div>
                 <div class="demo-content">
-                    <textarea class="redactix"><h1>Welcome to Redactix!</h1><p>This is a <b>modern</b> WYSIWYG editor with Notion-like experience. Select text to see the <i>floating toolbar</i> with formatting options including <code>inline code</code>, <span class="spoiler">spoilers</span> and <mark>text highlighting</mark>.</p><h2>Text Formatting</h2><p>The editor supports <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s> text. Also <code>inline code</code> for technical terms, <span class="spoiler">spoilers for hidden content</span> and <mark>highlighting important fragments</mark>.</p><p>Links can have <a href="https://example.com" title="Example link" target="_blank" rel="nofollow">title and rel attributes</a>.</p><h2>Lists</h2><ul><li>Unordered list item</li><li>Drag items to reorder</li><li>Click the handle for menu options</li></ul><ol><li>Ordered list item</li><li>Convert via context menu</li><li>Or type <code>1. </code> at line start</li></ol><h2>Blockquotes</h2><blockquote>Standard quote created via block menu or by typing <code>> </code> at the start of a line. Click the handle on the left to choose a quote style.</blockquote><blockquote class="big">Large quote — perfect for highlighting key thoughts or article epigraphs.</blockquote><h2>Callout Blocks</h2><p>Callout is a block for important information with different styles. Click the handle on the left to select a preset:</p><aside>Standard callout without a class — gray, neutral.</aside><aside class="information">Information block — for helpful tips and additional info.</aside><aside class="warning">Warning — for important notices that need attention.</aside><aside class="danger">Danger — for critical warnings and errors.</aside><aside class="success">Success — for positive results and confirmations.</aside><h2>Images</h2><p>Click on an image to edit its settings:</p><figure><img src="/uploads/cat.jpg" alt="Demo image"><figcaption>Image caption — click to edit</figcaption></figure><h2>Code Blocks</h2><p>For technical articles and tutorials:</p><pre><code class="language-javascript">// JavaScript example
+                    <textarea class="redactix-full"><h1>Welcome to Redactix!</h1><p>This is a <b>modern</b> WYSIWYG editor with Notion-like experience. Select text to see the <i>floating toolbar</i> with formatting options including <code>inline code</code>, <span class="spoiler">spoilers</span> and <mark>text highlighting</mark>.</p><h2>Text Formatting</h2><p>The editor supports <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s> text. Also <code>inline code</code> for technical terms, <span class="spoiler">spoilers for hidden content</span> and <mark>highlighting important fragments</mark>.</p><p>Links can have <a href="https://example.com" title="Example link" target="_blank" rel="nofollow">title and rel attributes</a>.</p><h2>Lists</h2><ul><li>Unordered list item</li><li>Drag items to reorder</li><li>Click the handle for menu options</li></ul><ol><li>Ordered list item</li><li>Convert via context menu</li><li>Or type <code>1. </code> at line start</li></ol><h2>Blockquotes</h2><blockquote>Standard quote created via block menu or by typing <code>> </code> at the start of a line. Click the handle on the left to choose a quote style.</blockquote><blockquote class="big">Large quote — perfect for highlighting key thoughts or article epigraphs.</blockquote><h2>Callout Blocks</h2><p>Callout is a block for important information with different styles. Click the handle on the left to select a preset:</p><aside>Standard callout without a class — gray, neutral.</aside><aside class="information">Information block — for helpful tips and additional info.</aside><aside class="warning">Warning — for important notices that need attention.</aside><aside class="danger">Danger — for critical warnings and errors.</aside><aside class="success">Success — for positive results and confirmations.</aside><h2>Images</h2><p>Click on an image to edit its settings:</p><figure><img src="/uploads/cat.jpg" alt="Demo image"><figcaption>Image caption — click to edit</figcaption></figure><h2>Code Blocks</h2><p>For technical articles and tutorials:</p><pre><code class="language-javascript">// JavaScript example
 function greet(name) {
     console.log(`Hello, ${name}!`);
     return true;
 }
 
 greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see control handles. Right-click or click the handle to open the menu:</p><table><thead><tr><th>Feature</th><th>Description</th><th>Shortcut</th></tr></thead><tbody><tr><td>Heading 1</td><td>Large heading</td><td><code># </code></td></tr><tr><td>Heading 2</td><td>Medium heading</td><td><code>## </code></td></tr><tr><td>Heading 3</td><td>Small heading</td><td><code>### </code></td></tr><tr><td>Bullet list</td><td>List with dots</td><td><code>- </code> or <code>* </code></td></tr><tr><td>Numbered list</td><td>List with numbers</td><td><code>1. </code></td></tr><tr><td>Quote</td><td>Blockquote</td><td><code>> </code></td></tr><tr><td>Callout</td><td>Important info block</td><td><code>! </code></td></tr></tbody></table><h2>Video</h2><p>YouTube videos automatically become responsive:</p><div class="redactix-video-wrapper"><iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div><hr><p>The character and word counter is displayed in the bottom right corner. Try all the editor features!</p></textarea>
+                </div>
+            </div>
+            <!-- Lite Mode Demo -->
+            <h3 style="margin-top: 50px; margin-bottom: 15px;">Lite Mode</h3>
+            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Simplified editor for comments and forum posts. No image uploads, no advanced settings, all links are nofollow.</p>
+            
+            <div class="demo-wrapper">
+                <div class="demo-header">
+                    <span class="demo-dot demo-dot-red"></span>
+                    <span class="demo-dot demo-dot-yellow"></span>
+                    <span class="demo-dot demo-dot-green"></span>
+                </div>
+                <div class="demo-content">
+                    <textarea class="redactix-lite"><p>This is <b>lite mode</b> - a simplified version of the editor perfect for comment forms and forums.</p><p>Features removed in lite mode:</p><ul><li>No fullscreen, HTML mode, or find/replace buttons</li><li>No image uploads - only URL-based images allowed</li><li>All links are automatically nofollow</li><li>No advanced attributes editing (classes, IDs)</li><li>Simplified image dialog - just URL and alt text</li></ul><p>All basic formatting still works: <b>bold</b>, <i>italic</i>, <u>underline</u>, <code>code</code>, and <a href="https://example.com" rel="nofollow">links</a>.</p></textarea>
                 </div>
             </div>
         </div>
@@ -1174,8 +1188,9 @@ chmod 755 uploads</code>
     <script type="module">
         import Redactix from './redactix/Redactix.js';
 
+        // Full editor with all features
         new Redactix({
-            selector: '.redactix',
+            selector: '.redactix-full',
             // Image upload and browse endpoint (combined script)
             uploadUrl: '/redactix_images_demo.php',
             browseUrl: '/redactix_images_demo.php',
@@ -1192,6 +1207,12 @@ chmod 755 uploads</code>
             // quotePresets: [
             //     { name: 'custom', label: 'My Style', class: 'my-quote' }
             // ]
+        });
+
+        // Lite editor for comments/forums
+        new Redactix({
+            selector: '.redactix-lite',
+            liteMode: true
         });
 
         // Smooth scroll for anchor links

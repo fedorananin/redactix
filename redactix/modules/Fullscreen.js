@@ -9,6 +9,11 @@ export default class Fullscreen extends Module {
     }
 
     getButtons() {
+        // В lite mode не показываем кнопку полноэкранного режима
+        if (this.instance.config.liteMode) {
+            return [];
+        }
+        
         return [
             {
                 name: 'fullscreen',

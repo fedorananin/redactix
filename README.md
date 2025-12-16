@@ -32,6 +32,7 @@ Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero depen
 - 📏 **Word/Character Counter** — Real-time statistics in the bottom right
 - 🖥️ **Fullscreen Mode** — Distraction-free editing experience
 - 📐 **Configurable Height** — Set maximum height for the editor area
+- 💬 **Lite Mode** — Simplified editor for comments and forums (no uploads, auto-nofollow links)
 
 ### Image Management
 - 📤 **Upload** — Drag & drop, paste, file picker
@@ -179,8 +180,42 @@ new Redactix({
     allowImageDelete: true,             // Show delete buttons in gallery
     maxHeight: '500px',                 // Maximum editor height
     classes: ['highlight', 'centered'], // Quick-select classes in Attributes
+    liteMode: false                     // Enable lite mode for comments/forums
 });
 ```
+
+### Lite Mode
+
+Lite mode provides a simplified editor perfect for comment forms and forums:
+
+```javascript
+new Redactix({
+    selector: '.comment-editor',
+    liteMode: true
+});
+```
+
+**What's disabled in lite mode:**
+- Fullscreen, HTML mode, and Find & Replace buttons
+- Image uploads (drag & drop, paste, file picker) — only URL-based images allowed
+- Image gallery browser
+- Base64 image paste (automatically removed)
+- Advanced link settings (title, rel) — all links are automatically `nofollow` and open in new tab
+- Element attributes editing (ID, classes)
+- Word/character counter
+
+**What's simplified:**
+- Image dialog: only URL and alt text, images get `loading="lazy"` by default
+- Link dialog: only URL and text, all links are `nofollow` with `target="_blank"`
+
+**What still works:**
+- All text formatting (bold, italic, underline, strikethrough, code, highlight, spoiler)
+- Links (with automatic nofollow)
+- Images by URL (wrapped in `<figure>` with `loading="lazy"`)
+- Lists, blockquotes, callouts
+- Tables, code blocks, separators
+- Block drag & drop
+- Undo/redo
 
 ### Custom Presets
 
