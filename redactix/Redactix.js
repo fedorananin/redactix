@@ -21,6 +21,7 @@ import Attributes from './modules/Attributes.js';
 import BlockControl from './modules/BlockControl.js';
 import FloatingToolbar from './modules/FloatingToolbar.js';
 import History from './modules/History.js';
+import SlashCommands from './modules/SlashCommands.js';
 
 export default class Redactix {
     constructor(options = {}) {
@@ -55,7 +56,7 @@ export default class Redactix {
         this.elements = document.querySelectorAll(this.selector);
         this.instances = [];
         // Список классов модулей для подключения
-        this.modulesConfig = [History, BaseStyles, BlockStyles, List, Link, Image, Table, Youtube, Separator, Code, Markdown, FindReplace, HtmlMode, Fullscreen, Attributes, BlockControl, FloatingToolbar];
+        this.modulesConfig = [History, BaseStyles, BlockStyles, List, Link, Image, Table, Youtube, Separator, Code, Markdown, FindReplace, HtmlMode, Fullscreen, Attributes, BlockControl, FloatingToolbar, SlashCommands];
 
         this.init();
     }
@@ -107,10 +108,15 @@ class RedactixInstance {
         this.render();
     }
 
-    render() {
+render() {
         // 1. Создаем обертку
         this.wrapper = document.createElement('div');
         this.wrapper.className = 'redactix-wrapper';
+        
+        // Добавляем класс для lite mode
+        if (this.config.liteMode) {
+            this.wrapper.classList.add('redactix-lite-mode');
+        }
 
         // 2. Вставляем обертку перед textarea
         this.textarea.parentNode.insertBefore(this.wrapper, this.textarea);

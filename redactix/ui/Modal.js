@@ -30,10 +30,12 @@ export default class Modal {
      * @param {string} options.title Заголовок
      * @param {HTMLElement} options.body Содержимое (форма)
      * @param {Function} options.onSave Коллбек сохранения
+     * @param {Function} options.onClose Коллбек закрытия (вызывается при любом закрытии)
      * @param {Array} options.extraButtons Дополнительные кнопки слева (например, Delete)
      */
-    open({ title, body, onSave, extraButtons = [] }) {
+    open({ title, body, onSave, onClose, extraButtons = [] }) {
         this.onSave = onSave;
+        this.onClose = onClose;
         
         this.container.innerHTML = '';
         
@@ -136,6 +138,13 @@ export default class Modal {
     close() {
         this.overlay.classList.remove('is-open');
         this.container.innerHTML = '';
+        
+        // Call onClose callback if defined
+        if (this.onClose) {
+            this.onClose();
+        }
+        
         this.onSave = null;
+        this.onClose = null;
     }
 }

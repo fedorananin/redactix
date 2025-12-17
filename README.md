@@ -14,6 +14,7 @@ Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero depen
 
 ### Core Features
 - 🎨 **Notion-like UI** — Floating toolbar for text selection, block handles for drag & drop
+- ⌨️ **Slash Commands** — Type `/` to open command menu with all block types (h1, h2, h3, quote, callout, code, image, youtube, table, hr, ol, ul)
 - 📝 **Rich Text Formatting** — Bold, italic, underline, strikethrough, inline code, highlights, spoilers
 - 🔗 **Advanced Links** — Full control over href, title, target, rel attributes (nofollow, sponsored, ugc)
 - 📋 **Lists** — Ordered and unordered lists with drag & drop reordering and nesting
@@ -196,7 +197,8 @@ new Redactix({
 ```
 
 **What's disabled in lite mode:**
-- Fullscreen, HTML mode, and Find & Replace buttons
+- **Toolbar** — completely hidden (use `/` commands or Markdown shortcuts instead)
+- Fullscreen, HTML mode, and Find & Replace
 - Image uploads (drag & drop, paste, file picker) — only URL-based images allowed
 - Image gallery browser
 - Base64 image paste (automatically removed)
@@ -210,12 +212,15 @@ new Redactix({
 
 **What still works:**
 - All text formatting (bold, italic, underline, strikethrough, code, highlight, spoiler)
+- **Slash commands** — type `/` to insert any block type
+- **Markdown shortcuts** — `#`, `-`, `>`, etc.
 - Links (with automatic nofollow)
 - Images by URL (wrapped in `<figure>` with `loading="lazy"`)
 - Lists, blockquotes, callouts
 - Tables, code blocks, separators
 - Block drag & drop
 - Undo/redo
+- Floating toolbar for text selection
 
 ### Custom Presets
 
@@ -240,6 +245,27 @@ new Redactix({
 ---
 
 ## ⌨️ Keyboard Shortcuts
+
+### Slash Commands
+
+Type `/` anywhere to open the command menu:
+
+| Command | Description |
+|---------|-------------|
+| `/h1` | Heading 1 |
+| `/h2` | Heading 2 |
+| `/h3` | Heading 3 |
+| `/quote` | Blockquote |
+| `/callout` | Callout/aside block |
+| `/code` | Code block |
+| `/image` | Insert image |
+| `/youtube` | YouTube video |
+| `/table` | Insert table |
+| `/hr` | Horizontal divider |
+| `/ol` | Numbered list |
+| `/ul` | Bullet list |
+
+Use arrow keys to navigate, Enter to select, Escape to close.
 
 ### Markdown-style Shortcuts
 
@@ -325,6 +351,7 @@ redactix/
 │   ├── List.js           # Lists (UL/OL)
 │   ├── Markdown.js       # Markdown shortcuts
 │   ├── Separator.js      # Horizontal rules
+│   ├── SlashCommands.js  # "/" command menu (Notion-like)
 │   ├── Table.js          # Table management
 │   └── Youtube.js        # Video embeds
 ├── ui/

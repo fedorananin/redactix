@@ -1090,6 +1090,126 @@ body.redactix-fullscreen-active {
 }
 
 /* ================================
+   Slash Commands Menu
+   ================================ */
+.redactix-slash-menu {
+    position: absolute;
+    background: var(--redactix-bg);
+    border: 1px solid var(--redactix-border);
+    border-radius: 8px;
+    box-shadow: var(--redactix-shadow);
+    z-index: 1000;
+    max-height: 320px;
+    overflow-y: auto;
+    min-width: 280px;
+    animation: slashMenuFadeIn 0.15s ease;
+}
+
+@keyframes slashMenuFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.redactix-slash-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+
+.redactix-slash-item:first-child {
+    border-radius: 7px 7px 0 0;
+}
+
+.redactix-slash-item:last-child {
+    border-radius: 0 0 7px 7px;
+}
+
+.redactix-slash-item:only-child {
+    border-radius: 7px;
+}
+
+.redactix-slash-item:hover,
+.redactix-slash-item.selected {
+    background: var(--redactix-bg-hover);
+}
+
+.redactix-slash-item.selected {
+    background: #eff6ff;
+}
+
+.redactix-slash-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f3f4f6;
+    border-radius: 6px;
+    color: var(--redactix-text);
+    flex-shrink: 0;
+}
+
+.redactix-slash-item.selected .redactix-slash-icon {
+    background: #dbeafe;
+    color: var(--redactix-primary);
+}
+
+.redactix-slash-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.redactix-slash-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.redactix-slash-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--redactix-text);
+    margin-bottom: 2px;
+}
+
+.redactix-slash-desc {
+    font-size: 12px;
+    color: var(--redactix-text-muted);
+}
+
+.redactix-slash-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--redactix-text-muted);
+    font-size: 14px;
+}
+
+/* Lite mode - скрываем тулбар */
+.redactix-wrapper.redactix-lite-mode .redactix-toolbar {
+    display: none;
+}
+
+.redactix-wrapper.redactix-lite-mode .redactix-editor {
+    border-top-left-radius: var(--redactix-radius);
+    border-top-right-radius: var(--redactix-radius);
+}
+
+/* Resizable editor - for lite mode and max-height mode */
+.redactix-wrapper.redactix-lite-mode .redactix-editor,
+.redactix-wrapper.redactix-has-max-height .redactix-editor {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* ================================
    Mobile Responsive
    ================================ */
 @media (max-width: 768px) {

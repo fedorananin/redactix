@@ -643,7 +643,7 @@
         <div class="hero-content">
             <img src="favicon.png" style="width:100%;max-width:128px;">
             <h1>Redactix</h1>
-            <p class="hero-tagline">Modern WYSIWYG editor for content creators. Notion-like experience.<br>Clean HTML output. Zero dependencies. Vanilla JS.<br><b>Compatible with everything that can work with a plain &lt;textarea&gt;.</b></p>
+            <p class="hero-tagline">Modern WYSIWYG editor for content creators. Notion-like experience.<br>Slash commands, floating toolbar, clean HTML output. Zero dependencies.<br><b>Compatible with everything that can work with a plain &lt;textarea&gt;.</b></p>
             <div class="hero-buttons">
                 <a href="#demo" class="btn btn-primary">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
@@ -672,8 +672,8 @@
                 
                 <div class="feature-card">
                     <div class="feature-icon">&#128221;</div>
-                    <h3>Markdown Shortcuts</h3>
-                    <p>Type <code>#</code> for headings, <code>-</code> for lists, <code>></code> for quotes. Familiar and fast.</p>
+                    <h3>Slash Commands</h3>
+                    <p>Type <code>/</code> to open command menu. Insert headings, lists, images, tables, and more. Just like Notion.</p>
                 </div>
                 
                 <div class="feature-card">
@@ -742,8 +742,8 @@
     <!-- Shortcuts Section -->
     <section class="section section-alt">
         <div class="container">
-            <h2 class="section-title">Keyboard Shortcuts</h2>
-            <p class="section-subtitle">Speed up your workflow with Markdown-style shortcuts.</p>
+<h2 class="section-title">Keyboard Shortcuts</h2>
+            <p class="section-subtitle">Speed up your workflow with slash commands and Markdown-style shortcuts.</p>
             
             <table class="shortcuts-table">
                 <thead>
@@ -754,6 +754,11 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr style="background: #eff6ff;">
+                        <td><code>/</code></td>
+                        <td><b>Slash Commands</b></td>
+                        <td>Opens command menu with all block types (h1, h2, h3, quote, callout, code, image, youtube, table, hr, ol, ul)</td>
+                    </tr>
                     <tr>
                         <td><code># </code></td>
                         <td>Heading 1</td>
@@ -838,7 +843,7 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
             </div>
             <!-- Lite Mode Demo -->
             <h3 style="margin-top: 50px; margin-bottom: 15px;">Lite Mode</h3>
-            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Simplified editor for comments and forum posts. No image uploads, no advanced settings, all links are nofollow.</p>
+            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Simplified editor for comments and forum posts. No toolbar, no image uploads, no advanced settings, all links are nofollow. Use <code>/</code> command or Markdown shortcuts for formatting.</p>
             
             <div class="demo-wrapper">
                 <div class="demo-header">
