@@ -1,21 +1,178 @@
 /* css/redactix.css */
 
 /* ================================
-   Variables
+   Variables - Light Theme (Default)
    ================================ */
 :root {
+    /* Primary colors */
     --redactix-primary: #2563eb;
     --redactix-primary-hover: #1d4ed8;
+    --redactix-primary-light: #dbeafe;
+    --redactix-primary-rgb: 37, 99, 235;
+    
+    /* Danger colors */
     --redactix-danger: #dc2626;
     --redactix-danger-hover: #b91c1c;
+    --redactix-danger-light: #fef2f2;
+    
+    /* Base colors */
     --redactix-border: #e5e7eb;
     --redactix-bg: #ffffff;
+    --redactix-bg-secondary: #f9fafb;
     --redactix-bg-hover: #f3f4f6;
     --redactix-bg-active: #e5e7eb;
     --redactix-text: #374151;
     --redactix-text-muted: #6b7280;
+    --redactix-text-placeholder: #9ca3af;
+    
+    /* UI elements */
     --redactix-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     --redactix-radius: 6px;
+    --redactix-overlay: rgba(0, 0, 0, 0.4);
+    
+    /* Content elements */
+    --redactix-blockquote-bg: #f8fafc;
+    --redactix-code-bg: #f3f4f6;
+    --redactix-code-color: #e11d48;
+    --redactix-mark-bg: #fef08a;
+    --redactix-spoiler-bg: #374151;
+    
+    /* Code editor (always dark) */
+    --redactix-code-editor-bg: #1e1e1e;
+    --redactix-code-editor-gutter: #252526;
+    --redactix-code-editor-text: #d4d4d4;
+    --redactix-code-editor-line: #858585;
+    --redactix-code-editor-selection: #264f78;
+    
+    /* Pre blocks */
+    --redactix-pre-bg: #1f2937;
+    --redactix-pre-text: #e5e7eb;
+    
+    /* Floating toolbar (always dark) */
+    --redactix-floating-bg: #1f2937;
+    --redactix-floating-text: #e5e7eb;
+    --redactix-floating-separator: rgba(255, 255, 255, 0.2);
+    
+    /* Callouts - these are semantic and usually stay the same */
+    --redactix-callout-bg: #f3f4f6;
+    --redactix-callout-border: #d1d5db;
+    --redactix-callout-text: #374151;
+    
+    /* Find highlight */
+    --redactix-find-highlight: #fef08a;
+    --redactix-find-current: #f97316;
+    
+    /* Drag states */
+    --redactix-drag-bg: #dbeafe;
+    --redactix-dragover-bg: #eff6ff;
+}
+
+/* ================================
+   Dark Theme
+   ================================ */
+.redactix-wrapper.redactix-dark {
+    /* Primary colors - slightly brighter for dark mode */
+    --redactix-primary: #3b82f6;
+    --redactix-primary-hover: #60a5fa;
+    --redactix-primary-light: #1e3a5f;
+    --redactix-primary-rgb: 59, 130, 246;
+    
+    /* Danger colors */
+    --redactix-danger: #ef4444;
+    --redactix-danger-hover: #f87171;
+    --redactix-danger-light: #3f1d1d;
+    
+    /* Base colors */
+    --redactix-border: #374151;
+    --redactix-bg: #1f2937;
+    --redactix-bg-secondary: #111827;
+    --redactix-bg-hover: #374151;
+    --redactix-bg-active: #4b5563;
+    --redactix-text: #f3f4f6;
+    --redactix-text-muted: #9ca3af;
+    --redactix-text-placeholder: #6b7280;
+    
+    /* UI elements */
+    --redactix-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --redactix-overlay: rgba(0, 0, 0, 0.6);
+    
+    /* Content elements */
+    --redactix-blockquote-bg: #111827;
+    --redactix-code-bg: #374151;
+    --redactix-code-color: #fb7185;
+    --redactix-mark-bg: #854d0e;
+    --redactix-spoiler-bg: #e5e7eb;
+    
+    /* Pre blocks */
+    --redactix-pre-bg: #111827;
+    --redactix-pre-text: #e5e7eb;
+    
+    /* Callouts - darker versions */
+    --redactix-callout-bg: #374151;
+    --redactix-callout-border: #4b5563;
+    --redactix-callout-text: #f3f4f6;
+    
+    /* Find highlight */
+    --redactix-find-highlight: #854d0e;
+    --redactix-find-current: #ea580c;
+    
+    /* Drag states */
+    --redactix-drag-bg: #1e3a5f;
+    --redactix-dragover-bg: #1e3a5f;
+}
+
+/* Dark theme via prefers-color-scheme (auto mode) */
+@media (prefers-color-scheme: dark) {
+    .redactix-wrapper.redactix-auto {
+        /* Primary colors */
+        --redactix-primary: #3b82f6;
+        --redactix-primary-hover: #60a5fa;
+        --redactix-primary-light: #1e3a5f;
+        --redactix-primary-rgb: 59, 130, 246;
+        
+        /* Danger colors */
+        --redactix-danger: #ef4444;
+        --redactix-danger-hover: #f87171;
+        --redactix-danger-light: #3f1d1d;
+        
+        /* Base colors */
+        --redactix-border: #374151;
+        --redactix-bg: #1f2937;
+        --redactix-bg-secondary: #111827;
+        --redactix-bg-hover: #374151;
+        --redactix-bg-active: #4b5563;
+        --redactix-text: #f3f4f6;
+        --redactix-text-muted: #9ca3af;
+        --redactix-text-placeholder: #6b7280;
+        
+        /* UI elements */
+        --redactix-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        --redactix-overlay: rgba(0, 0, 0, 0.6);
+        
+        /* Content elements */
+        --redactix-blockquote-bg: #111827;
+        --redactix-code-bg: #374151;
+        --redactix-code-color: #fb7185;
+        --redactix-mark-bg: #854d0e;
+        --redactix-spoiler-bg: #e5e7eb;
+        
+        /* Pre blocks */
+        --redactix-pre-bg: #111827;
+        --redactix-pre-text: #e5e7eb;
+        
+        /* Callouts */
+        --redactix-callout-bg: #374151;
+        --redactix-callout-border: #4b5563;
+        --redactix-callout-text: #f3f4f6;
+        
+        /* Find highlight */
+        --redactix-find-highlight: #854d0e;
+        --redactix-find-current: #ea580c;
+        
+        /* Drag states */
+        --redactix-drag-bg: #1e3a5f;
+        --redactix-dragover-bg: #1e3a5f;
+    }
 }
 
 /* ================================
@@ -34,7 +191,7 @@
    Toolbar
    ================================ */
 .redactix-toolbar {
-    background: #f9fafb;
+    background: var(--redactix-bg-secondary);
     border-bottom: 1px solid var(--redactix-border);
     padding: 8px 12px;
     display: flex;
@@ -141,7 +298,7 @@
     margin: 1em 0;
     padding: 0.5em 1em;
     border-left: 4px solid var(--redactix-primary);
-    background: #f8fafc;
+    background: var(--redactix-blockquote-bg);
     color: var(--redactix-text-muted);
 }
 
@@ -163,9 +320,9 @@
     margin: 1em 0;
     padding: 1em;
     border-radius: var(--redactix-radius);
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
-    color: #374151;
+    background: var(--redactix-callout-bg);
+    border: 1px solid var(--redactix-callout-border);
+    color: var(--redactix-callout-text);
 }
 
 /* Callout presets */
@@ -201,6 +358,7 @@
 
 .redactix-editor li {
     margin: 0.25em 0;
+    min-height: 1.7em; /* Prevents empty li from collapsing */
 }
 
 .redactix-editor a {
@@ -211,22 +369,22 @@
 .redactix-editor code {
     font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
     font-size: 0.9em;
-    background: #f3f4f6;
+    background: var(--redactix-code-bg);
     padding: 0.2em 0.4em;
     border-radius: 3px;
-    color: #e11d48;
+    color: var(--redactix-code-color);
 }
 
 .redactix-editor mark {
-    background: #fef08a;
+    background: var(--redactix-mark-bg);
     padding: 0.1em 0.2em;
     border-radius: 2px;
     color: inherit;
 }
 
 .redactix-editor .spoiler {
-    background: #374151;
-    color: #374151;
+    background: var(--redactix-spoiler-bg);
+    color: var(--redactix-spoiler-bg);
     padding: 0.1em 0.3em;
     border-radius: 3px;
     cursor: pointer;
@@ -235,14 +393,14 @@
 
 .redactix-editor .spoiler:hover,
 .redactix-editor .spoiler:focus {
-    background: #f3f4f6;
+    background: var(--redactix-code-bg);
     color: inherit;
 }
 
 .redactix-editor pre {
     margin: 1em 0;
     padding: 1em;
-    background: #1f2937;
+    background: var(--redactix-pre-bg);
     border-radius: var(--redactix-radius);
     overflow-x: auto;
     cursor: pointer;
@@ -253,7 +411,7 @@
     font-size: 0.9em;
     background: transparent;
     padding: 0;
-    color: #e5e7eb;
+    color: var(--redactix-pre-text);
     white-space: pre;
 }
 
@@ -266,7 +424,8 @@
     right: 12px;
     font-size: 12px;
     color: var(--redactix-text-muted);
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--redactix-bg);
+    opacity: 0.9;
     padding: 2px 8px;
     border-radius: 4px;
     pointer-events: none;
@@ -324,7 +483,7 @@
 .redactix-editor figcaption:empty::before,
 .redactix-editor figcaption:has(> br:only-child)::before {
     content: 'Add caption...';
-    color: #9ca3af;
+    color: var(--redactix-text-placeholder);
     font-style: italic;
     pointer-events: none;
 }
@@ -343,7 +502,7 @@ textarea.redactix[style*="display: none"] {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--redactix-overlay);
     z-index: 10000;
     display: none;
     justify-content: center;
@@ -356,14 +515,14 @@ textarea.redactix[style*="display: none"] {
 }
 
 .redactix-modal-content {
-    background: white;
+    background: var(--redactix-bg);
     padding: 24px;
     border-radius: 12px;
     width: 720px;
     max-width: 90%;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--redactix-shadow);
     animation: modalFadeIn 0.2s ease;
 }
 
@@ -422,7 +581,9 @@ textarea.redactix[style*="display: none"] {
 }
 
 .redactix-modal-content input[type="text"],
-.redactix-modal-content input[type="number"] {
+.redactix-modal-content input[type="number"],
+.redactix-modal-content textarea,
+.redactix-modal-content select {
     width: 100%;
     padding: 10px 12px;
     margin-bottom: 16px;
@@ -430,13 +591,22 @@ textarea.redactix[style*="display: none"] {
     border: 1px solid var(--redactix-border);
     border-radius: var(--redactix-radius);
     font-size: 14px;
+    background: var(--redactix-bg);
+    color: var(--redactix-text);
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.redactix-modal-content input:focus {
+.redactix-modal-content input::placeholder,
+.redactix-modal-content textarea::placeholder {
+    color: var(--redactix-text-placeholder);
+}
+
+.redactix-modal-content input:focus,
+.redactix-modal-content textarea:focus,
+.redactix-modal-content select:focus {
     outline: none;
     border-color: var(--redactix-primary);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 3px rgba(var(--redactix-primary-rgb), 0.1);
 }
 
 /* Кнопки управления внутри формы (не в футере) */
@@ -458,6 +628,72 @@ textarea.redactix[style*="display: none"] {
     background: var(--redactix-bg-hover);
 }
 
+/* Modal footer buttons */
+.redactix-modal-footer {
+    margin-top: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.redactix-modal-footer-left,
+.redactix-modal-footer-right {
+    display: flex;
+    gap: 10px;
+}
+
+.redactix-modal-footer-right {
+    margin-left: auto;
+}
+
+.redactix-modal-btn {
+    padding: 10px 20px;
+    border-radius: var(--redactix-radius);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    transition: background 0.15s, opacity 0.15s;
+}
+
+.redactix-modal-btn-primary {
+    background: var(--redactix-primary);
+    color: white;
+}
+
+.redactix-modal-btn-primary:hover {
+    background: var(--redactix-primary-hover);
+}
+
+.redactix-modal-btn-secondary {
+    background: var(--redactix-bg-hover);
+    color: var(--redactix-text);
+    border: 1px solid var(--redactix-border);
+}
+
+.redactix-modal-btn-secondary:hover {
+    background: var(--redactix-bg-active);
+}
+
+.redactix-modal-btn-danger {
+    background: var(--redactix-danger);
+    color: white;
+}
+
+.redactix-modal-btn-danger:hover {
+    background: var(--redactix-danger-hover);
+}
+
+.redactix-modal-btn-gray {
+    background: var(--redactix-text-muted);
+    color: white;
+}
+
+.redactix-modal-btn-gray:hover {
+    opacity: 0.85;
+}
+
 /* ================================
    Table
    ================================ */
@@ -475,14 +711,14 @@ textarea.redactix[style*="display: none"] {
 }
 
 .redactix-editor th {
-    background: #f9fafb;
+    background: var(--redactix-bg-secondary);
     font-weight: 600;
 }
 
 /* Table Context Menu */
 .redactix-table-menu {
     position: absolute;
-    background: white;
+    background: var(--redactix-bg);
     border: 1px solid var(--redactix-border);
     box-shadow: var(--redactix-shadow);
     border-radius: 8px;
@@ -501,10 +737,10 @@ textarea.redactix[style*="display: none"] {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    background: white;
+    background: var(--redactix-bg);
     border: 1px solid var(--redactix-border);
     border-radius: 4px;
-    color: #9ca3af;
+    color: var(--redactix-text-placeholder);
     z-index: 50;
     transition: all 0.15s ease;
 }
@@ -566,7 +802,7 @@ textarea.redactix[style*="display: none"] {
     align-items: center;
     justify-content: center;
     cursor: grab;
-    color: #9ca3af;
+    color: var(--redactix-text-placeholder);
     user-select: none;
     z-index: 10;
     border-radius: 4px;
@@ -596,7 +832,7 @@ textarea.redactix[style*="display: none"] {
 }
 
 .redactix-block-dragging {
-    background: #dbeafe !important;
+    background: var(--redactix-drag-bg) !important;
     opacity: 0.8;
     border-radius: 4px;
 }
@@ -606,7 +842,7 @@ textarea.redactix[style*="display: none"] {
    ================================ */
 .redactix-block-menu {
     position: absolute;
-    background: white;
+    background: var(--redactix-bg);
     border: 1px solid var(--redactix-border);
     box-shadow: var(--redactix-shadow);
     border-radius: 8px;
@@ -661,7 +897,7 @@ textarea.redactix[style*="display: none"] {
 }
 
 .redactix-menu-item-danger:hover {
-    background: #fef2f2;
+    background: var(--redactix-danger-light);
 }
 
 .redactix-menu-icon {
@@ -685,7 +921,7 @@ textarea.redactix[style*="display: none"] {
     align-items: center;
     gap: 2px;
     padding: 6px;
-    background: #1f2937;
+    background: var(--redactix-floating-bg);
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     z-index: 1000;
@@ -713,7 +949,7 @@ textarea.redactix[style*="display: none"] {
     background: transparent;
     border-radius: 4px;
     cursor: pointer;
-    color: #e5e7eb;
+    color: var(--redactix-floating-text);
     transition: all 0.1s ease;
 }
 
@@ -735,7 +971,7 @@ textarea.redactix[style*="display: none"] {
 .redactix-floating-separator {
     width: 1px;
     height: 20px;
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--redactix-floating-separator);
     margin: 0 4px;
 }
 
@@ -745,7 +981,7 @@ textarea.redactix[style*="display: none"] {
 .redactix-drag-ghost {
     position: fixed;
     padding: 8px 12px;
-    background: white;
+    background: var(--redactix-bg);
     border: 1px solid var(--redactix-border);
     border-radius: var(--redactix-radius);
     box-shadow: var(--redactix-shadow);
@@ -772,7 +1008,7 @@ textarea.redactix[style*="display: none"] {
 .redactix-code-editor {
     display: flex;
     border-top: 1px solid var(--redactix-border);
-    background: #1e1e1e;
+    background: var(--redactix-code-editor-bg);
     min-height: 300px;
     font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace;
     font-size: 14px;
@@ -782,8 +1018,8 @@ textarea.redactix[style*="display: none"] {
 .redactix-code-lines {
     flex-shrink: 0;
     padding-top: 16px;
-    background: #252526;
-    color: #858585;
+    background: var(--redactix-code-editor-gutter);
+    color: var(--redactix-code-editor-line);
     text-align: right;
     user-select: none;
     line-height: 21px;
@@ -803,8 +1039,8 @@ textarea.redactix[style*="display: none"] {
     border: none;
     outline: none;
     resize: none;
-    background: #1e1e1e;
-    color: #d4d4d4;
+    background: var(--redactix-code-editor-bg);
+    color: var(--redactix-code-editor-text);
     font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace;
     font-size: 14px;
     line-height: 21px;
@@ -815,7 +1051,7 @@ textarea.redactix[style*="display: none"] {
 }
 
 .redactix-code-textarea::selection {
-    background: #264f78;
+    background: var(--redactix-code-editor-selection);
 }
 
 /* Скроллбар для редактора кода */
@@ -824,7 +1060,7 @@ textarea.redactix[style*="display: none"] {
 }
 
 .redactix-code-textarea::-webkit-scrollbar-track {
-    background: #1e1e1e;
+    background: var(--redactix-code-editor-bg);
 }
 
 .redactix-code-textarea::-webkit-scrollbar-thumb {
@@ -995,13 +1231,13 @@ body.redactix-fullscreen-active {
 
 /* Highlight найденного текста */
 .redactix-find-highlight {
-    background: #fef08a;
+    background: var(--redactix-find-highlight);
     color: inherit;
     border-radius: 2px;
 }
 
 .redactix-find-highlight.redactix-find-current {
-    background: #f97316;
+    background: var(--redactix-find-current);
     color: white;
 }
 
@@ -1011,7 +1247,7 @@ body.redactix-fullscreen-active {
 
 /* Drag & drop state for editor */
 .redactix-editor.redactix-dragover {
-    background: #eff6ff;
+    background: var(--redactix-dragover-bg);
     outline: 2px dashed var(--redactix-primary);
     outline-offset: -4px;
 }
@@ -1020,7 +1256,7 @@ body.redactix-fullscreen-active {
 .redactix-upload-placeholder {
     margin: 1em 0;
     padding: 24px;
-    background: #f9fafb;
+    background: var(--redactix-bg-secondary);
     border: 2px dashed var(--redactix-border);
     border-radius: var(--redactix-radius);
     text-align: center;
@@ -1143,7 +1379,7 @@ body.redactix-fullscreen-active {
 }
 
 .redactix-slash-item.selected {
-    background: #eff6ff;
+    background: var(--redactix-primary-light);
 }
 
 .redactix-slash-icon {
@@ -1152,14 +1388,14 @@ body.redactix-fullscreen-active {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f3f4f6;
+    background: var(--redactix-bg-hover);
     border-radius: 6px;
     color: var(--redactix-text);
     flex-shrink: 0;
 }
 
 .redactix-slash-item.selected .redactix-slash-icon {
-    background: #dbeafe;
+    background: var(--redactix-primary-light);
     color: var(--redactix-primary);
 }
 

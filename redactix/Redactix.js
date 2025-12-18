@@ -53,6 +53,9 @@ export default class Redactix {
         // Отключает: fullscreen, html mode, find/replace, атрибуты, загрузку фото, расширенные настройки
         this.liteMode = options.liteMode || false;
         
+        // Theme: 'light' (default), 'dark', or 'auto' (follows system preference)
+        this.theme = options.theme || 'light';
+        
         this.elements = document.querySelectorAll(this.selector);
         this.instances = [];
         // Список классов модулей для подключения
@@ -81,7 +84,8 @@ export default class Redactix {
                 browseUrl: this.liteMode ? null : this.browseUrl, // В lite mode отключаем галерею
                 allowImageDelete: this.allowImageDelete,
                 maxHeight: this.maxHeight,
-                liteMode: this.liteMode
+                liteMode: this.liteMode,
+                theme: this.theme
             };
 
             // Передаем this (экземпляр Redactix с конфигами)
@@ -116,6 +120,13 @@ render() {
         // Добавляем класс для lite mode
         if (this.config.liteMode) {
             this.wrapper.classList.add('redactix-lite-mode');
+        }
+        
+        // Добавляем класс темы
+        if (this.config.theme === 'dark') {
+            this.wrapper.classList.add('redactix-dark');
+        } else if (this.config.theme === 'auto') {
+            this.wrapper.classList.add('redactix-auto');
         }
 
         // 2. Вставляем обертку перед textarea
@@ -163,7 +174,7 @@ render() {
         // 7. Инициализируем ядро
         this.core = new Editor(this);
         this.selection = new Selection(this.core);
-        this.modal = new Modal();
+        this.modal = new Modal(this.wrapper);
 
         // 8. Инициализируем модули
         this.initModules();

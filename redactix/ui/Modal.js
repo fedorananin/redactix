@@ -1,9 +1,10 @@
 export default class Modal {
-    constructor() {
+    constructor(wrapper = null) {
         this.overlay = null;
         this.container = null;
         this.onSave = null;
         this.onCancel = null;
+        this.wrapper = wrapper; // Reference to redactix-wrapper for theme classes
         this.render();
     }
 
@@ -16,7 +17,13 @@ export default class Modal {
         this.container.className = 'redactix-modal-content';
         
         this.overlay.appendChild(this.container);
-        document.body.appendChild(this.overlay);
+        
+        // Append to wrapper if available (inherits CSS variables), otherwise to body
+        if (this.wrapper) {
+            this.wrapper.appendChild(this.overlay);
+        } else {
+            document.body.appendChild(this.overlay);
+        }
 
         // Закрытие по клику на фон
         this.overlay.addEventListener('click', (e) => {
@@ -50,36 +57,16 @@ export default class Modal {
 
         // Footer / Buttons
         const footer = document.createElement('div');
-        footer.style.marginTop = '15px';
-        footer.style.display = 'flex';
-        footer.style.justifyContent = 'space-between';
-        footer.style.alignItems = 'center';
-        footer.style.gap = '10px';
+        footer.className = 'redactix-modal-footer';
 
         // Left side - extra buttons (Delete, etc.)
         const leftButtons = document.createElement('div');
-        leftButtons.style.display = 'flex';
-        leftButtons.style.gap = '10px';
+        leftButtons.className = 'redactix-modal-footer-left';
         
         extraButtons.forEach(btnConfig => {
             const btn = document.createElement('button');
             btn.textContent = btnConfig.text;
-            btn.style.background = btnConfig.danger ? '#dc2626' : '#6b7280';
-            btn.style.color = 'white';
-            btn.style.border = 'none';
-            btn.style.padding = '10px 20px';
-            btn.style.borderRadius = '6px';
-            btn.style.cursor = 'pointer';
-            btn.style.fontSize = '14px';
-            btn.style.fontWeight = '500';
-            btn.style.transition = 'background 0.15s';
-            
-            btn.addEventListener('mouseenter', () => {
-                btn.style.background = btnConfig.danger ? '#b91c1c' : '#4b5563';
-            });
-            btn.addEventListener('mouseleave', () => {
-                btn.style.background = btnConfig.danger ? '#dc2626' : '#6b7280';
-            });
+            btn.className = `redactix-modal-btn ${btnConfig.danger ? 'redactix-modal-btn-danger' : 'redactix-modal-btn-gray'}`;
             
             btn.addEventListener('click', () => {
                 if (btnConfig.onClick) {
@@ -92,20 +79,11 @@ export default class Modal {
 
         // Right side - Save/Cancel
         const rightButtons = document.createElement('div');
-        rightButtons.style.display = 'flex';
-        rightButtons.style.gap = '10px';
-        rightButtons.style.marginLeft = 'auto';
+        rightButtons.className = 'redactix-modal-footer-right';
 
         const saveBtn = document.createElement('button');
         saveBtn.textContent = 'Save';
-        saveBtn.style.background = '#2563eb';
-        saveBtn.style.color = 'white';
-        saveBtn.style.border = 'none';
-        saveBtn.style.padding = '10px 20px';
-        saveBtn.style.borderRadius = '6px';
-        saveBtn.style.cursor = 'pointer';
-        saveBtn.style.fontSize = '14px';
-        saveBtn.style.fontWeight = '500';
+        saveBtn.className = 'redactix-modal-btn redactix-modal-btn-primary';
         saveBtn.addEventListener('click', () => {
             if (this.onSave) {
                 this.onSave();
@@ -115,14 +93,7 @@ export default class Modal {
 
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.background = '#f3f4f6';
-        cancelBtn.style.color = '#374151';
-        cancelBtn.style.border = 'none';
-        cancelBtn.style.padding = '10px 20px';
-        cancelBtn.style.borderRadius = '6px';
-        cancelBtn.style.cursor = 'pointer';
-        cancelBtn.style.fontSize = '14px';
-        cancelBtn.style.fontWeight = '500';
+        cancelBtn.className = 'redactix-modal-btn redactix-modal-btn-secondary';
         cancelBtn.addEventListener('click', () => this.close());
 
         rightButtons.appendChild(saveBtn);

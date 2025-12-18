@@ -855,6 +855,24 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                     <textarea class="redactix-lite"><p>This is <b>lite mode</b> - a simplified version of the editor perfect for comment forms and forums.</p><p>Features removed in lite mode:</p><ul><li>No fullscreen, HTML mode, or find/replace buttons</li><li>No image uploads - only URL-based images allowed</li><li>All links are automatically nofollow</li><li>No advanced attributes editing (classes, IDs)</li><li>Simplified image dialog - just URL and alt text</li></ul><p>All basic formatting still works: <b>bold</b>, <i>italic</i>, <u>underline</u>, <code>code</code>, and <a href="https://example.com" rel="nofollow">links</a>.</p></textarea>
                 </div>
             </div>
+
+            <!-- Dark Theme Demo -->
+            <h3 style="margin-top: 50px; margin-bottom: 15px;">Dark Theme</h3>
+            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Built-in dark theme with full CSS variable support. All UI elements are themed including <b>modal dialogs</b>, menus, and buttons. Use <code>theme: 'dark'</code> or <code>theme: 'auto'</code> (follows system preference).</p>
+            
+            <div class="demo-wrapper" style="background: #111827;">
+                <div class="demo-header" style="background: #1f2937; border-color: #374151;">
+                    <span class="demo-dot demo-dot-red"></span>
+                    <span class="demo-dot demo-dot-yellow"></span>
+                    <span class="demo-dot demo-dot-green"></span>
+                </div>
+                <div class="demo-content" style="background: #111827;">
+                    <textarea class="redactix-dark"><h2>Dark Theme Editor</h2><p>This editor uses the built-in <b>dark theme</b>. All colors are controlled via CSS variables, making customization easy without <code>!important</code>.</p><p>Features:</p><ul><li>Full dark color scheme</li><li>Adjusted contrast for readability</li><li>Semantic callouts preserved</li><li>Code blocks and pre remain dark</li></ul><aside class="information">Dark theme works with all editor features including callouts, which retain their semantic colors.</aside><p>Enable dark theme in your code:</p><pre><code>new Redactix({
+    selector: '.editor',
+    theme: 'dark'  // or 'auto' for system preference
+});</code></pre></textarea>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -953,7 +971,51 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                     <h4><code>quotePresets</code></h4>
                     <p>Array of custom blockquote styles. Same structure as callout presets.</p>
                 </div>
+                <div class="config-item">
+                    <h4><code>theme</code></h4>
+                    <p>Color theme: <code>'light'</code> (default), <code>'dark'</code>, or <code>'auto'</code> (follows system preference).</p>
+                </div>
             </div>
+
+            <h3 style="margin-top: 60px; margin-bottom: 20px; text-align: center;">Theming with CSS Variables</h3>
+            <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 30px;">All colors use CSS custom properties — editor, toolbar, modals, menus, buttons. Override them without <code>!important</code>.</p>
+            
+            <div class="code-block" style="max-width: 800px; margin: 0 auto;">
+<code><span class="comment">/* Light theme customization */</span>
+.<span class="keyword">redactix-wrapper</span> {
+    <span class="property">--redactix-primary</span>: <span class="string">#8b5cf6</span>;        <span class="comment">/* Purple accent */</span>
+    <span class="property">--redactix-primary-hover</span>: <span class="string">#7c3aed</span>;
+}
+
+<span class="comment">/* Dark theme customization - match selector specificity */</span>
+.<span class="keyword">redactix-wrapper</span>.<span class="keyword">redactix-dark</span> {
+    <span class="property">--redactix-primary</span>: <span class="string">#a855f7</span>;        <span class="comment">/* Brighter for dark */</span>
+    <span class="property">--redactix-primary-hover</span>: <span class="string">#c084fc</span>;
+}</code>
+            </div>
+            
+            <p style="text-align: center; color: var(--landing-text-muted); margin-top: 20px; font-size: 0.9em;"><b>Note:</b> When customizing dark theme, use <code>.redactix-wrapper.redactix-dark</code> selector for proper specificity.</p>
+
+            <div class="config-grid" style="margin-top: 30px;">
+                <div class="config-item">
+                    <h4>Primary Colors</h4>
+                    <p><code>--redactix-primary</code>, <code>--redactix-primary-hover</code>, <code>--redactix-primary-light</code> — accent color for buttons, links, focus states.</p>
+                </div>
+                <div class="config-item">
+                    <h4>Base Colors</h4>
+                    <p><code>--redactix-bg</code>, <code>--redactix-bg-secondary</code>, <code>--redactix-bg-hover</code>, <code>--redactix-border</code> — backgrounds and borders.</p>
+                </div>
+                <div class="config-item">
+                    <h4>Text Colors</h4>
+                    <p><code>--redactix-text</code>, <code>--redactix-text-muted</code>, <code>--redactix-text-placeholder</code> — main text, secondary text, placeholders.</p>
+                </div>
+                <div class="config-item">
+                    <h4>Content Elements</h4>
+                    <p><code>--redactix-code-bg</code>, <code>--redactix-code-color</code>, <code>--redactix-mark-bg</code>, <code>--redactix-blockquote-bg</code> — inline and block styles.</p>
+                </div>
+            </div>
+            
+            <p style="text-align: center; color: var(--landing-text-muted); margin-top: 30px;">See <a href="https://github.com/fedorananin/redactix#-theming--customization" target="_blank">README</a> for the complete list of 40+ CSS variables.</p>
         </div>
     </section>
 
@@ -1218,6 +1280,12 @@ chmod 755 uploads</code>
         new Redactix({
             selector: '.redactix-lite',
             liteMode: true
+        });
+
+        // Dark theme editor
+        new Redactix({
+            selector: '.redactix-dark',
+            theme: 'dark'
         });
 
         // Smooth scroll for anchor links

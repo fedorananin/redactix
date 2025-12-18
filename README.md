@@ -497,23 +497,231 @@ The included PHP script provides:
 
 ---
 
-## 🎨 Customization
+## 🎨 Theming & Customization
 
-### CSS Variables
+Redactix uses CSS custom properties (variables) for all colors, making theming simple without `!important`.
+
+### Built-in Dark Theme
+
+Add the `redactix-dark` class to enable dark mode:
+
+```javascript
+new Redactix({
+    selector: '.redactix',
+    theme: 'dark'  // Adds 'redactix-dark' class automatically
+});
+```
+
+Or manually add the class:
+
+```html
+<div class="redactix-wrapper redactix-dark">...</div>
+```
+
+### Auto Dark Mode (System Preference)
+
+Use `redactix-auto` class to follow system preference:
+
+```javascript
+new Redactix({
+    selector: '.redactix',
+    theme: 'auto'  // Follows prefers-color-scheme
+});
+```
+
+### CSS Variables Reference
+
+Override these variables to customize the editor. No `!important` needed.
+
+#### Method 1: Override in your CSS (Recommended)
 
 ```css
-:root {
-    --redactix-primary: #2563eb;
-    --redactix-primary-hover: #1d4ed8;
-    --redactix-danger: #dc2626;
-    --redactix-border: #e5e7eb;
-    --redactix-bg: #ffffff;
-    --redactix-bg-hover: #f3f4f6;
-    --redactix-text: #374151;
-    --redactix-text-muted: #6b7280;
-    --redactix-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    --redactix-radius: 6px;
+/* Light theme customization */
+.redactix-wrapper {
+    --redactix-primary: #8b5cf6;        /* Purple accent */
+    --redactix-primary-hover: #7c3aed;
+    --redactix-bg: #fafafa;
+    --redactix-text: #1a1a1a;
 }
+
+/* Dark theme customization - use the same selector specificity */
+.redactix-wrapper.redactix-dark {
+    --redactix-primary: #a855f7;        /* Brighter purple for dark */
+    --redactix-primary-hover: #c084fc;
+}
+
+/* Scope to a specific editor */
+.redactix-wrapper.my-theme {
+    --redactix-primary: #10b981;        /* Green accent */
+}
+```
+
+> **Note:** When using dark theme (`theme: 'dark'`), override variables with `.redactix-wrapper.redactix-dark` selector to ensure proper specificity.
+
+#### Method 2: Override on wrapper element
+
+```html
+<style>
+    #my-editor {
+        --redactix-primary: #f59e0b;
+        --redactix-border: #fcd34d;
+    }
+</style>
+<textarea class="redactix" id="my-editor">...</textarea>
+```
+
+### Complete Variables List
+
+```css
+/* ===== Primary Colors ===== */
+--redactix-primary: #2563eb;           /* Main accent color (buttons, links, focus) */
+--redactix-primary-hover: #1d4ed8;     /* Hover state for primary */
+--redactix-primary-light: #dbeafe;     /* Light version for backgrounds */
+--redactix-primary-rgb: 37, 99, 235;   /* RGB values for rgba() usage */
+
+/* ===== Danger Colors ===== */
+--redactix-danger: #dc2626;            /* Delete buttons, errors */
+--redactix-danger-hover: #b91c1c;      /* Hover state for danger */
+--redactix-danger-light: #fef2f2;      /* Light danger background */
+
+/* ===== Base Colors ===== */
+--redactix-border: #e5e7eb;            /* All borders */
+--redactix-bg: #ffffff;                /* Main background */
+--redactix-bg-secondary: #f9fafb;      /* Toolbar, table headers */
+--redactix-bg-hover: #f3f4f6;          /* Hover states */
+--redactix-bg-active: #e5e7eb;         /* Active/pressed states */
+--redactix-text: #374151;              /* Main text color */
+--redactix-text-muted: #6b7280;        /* Secondary text */
+--redactix-text-placeholder: #9ca3af;  /* Placeholders */
+
+/* ===== UI Elements ===== */
+--redactix-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);  /* Dropdowns, modals */
+--redactix-radius: 6px;                /* Border radius */
+--redactix-overlay: rgba(0, 0, 0, 0.4); /* Modal overlay */
+
+/* ===== Content Styling ===== */
+--redactix-blockquote-bg: #f8fafc;     /* Blockquote background */
+--redactix-code-bg: #f3f4f6;           /* Inline code background */
+--redactix-code-color: #e11d48;        /* Inline code text */
+--redactix-mark-bg: #fef08a;           /* Highlight/mark background */
+--redactix-spoiler-bg: #374151;        /* Spoiler hidden state */
+
+/* ===== Pre/Code Blocks ===== */
+--redactix-pre-bg: #1f2937;            /* Code block background */
+--redactix-pre-text: #e5e7eb;          /* Code block text */
+
+/* ===== Callouts (aside) ===== */
+--redactix-callout-bg: #f3f4f6;        /* Default callout background */
+--redactix-callout-border: #d1d5db;    /* Default callout border */
+--redactix-callout-text: #374151;      /* Default callout text */
+
+/* ===== Find & Replace ===== */
+--redactix-find-highlight: #fef08a;    /* Found text highlight */
+--redactix-find-current: #f97316;      /* Current match highlight */
+
+/* ===== Drag & Drop ===== */
+--redactix-drag-bg: #dbeafe;           /* Dragging element background */
+--redactix-dragover-bg: #eff6ff;       /* Drop zone highlight */
+
+/* ===== Code Editor (HTML mode) - Always dark ===== */
+--redactix-code-editor-bg: #1e1e1e;
+--redactix-code-editor-gutter: #252526;
+--redactix-code-editor-text: #d4d4d4;
+--redactix-code-editor-line: #858585;
+--redactix-code-editor-selection: #264f78;
+
+/* ===== Floating Toolbar - Always dark ===== */
+--redactix-floating-bg: #1f2937;
+--redactix-floating-text: #e5e7eb;
+--redactix-floating-separator: rgba(255, 255, 255, 0.2);
+```
+
+### What's Themed
+
+The theme system covers all UI elements:
+- Editor area (background, text, borders)
+- Toolbar and buttons
+- **Modal dialogs** (backgrounds, inputs, buttons)
+- Dropdown menus and context menus
+- Find & Replace panel
+- Slash commands menu
+- Callouts and blockquotes
+- Code blocks and inline code
+
+### Dark Theme Values
+
+When `.redactix-dark` is applied:
+
+```css
+.redactix-wrapper.redactix-dark {
+    --redactix-primary: #3b82f6;
+    --redactix-border: #374151;
+    --redactix-bg: #1f2937;
+    --redactix-bg-secondary: #111827;
+    --redactix-bg-hover: #374151;
+    --redactix-text: #f3f4f6;
+    --redactix-text-muted: #9ca3af;
+    /* ... and more */
+}
+```
+
+### Example: Custom Brand Theme
+
+```css
+/* Company brand colors */
+.redactix-wrapper.brand-theme {
+    --redactix-primary: #6366f1;           /* Indigo */
+    --redactix-primary-hover: #4f46e5;
+    --redactix-primary-light: #e0e7ff;
+    --redactix-primary-rgb: 99, 102, 241;
+    --redactix-radius: 12px;               /* More rounded */
+}
+```
+
+```javascript
+// Apply the theme
+const editor = new Redactix({ selector: '.redactix' });
+document.querySelector('.redactix-wrapper').classList.add('brand-theme');
+```
+
+### Example: Dark Theme with Custom Accent
+
+```css
+/* Override the built-in dark theme */
+.redactix-wrapper.redactix-dark {
+    --redactix-primary: #a855f7;        /* Purple accent */
+    --redactix-primary-hover: #9333ea;
+    --redactix-primary-light: #3b1f5e;
+}
+```
+
+```javascript
+new Redactix({
+    selector: '.redactix',
+    theme: 'dark'  // Uses your customized dark theme
+});
+```
+
+### Example: Fully Custom Dark Theme
+
+```css
+/* Create your own dark theme class */
+.redactix-wrapper.my-dark {
+    --redactix-border: #2d2d44;
+    --redactix-bg: #1a1a2e;
+    --redactix-bg-secondary: #16162a;
+    --redactix-bg-hover: #2d2d44;
+    --redactix-text: #e2e2e2;
+    --redactix-text-muted: #a0a0a0;
+    --redactix-primary: #818cf8;
+    --redactix-primary-hover: #a5b4fc;
+}
+```
+
+```javascript
+// Initialize without theme, add class manually
+new Redactix({ selector: '.redactix' });
+document.querySelector('.redactix-wrapper').classList.add('my-dark');
 ```
 
 ### Custom Callout Styles
