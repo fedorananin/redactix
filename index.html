@@ -977,6 +977,38 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                 </div>
             </div>
 
+            <h3 style="margin-top: 60px; margin-bottom: 20px; text-align: center;">JavaScript API</h3>
+            <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 20px;">Access editor instances via <code>textarea.redactix</code> for programmatic control.</p>
+            
+            <div class="code-block" style="max-width: 800px; margin: 0 auto;">
+<code><span class="comment">// Get textarea element</span>
+<span class="keyword">const</span> textarea = document.querySelector(<span class="string">'#my-editor'</span>);
+
+<span class="comment">// Get clean HTML content</span>
+<span class="keyword">const</span> html = textarea.<span class="property">redactix</span>.getContent();
+
+<span class="comment">// Set new content (resets history)</span>
+textarea.<span class="property">redactix</span>.setContent(<span class="string">'&lt;h1&gt;New content&lt;/h1&gt;'</span>);
+
+<span class="comment">// Copy content between editors</span>
+target.<span class="property">redactix</span>.setContent(source.<span class="property">redactix</span>.getContent());</code>
+            </div>
+            
+            <div class="config-grid" style="margin-top: 30px;">
+                <div class="config-item">
+                    <h4><code>getContent()</code></h4>
+                    <p>Returns clean HTML without editor-specific wrappers (separators, contenteditable attrs).</p>
+                </div>
+                <div class="config-item">
+                    <h4><code>setContent(html)</code></h4>
+                    <p>Sets new HTML content, re-initializes editor elements (figures, code blocks), resets undo history.</p>
+                </div>
+                <div class="config-item">
+                    <h4><code>sync()</code></h4>
+                    <p>Manually syncs editor content to the original textarea. Called automatically on changes.</p>
+                </div>
+            </div>
+
             <h3 style="margin-top: 60px; margin-bottom: 20px; text-align: center;">Theming with CSS Variables</h3>
             <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 30px;">All colors use CSS custom properties — editor, toolbar, modals, menus, buttons. Override them without <code>!important</code>.</p>
             

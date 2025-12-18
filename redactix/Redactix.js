@@ -89,8 +89,12 @@ export default class Redactix {
             };
 
             // Передаем this (экземпляр Redactix с конфигами)
-            this.instances.push(new RedactixInstance(el, instanceConfig));
+            const instance = new RedactixInstance(el, instanceConfig);
+            this.instances.push(instance);
             el.dataset.redactixInit = "true";
+            
+            // Сохраняем ссылку на инстанс в textarea для внешнего доступа
+            el.redactix = instance;
         });
     }
 }
@@ -223,6 +227,35 @@ render() {
 
         // После инициализации всех модулей, просим тулбар отрисовать кнопки
         this.toolbar.addButtonsFromModules(this.modules);
+    }
+
+    // Получить чистый HTML контент (без служебных обёрток)
+    getContent() {
+        this.sync();
+        return this.textarea.value;
+    }
+
+    // Установить HTML контент в редактор
+    setContent(html) {
+        // Чистим HTML от лишних пробелов между тегами
+        const cleanHtml = html.replace(/>\s+</g, '><').trim();
+        
+        // Устанавливаем в визуальный редактор
+        this.editorEl.innerHTML = cleanHtml;
+        
+        // Пост-обработка как при инициализации
+        this.wrapSeparators();
+        this.setupFigures();
+        this.setupCodeBlocks();
+        
+        // Синхронизируем с textarea
+        this.sync();
+        
+        // Уведомляем модуль истории о новом контенте (сброс истории)
+        const historyModule = this.modules.find(m => m.constructor.name === 'History');
+        if (historyModule && historyModule.reset) {
+            historyModule.reset();
+        }
     }
 
     // Метод для обновления оригинальной textarea

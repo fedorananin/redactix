@@ -224,4 +224,15 @@ export default class History extends Module {
         // Обновляем lastSavedContent чтобы следующие изменения сравнивались с новым состоянием
         this.lastSavedContent = this.instance.editorEl.innerHTML;
     }
+
+    // Сброс истории (при setContent)
+    reset() {
+        this.undoStack = [];
+        this.redoStack = [];
+        this.lastSavedContent = this.instance.editorEl.innerHTML;
+        this.undoStack.push({
+            html: this.lastSavedContent,
+            selection: null
+        });
+    }
 }

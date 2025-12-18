@@ -169,6 +169,60 @@ Response:
 
 ---
 
+## 🔌 JavaScript API
+
+Each textarea with Redactix gets a reference to its instance via `textarea.redactix`. This allows programmatic control over the editor content.
+
+### Getting and Setting Content
+
+```javascript
+// Get textarea element
+const textarea = document.querySelector('#my-editor');
+
+// Get clean HTML content (without editor wrappers)
+const html = textarea.redactix.getContent();
+
+// Set new HTML content
+textarea.redactix.setContent('<h1>New content</h1><p>Hello world!</p>');
+```
+
+### Copying Content Between Editors
+
+If you have multiple editors and need to copy content from one to another:
+
+```javascript
+// Old way (doesn't work with Redactix):
+// targetTextarea.value = sourceTextarea.value;
+
+// New way:
+const source = document.querySelector('#source-editor');
+const target = document.querySelector('#target-editor');
+
+target.redactix.setContent(source.redactix.getContent());
+```
+
+### Syncing with Textarea
+
+The editor automatically syncs with the original textarea on every change. You can also trigger sync manually:
+
+```javascript
+// Force sync editor content to textarea
+textarea.redactix.sync();
+
+// Now textarea.value contains the latest HTML
+console.log(textarea.value);
+```
+
+### API Reference
+
+| Method | Description |
+|--------|-------------|
+| `getContent()` | Returns clean HTML without editor-specific wrappers |
+| `setContent(html)` | Sets new HTML content, re-initializes editor elements, resets history |
+| `sync()` | Manually syncs editor content to the original textarea |
+
+---
+
 ## ⚙️ Configuration
 
 ### Basic Options
