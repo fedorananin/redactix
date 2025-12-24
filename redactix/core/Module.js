@@ -20,4 +20,14 @@ export default class Module {
     getButtons() {
         return [];
     }
+    
+    /**
+     * Shorthand for getting translations
+     * @param {string} key - Translation key (e.g., 'toolbar.bold')
+     * @param {object} params - Optional interpolation params
+     * @returns {string}
+     */
+    t(key, params = {}) {
+        return this.instance.t(key, params);
+    }
 }

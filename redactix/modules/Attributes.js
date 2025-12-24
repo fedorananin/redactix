@@ -94,30 +94,30 @@ export default class Attributes extends Module {
             // 2. Render Form
             formContainer.innerHTML = '';
             
-            // Info text
+// Info text
             const info = document.createElement('p');
-            info.innerHTML = `Editing: <b>&lt;${selectedNode.tagName.toLowerCase()}&gt;</b>`;
+            info.innerHTML = `${this.t('attributes.editing')}: <b>&lt;${selectedNode.tagName.toLowerCase()}&gt;</b>`;
             info.style.marginTop = '0';
             info.style.marginBottom = '10px';
             info.style.color = '#666';
             formContainer.appendChild(info);
 
             // ID Input (якорь)
-            const idGroup = this.createInputGroup('ID (Anchor)', 'text', selectedNode.id || '');
+            const idGroup = this.createInputGroup(this.t('attributes.idAnchor'), 'text', selectedNode.id || '');
             idInput = idGroup.querySelector('input');
-            idInput.placeholder = 'example-anchor';
+            idInput.placeholder = this.t('attributes.idPlaceholder');
             formContainer.appendChild(idGroup);
             
             // Подсказка для якоря
             if (selectedNode.id) {
                 const anchorHint = document.createElement('div');
                 anchorHint.style.cssText = 'margin-bottom: 15px; font-size: 12px; color: #6b7280;';
-                anchorHint.innerHTML = `Link: <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 3px;">#${selectedNode.id}</code>`;
+                anchorHint.innerHTML = `${this.t('attributes.linkPrefix')}: <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 3px;">#${selectedNode.id}</code>`;
                 formContainer.appendChild(anchorHint);
             }
 
             // Class Input
-            const classGroup = this.createInputGroup('Classes (space separated)', 'text', selectedNode.className);
+            const classGroup = this.createInputGroup(this.t('attributes.classes'), 'text', selectedNode.className);
             classInput = classGroup.querySelector('input');
             formContainer.appendChild(classGroup);
 
@@ -127,7 +127,7 @@ export default class Attributes extends Module {
                 const listDiv = document.createElement('div');
                 listDiv.style.marginTop = '10px';
                 const listLabel = document.createElement('label');
-                listLabel.textContent = 'Quick select:';
+                listLabel.textContent = this.t('attributes.quickSelect') + ':';
                 listLabel.style.display = 'block';
                 listLabel.style.marginBottom = '5px';
                 listDiv.appendChild(listLabel);
@@ -166,8 +166,8 @@ export default class Attributes extends Module {
         body.appendChild(formContainer);
         render();
 
-        this.instance.modal.open({
-            title: 'Element Attributes',
+this.instance.modal.open({
+            title: this.t('attributes.title'),
             body: body,
             onSave: () => {
                 this.instance.selection.restore();

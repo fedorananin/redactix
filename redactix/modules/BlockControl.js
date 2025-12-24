@@ -163,7 +163,7 @@ export default class BlockControl extends Module {
             <rect x="6" y="18" width="12" height="2" rx="1"/>
         </svg>`;
         this.listHandle.contentEditable = false;
-        this.listHandle.title = 'Drag entire list';
+        this.listHandle.title = this.t('blockControl.dragEntireList');
         
         this.listHandle.addEventListener('mousedown', (e) => {
             this.activeHandle = 'list';
@@ -201,16 +201,16 @@ export default class BlockControl extends Module {
         const tag = this.currentBlock.tagName;
         const parentTag = this.currentBlock.parentElement?.tagName;
         
-        // Группа: Преобразование блока
+// Группа: Преобразование блока
         if (['P', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'ASIDE'].includes(tag)) {
-            const transformGroup = this.createMenuGroup('Transform to');
+            const transformGroup = this.createMenuGroup(this.t('blockControl.transformTo'));
             const transforms = [
-                { label: 'Paragraph', tag: 'P', icon: '¶' },
-                { label: 'Heading 1', tag: 'H1', icon: 'H1' },
-                { label: 'Heading 2', tag: 'H2', icon: 'H2' },
-                { label: 'Heading 3', tag: 'H3', icon: 'H3' },
-                { label: 'Quote', tag: 'BLOCKQUOTE', icon: '❝' },
-                { label: 'Callout', tag: 'ASIDE', icon: '💡' }
+                { label: this.t('blockControl.paragraph'), tag: 'P', icon: '¶' },
+                { label: this.t('blockControl.heading1'), tag: 'H1', icon: 'H1' },
+                { label: this.t('blockControl.heading2'), tag: 'H2', icon: 'H2' },
+                { label: this.t('blockControl.heading3'), tag: 'H3', icon: 'H3' },
+                { label: this.t('blockControl.quote'), tag: 'BLOCKQUOTE', icon: '❝' },
+                { label: this.t('blockControl.callout'), tag: 'ASIDE', icon: '💡' }
             ];
             
             transforms.forEach(t => {
@@ -225,9 +225,9 @@ export default class BlockControl extends Module {
             this.menu.appendChild(this.createMenuDivider());
         }
         
-        // Группа: Пресеты для Callout (aside)
+// Группа: Пресеты для Callout (aside)
         if (tag === 'ASIDE') {
-            const presetGroup = this.createMenuGroup('Callout Style');
+            const presetGroup = this.createMenuGroup(this.t('blockControl.calloutStyle'));
             const currentClass = this.getCurrentPresetClass(this.calloutPresets);
             
             this.calloutPresets.forEach(preset => {
@@ -246,9 +246,9 @@ export default class BlockControl extends Module {
             this.menu.appendChild(this.createMenuDivider());
         }
         
-        // Группа: Пресеты для цитат (blockquote)
+// Группа: Пресеты для цитат (blockquote)
         if (tag === 'BLOCKQUOTE') {
-            const presetGroup = this.createMenuGroup('Quote Style');
+            const presetGroup = this.createMenuGroup(this.t('blockControl.quoteStyle'));
             const currentClass = this.getCurrentPresetClass(this.quotePresets);
             
             this.quotePresets.forEach(preset => {
@@ -267,18 +267,18 @@ export default class BlockControl extends Module {
             this.menu.appendChild(this.createMenuDivider());
         }
         
-        // Группа: Преобразование списка
+// Группа: Преобразование списка
         if (tag === 'LI' || tag === 'UL' || tag === 'OL') {
-            const listGroup = this.createMenuGroup('List Type');
+            const listGroup = this.createMenuGroup(this.t('blockControl.listType'));
             const currentListType = tag === 'LI' ? parentTag : tag;
             
             if (currentListType !== 'UL') {
-                listGroup.appendChild(this.createMenuItem('•', 'Bulleted', () => {
+                listGroup.appendChild(this.createMenuItem('•', this.t('blockControl.bulleted'), () => {
                     this.convertListType('UL');
                 }));
             }
             if (currentListType !== 'OL') {
-                listGroup.appendChild(this.createMenuItem('1.', 'Numbered', () => {
+                listGroup.appendChild(this.createMenuItem('1.', this.t('blockControl.numbered'), () => {
                     this.convertListType('OL');
                 }));
             }
@@ -287,20 +287,20 @@ export default class BlockControl extends Module {
             this.menu.appendChild(this.createMenuDivider());
         }
         
-        // Группа: Действия
-        const actionsGroup = this.createMenuGroup('Actions');
+// Группа: Действия
+        const actionsGroup = this.createMenuGroup(this.t('blockControl.actions'));
         
-        actionsGroup.appendChild(this.createMenuItem('⊕', 'Insert block below', () => {
+        actionsGroup.appendChild(this.createMenuItem('⊕', this.t('blockControl.insertBlockBelow'), () => {
             this.insertElementAfter();
         }));
         
-        actionsGroup.appendChild(this.createMenuItem('⧉', 'Duplicate', () => {
+        actionsGroup.appendChild(this.createMenuItem('⧉', this.t('blockControl.duplicate'), () => {
             this.duplicateBlock();
         }));
 
         // Атрибуты не показываем в lite mode
         if (!this.liteMode) {
-            actionsGroup.appendChild(this.createMenuItem('⚙', 'Attributes', () => {
+            actionsGroup.appendChild(this.createMenuItem('⚙', this.t('blockControl.attributes'), () => {
                 const attributesModule = this.instance.modules.find(m => m.constructor.name === 'Attributes');
                 if (attributesModule) {
                     let target = this.currentBlock;
@@ -314,7 +314,7 @@ export default class BlockControl extends Module {
             }));
         }
         
-        actionsGroup.appendChild(this.createMenuItem('🗑', 'Delete', () => {
+        actionsGroup.appendChild(this.createMenuItem('🗑', this.t('delete'), () => {
             this.deleteBlock();
         }, true));
         

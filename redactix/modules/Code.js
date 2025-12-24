@@ -24,7 +24,7 @@ export default class Code extends Module {
                 name: 'codeblock',
                 label: 'Code',
                 icon: Icons.codeblock,
-                title: 'Insert Code Block',
+                title: this.t('toolbar.insertCode'),
                 action: () => this.openModal()
             }
         ];
@@ -58,8 +58,8 @@ export default class Code extends Module {
         const form = document.createElement('div');
         
         // Выбор языка
-        const languageGroup = this.createSelectGroup('Programming Language', existingLanguage, [
-            { value: '', label: 'None' },
+        const languageGroup = this.createSelectGroup(this.t('code.language'), existingLanguage, [
+            { value: '', label: this.t('code.languageNone') },
             { value: 'javascript', label: 'JavaScript' },
             { value: 'typescript', label: 'TypeScript' },
             { value: 'html', label: 'HTML' },
@@ -85,12 +85,12 @@ export default class Code extends Module {
         const languageSelect = languageGroup.querySelector('select');
 
         // Textarea для кода
-        const codeGroup = this.createTextareaGroup('Code', existingCode);
+        const codeGroup = this.createTextareaGroup(this.t('code.language'), existingCode);
         const codeTextarea = codeGroup.querySelector('textarea');
         codeTextarea.style.fontFamily = "'SF Mono', 'Consolas', 'Monaco', monospace";
         codeTextarea.style.minHeight = '200px';
         codeTextarea.style.tabSize = '2';
-        codeTextarea.placeholder = 'Paste your code here...';
+        codeTextarea.placeholder = this.t('code.codePlaceholder');
         
         // Обработка Tab в textarea
         codeTextarea.addEventListener('keydown', (e) => {
@@ -107,7 +107,7 @@ export default class Code extends Module {
         if (isEditing) {
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';
-            removeBtn.textContent = 'Remove Code Block';
+            removeBtn.textContent = this.t('code.removeCodeBlock');
             removeBtn.style.marginTop = '15px';
             removeBtn.style.background = '#dc2626';
             removeBtn.style.color = 'white';
@@ -128,7 +128,7 @@ export default class Code extends Module {
         }
 
         this.instance.modal.open({
-            title: isEditing ? 'Edit Code Block' : 'Insert Code Block',
+            title: isEditing ? this.t('code.editTitle') : this.t('code.title'),
             body: form,
             onSave: () => {
                 const language = languageSelect.value;

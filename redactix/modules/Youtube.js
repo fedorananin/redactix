@@ -8,7 +8,7 @@ export default class Youtube extends Module {
                 name: 'youtube',
                 label: 'YT',
                 icon: Icons.youtube,
-                title: 'Insert YouTube Video',
+                title: this.t('toolbar.insertYoutube'),
                 action: () => this.openModal()
             }
         ];
@@ -18,11 +18,11 @@ export default class Youtube extends Module {
         this.instance.selection.save();
 
         const form = document.createElement('div');
-        const urlGroup = this.createInputGroup('YouTube Video Link', 'text', '');
+        const urlGroup = this.createInputGroup(this.t('youtube.videoLink'), 'text', '');
         form.append(urlGroup);
 
         this.instance.modal.open({
-            title: 'YouTube',
+            title: this.t('youtube.title'),
             body: form,
             onSave: () => {
                 const url = urlGroup.querySelector('input').value;
@@ -33,7 +33,7 @@ export default class Youtube extends Module {
                     this.insertVideo(videoId);
                     this.instance.sync();
                 } else {
-                    alert('Invalid YouTube URL');
+                    alert(this.t('youtube.invalidUrl'));
                 }
             }
         });

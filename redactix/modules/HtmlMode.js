@@ -20,7 +20,7 @@ export default class HtmlMode extends Module {
             {
                 name: 'html',
                 icon: Icons.code,
-                title: 'Edit HTML',
+                title: this.t('toolbar.editHtml'),
                 action: () => this.toggleHtmlMode()
             }
         ];
@@ -245,7 +245,7 @@ export default class HtmlMode extends Module {
         const buttons = this.instance.toolbar.element.querySelectorAll('button');
         buttons.forEach(btn => {
             // Не отключаем кнопки HTML и Fullscreen
-            if (btn.title === 'Edit HTML' || btn.title === 'Fullscreen Mode') return;
+            if (btn.dataset.command === 'html' || btn.dataset.command === 'fullscreen') return;
             
             btn.disabled = disable;
             btn.style.opacity = disable ? '0.5' : '1';

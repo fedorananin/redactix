@@ -2,6 +2,7 @@ import Editor from './core/Editor.js';
 import Toolbar from './ui/Toolbar.js';
 import Selection from './core/Selection.js';
 import Modal from './ui/Modal.js';
+import I18n from './i18n/index.js';
 
 // Импорт модулей (в будущем можно сделать динамическим конфигом)
 import BaseStyles from './modules/BaseStyles.js';
@@ -56,6 +57,12 @@ export default class Redactix {
         // Theme: 'light' (default), 'dark', or 'auto' (follows system preference)
         this.theme = options.theme || 'light';
         
+        // Language/locale: 'en' (default), 'ru', etc.
+        this.locale = options.locale || 'en';
+        
+        // Initialize i18n
+        this.i18n = new I18n(this.locale);
+        
         this.elements = document.querySelectorAll(this.selector);
         this.instances = [];
         // Список классов модулей для подключения
@@ -85,7 +92,8 @@ export default class Redactix {
                 allowImageDelete: this.allowImageDelete,
                 maxHeight: this.maxHeight,
                 liteMode: this.liteMode,
-                theme: this.theme
+                theme: this.theme,
+                i18n: this.i18n // Pass i18n instance to each editor instance
             };
 
             // Передаем this (экземпляр Redactix с конфигами)
@@ -106,6 +114,9 @@ class RedactixInstance {
         this.wrapper = null;
         this.editorEl = null;
         
+        // i18n - translation helper
+        this.i18n = config.i18n;
+        
         // Core components
         this.toolbar = null;
         this.core = null;
@@ -114,6 +125,16 @@ class RedactixInstance {
         this.modal = null;
 
         this.render();
+    }
+    
+    /**
+     * Shorthand for getting translations
+     * @param {string} key - Translation key (e.g., 'toolbar.bold')
+     * @param {object} params - Optional interpolation params
+     * @returns {string}
+     */
+    t(key, params = {}) {
+        return this.i18n.t(key, params);
     }
 
 render() {
@@ -131,6 +152,12 @@ render() {
             this.wrapper.classList.add('redactix-dark');
         } else if (this.config.theme === 'auto') {
             this.wrapper.classList.add('redactix-auto');
+        }
+        
+        // Добавляем RTL поддержку для арабского и других RTL языков
+        if (this.i18n.isRTL()) {
+            this.wrapper.classList.add('redactix-rtl');
+            this.wrapper.setAttribute('dir', 'rtl');
         }
 
         // 2. Вставляем обертку перед textarea
@@ -178,7 +205,7 @@ render() {
         // 7. Инициализируем ядро
         this.core = new Editor(this);
         this.selection = new Selection(this.core);
-        this.modal = new Modal(this.wrapper);
+        this.modal = new Modal(this.wrapper, this);
 
         // 8. Инициализируем модули
         this.initModules();
@@ -215,7 +242,7 @@ render() {
         // Подсчёт слов
         const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
 
-        this.counter.textContent = `${chars} chars | ${words} words`;
+        this.counter.textContent = `${chars} ${this.t('counter.chars')} | ${words} ${this.t('counter.words')}`;
     }
 
     initModules() {

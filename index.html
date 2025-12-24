@@ -357,6 +357,28 @@
             font-size: 0.9em;
         }
         
+        /* Language card clickable */
+        .lang-card {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .lang-card:hover {
+            border-color: var(--landing-primary);
+            transform: translateY(-2px);
+        }
+        
+        .lang-card.active {
+            border-color: var(--landing-primary);
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+        }
+        
+        .lang-card.active code {
+            background: var(--landing-primary);
+            color: white;
+        }
+        
         /* ============ Why Section ============ */
         .why-section {
             background: #111827;
@@ -856,6 +878,131 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                 </div>
             </div>
 
+            <!-- Localization -->
+            <h3 style="margin-top: 50px; margin-bottom: 15px;">Localization</h3>
+            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Redactix supports multiple languages out of the box. Click on a language card to see the editor in action.</p>
+
+            <div id="lang-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 30px;">
+                <div class="config-item lang-card active" data-locale="en" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇺🇸</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">English</div>
+                    <code style="font-size: 0.85em;">'en'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="ru" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇷🇺</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Русский</div>
+                    <code style="font-size: 0.85em;">'ru'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="uk" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇺🇦</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Українська</div>
+                    <code style="font-size: 0.85em;">'uk'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="pl" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇵🇱</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Polski</div>
+                    <code style="font-size: 0.85em;">'pl'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="de" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇩🇪</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Deutsch</div>
+                    <code style="font-size: 0.85em;">'de'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="fr" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇫🇷</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Français</div>
+                    <code style="font-size: 0.85em;">'fr'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="es" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇪🇸</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Español</div>
+                    <code style="font-size: 0.85em;">'es'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="pt" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇧🇷</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Português</div>
+                    <code style="font-size: 0.85em;">'pt'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="sr" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇷🇸</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Srpski</div>
+                    <code style="font-size: 0.85em;">'sr'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="ka" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇬🇪</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">ქართული</div>
+                    <code style="font-size: 0.85em;">'ka'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="vi" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇻🇳</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Tiếng Việt</div>
+                    <code style="font-size: 0.85em;">'vi'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="th" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇹🇭</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">ไทย</div>
+                    <code style="font-size: 0.85em;">'th'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="sw" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇰🇪</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Kiswahili</div>
+                    <code style="font-size: 0.85em;">'sw'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="tr" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇹🇷</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Türkçe</div>
+                    <code style="font-size: 0.85em;">'tr'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="ar" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇸🇦</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">العربية</div>
+                    <code style="font-size: 0.85em;">'ar'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="he" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇮🇱</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">עברית</div>
+                    <code style="font-size: 0.85em;">'he'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="ja" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇯🇵</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">日本語</div>
+                    <code style="font-size: 0.85em;">'ja'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="ko" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇰🇷</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">한국어</div>
+                    <code style="font-size: 0.85em;">'ko'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="zh" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇨🇳</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">中文</div>
+                    <code style="font-size: 0.85em;">'zh'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="kk" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇰🇿</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">Қазақша</div>
+                    <code style="font-size: 0.85em;">'kk'</code>
+                </div>
+                <div class="config-item lang-card" data-locale="uz" style="text-align: center; padding: 16px 12px;">
+                    <span style="font-size: 28px;">🇺🇿</span>
+                    <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">O'zbek</div>
+                    <code style="font-size: 0.85em;">'uz'</code>
+                </div>
+            </div>
+
+            <!-- Localization Demo Editor -->
+            <div class="demo-wrapper" id="locale-demo-wrapper">
+                <div class="demo-header">
+                    <span class="demo-dot demo-dot-red"></span>
+                    <span class="demo-dot demo-dot-yellow"></span>
+                    <span class="demo-dot demo-dot-green"></span>
+                    <span style="margin-left: auto; font-size: 0.85em; color: var(--landing-text-muted);">locale: <code id="current-locale-display">'en'</code></span>
+                </div>
+                <div class="demo-content">
+                    <textarea id="locale-demo-editor"></textarea>
+                </div>
+            </div>
+
             <!-- Dark Theme Demo -->
             <h3 style="margin-top: 50px; margin-bottom: 15px;">Dark Theme</h3>
             <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Built-in dark theme with full CSS variable support. All UI elements are themed including <b>modal dialogs</b>, menus, and buttons. Use <code>theme: 'dark'</code> or <code>theme: 'auto'</code> (follows system preference).</p>
@@ -974,6 +1121,10 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                 <div class="config-item">
                     <h4><code>theme</code></h4>
                     <p>Color theme: <code>'light'</code> (default), <code>'dark'</code>, or <code>'auto'</code> (follows system preference).</p>
+                </div>
+                <div class="config-item">
+                    <h4><code>locale</code></h4>
+                    <p>Interface language: <code>'en'</code>, <code>'ru'</code>, <code>'uk'</code>, <code>'pl'</code>, <code>'de'</code>, <code>'fr'</code>, <code>'es'</code>, <code>'pt'</code>, <code>'sr'</code>, <code>'ka'</code>, <code>'vi'</code>, <code>'th'</code>, <code>'sw'</code>, <code>'tr'</code>, <code>'ar'</code>, <code>'he'</code>, <code>'ja'</code>, <code>'ko'</code>, <code>'zh'</code>, <code>'kk'</code>, <code>'uz'</code>. RTL languages (ar, he) auto-detect.</p>
                 </div>
             </div>
 
@@ -1318,6 +1469,75 @@ chmod 755 uploads</code>
         new Redactix({
             selector: '.redactix-dark',
             theme: 'dark'
+        });
+
+        // Localization demo
+        const localeContent = {
+            en: '<h2>Welcome to Redactix!</h2><p>This is a <b>modern</b> WYSIWYG editor. Select text to see the <i>floating toolbar</i>. Try typing <code>/</code> to open the slash commands menu.</p><ul><li>Drag blocks to reorder</li><li>Click handles for options</li><li>Full RTL support</li></ul><aside class="information">The editor interface is fully localized. Click on language cards above to switch!</aside>',
+            ru: '<h2>Добро пожаловать в Redactix!</h2><p>Это <b>современный</b> WYSIWYG-редактор. Выделите текст, чтобы увидеть <i>всплывающую панель</i>. Попробуйте ввести <code>/</code> для открытия меню команд.</p><ul><li>Перетаскивайте блоки для сортировки</li><li>Нажмите на ручку для опций</li><li>Полная поддержка RTL</li></ul><aside class="information">Интерфейс редактора полностью локализован. Нажмите на карточки языков выше для переключения!</aside>',
+            uk: '<h2>Ласкаво просимо до Redactix!</h2><p>Це <b>сучасний</b> WYSIWYG-редактор. Виділіть текст, щоб побачити <i>спливаючу панель</i>. Спробуйте ввести <code>/</code> для відкриття меню команд.</p><ul><li>Перетягуйте блоки для сортування</li><li>Натисніть на ручку для опцій</li><li>Повна підтримка RTL</li></ul><aside class="information">Інтерфейс редактора повністю локалізовано. Натисніть на картки мов вище для перемикання!</aside>',
+            pl: '<h2>Witaj w Redactix!</h2><p>To <b>nowoczesny</b> edytor WYSIWYG. Zaznacz tekst, aby zobaczyć <i>pływający pasek narzędzi</i>. Wpisz <code>/</code>, aby otworzyć menu poleceń.</p><ul><li>Przeciągaj bloki, aby zmienić kolejność</li><li>Kliknij uchwyt, aby zobaczyć opcje</li><li>Pełna obsługa RTL</li></ul><aside class="information">Interfejs edytora jest w pełni zlokalizowany. Kliknij karty języków powyżej, aby przełączyć!</aside>',
+            de: '<h2>Willkommen bei Redactix!</h2><p>Dies ist ein <b>moderner</b> WYSIWYG-Editor. Markieren Sie Text, um die <i>schwebende Symbolleiste</i> zu sehen. Geben Sie <code>/</code> ein, um das Befehlsmenü zu öffnen.</p><ul><li>Blöcke per Drag & Drop neu anordnen</li><li>Auf Griff klicken für Optionen</li><li>Volle RTL-Unterstützung</li></ul><aside class="information">Die Editor-Oberfläche ist vollständig lokalisiert. Klicken Sie auf die Sprachkarten oben, um zu wechseln!</aside>',
+            fr: '<h2>Bienvenue dans Redactix!</h2><p>Ceci est un éditeur WYSIWYG <b>moderne</b>. Sélectionnez du texte pour voir la <i>barre d\'outils flottante</i>. Tapez <code>/</code> pour ouvrir le menu des commandes.</p><ul><li>Glissez les blocs pour réorganiser</li><li>Cliquez sur la poignée pour les options</li><li>Support RTL complet</li></ul><aside class="information">L\'interface de l\'éditeur est entièrement localisée. Cliquez sur les cartes de langue ci-dessus pour changer!</aside>',
+            es: '<h2>¡Bienvenido a Redactix!</h2><p>Este es un editor WYSIWYG <b>moderno</b>. Selecciona texto para ver la <i>barra de herramientas flotante</i>. Escribe <code>/</code> para abrir el menú de comandos.</p><ul><li>Arrastra bloques para reordenar</li><li>Haz clic en el controlador para opciones</li><li>Soporte RTL completo</li></ul><aside class="information">La interfaz del editor está completamente localizada. ¡Haz clic en las tarjetas de idioma arriba para cambiar!</aside>',
+            pt: '<h2>Bem-vindo ao Redactix!</h2><p>Este é um editor WYSIWYG <b>moderno</b>. Selecione texto para ver a <i>barra de ferramentas flutuante</i>. Digite <code>/</code> para abrir o menu de comandos.</p><ul><li>Arraste blocos para reordenar</li><li>Clique na alça para opções</li><li>Suporte RTL completo</li></ul><aside class="information">A interface do editor está totalmente localizada. Clique nos cartões de idioma acima para mudar!</aside>',
+            sr: '<h2>Dobrodošli u Redactix!</h2><p>Ovo je <b>moderan</b> WYSIWYG editor. Izaberite tekst da vidite <i>lebdeću traku sa alatkama</i>. Ukucajte <code>/</code> da otvorite meni komandi.</p><ul><li>Prevucite blokove za preuređivanje</li><li>Kliknite na ručku za opcije</li><li>Puna RTL podrška</li></ul><aside class="information">Interfejs editora je u potpunosti lokalizovan. Kliknite na kartice jezika iznad da biste promenili!</aside>',
+            ka: '<h2>კეთილი იყოს თქვენი მობრძანება Redactix-ში!</h2><p>ეს არის <b>თანამედროვე</b> WYSIWYG რედაქტორი. აირჩიეთ ტექსტი <i>მცურავი ხელსაწყოთა ზოლის</i> სანახავად. აკრიფეთ <code>/</code> ბრძანებების მენიუს გასახსნელად.</p><ul><li>გადაათრიეთ ბლოკები გადასალაგებლად</li><li>დააჭირეთ სახელურს პარამეტრებისთვის</li><li>სრული RTL მხარდაჭერა</li></ul><aside class="information">რედაქტორის ინტერფეისი სრულად ლოკალიზებულია. დააჭირეთ ენის ბარათებს ზემოთ გადასართავად!</aside>',
+            vi: '<h2>Chào mừng đến với Redactix!</h2><p>Đây là trình soạn thảo WYSIWYG <b>hiện đại</b>. Chọn văn bản để xem <i>thanh công cụ nổi</i>. Nhập <code>/</code> để mở menu lệnh.</p><ul><li>Kéo các khối để sắp xếp lại</li><li>Nhấp vào tay cầm để xem tùy chọn</li><li>Hỗ trợ RTL đầy đủ</li></ul><aside class="information">Giao diện trình soạn thảo được bản địa hóa hoàn toàn. Nhấp vào thẻ ngôn ngữ ở trên để chuyển đổi!</aside>',
+            th: '<h2>ยินดีต้อนรับสู่ Redactix!</h2><p>นี่คือโปรแกรมแก้ไข WYSIWYG <b>ที่ทันสมัย</b> เลือกข้อความเพื่อดู<i>แถบเครื่องมือลอย</i> พิมพ์ <code>/</code> เพื่อเปิดเมนูคำสั่ง</p><ul><li>ลากบล็อกเพื่อจัดเรียงใหม่</li><li>คลิกที่ตัวจับเพื่อดูตัวเลือก</li><li>รองรับ RTL เต็มรูปแบบ</li></ul><aside class="information">อินเทอร์เฟซตัวแก้ไขได้รับการแปลเป็นภาษาท้องถิ่นอย่างสมบูรณ์ คลิกที่การ์ดภาษาด้านบนเพื่อสลับ!</aside>',
+            sw: '<h2>Karibu Redactix!</h2><p>Hii ni kihariri cha WYSIWYG <b>cha kisasa</b>. Chagua maandishi kuona <i>upau wa zana unaoelea</i>. Andika <code>/</code> kufungua menyu ya amri.</p><ul><li>Buruta vitalu kupanga upya</li><li>Bofya kishiko kwa chaguzi</li><li>Msaada kamili wa RTL</li></ul><aside class="information">Kiolesura cha kihariri kimefasiriwa kikamilifu. Bofya kadi za lugha hapo juu kubadilisha!</aside>',
+            tr: '<h2>Redactix\'e hoş geldiniz!</h2><p>Bu <b>modern</b> bir WYSIWYG editörüdür. <i>Kayan araç çubuğunu</i> görmek için metni seçin. Komut menüsünü açmak için <code>/</code> yazın.</p><ul><li>Yeniden sıralamak için blokları sürükleyin</li><li>Seçenekler için tutamaca tıklayın</li><li>Tam RTL desteği</li></ul><aside class="information">Editör arayüzü tamamen yerelleştirilmiştir. Değiştirmek için yukarıdaki dil kartlarına tıklayın!</aside>',
+            ar: '<h2>مرحباً بكم في Redactix!</h2><p>هذا محرر WYSIWYG <b>حديث</b>. حدد النص لرؤية <i>شريط الأدوات العائم</i>. اكتب <code>/</code> لفتح قائمة الأوامر.</p><ul><li>اسحب الكتل لإعادة الترتيب</li><li>انقر على المقبض للخيارات</li><li>دعم كامل لـ RTL</li></ul><aside class="information">واجهة المحرر مترجمة بالكامل. انقر على بطاقات اللغة أعلاه للتبديل!</aside>',
+            he: '<h2>ברוכים הבאים ל-Redactix!</h2><p>זהו עורך WYSIWYG <b>מודרני</b>. בחר טקסט כדי לראות את <i>סרגל הכלים הצף</i>. הקלד <code>/</code> כדי לפתוח את תפריט הפקודות.</p><ul><li>גרור בלוקים כדי לסדר מחדש</li><li>לחץ על הידית לאפשרויות</li><li>תמיכה מלאה ב-RTL</li></ul><aside class="information">ממשק העורך מתורגם במלואו. לחץ על כרטיסי השפה למעלה כדי להחליף!</aside>',
+            ja: '<h2>Redactixへようこそ！</h2><p>これは<b>モダン</b>なWYSIWYGエディターです。テキストを選択すると<i>フローティングツールバー</i>が表示されます。<code>/</code>と入力してコマンドメニューを開きます。</p><ul><li>ブロックをドラッグして並べ替え</li><li>ハンドルをクリックしてオプション表示</li><li>完全なRTLサポート</li></ul><aside class="information">エディターのインターフェースは完全にローカライズされています。上の言語カードをクリックして切り替えてください！</aside>',
+            ko: '<h2>Redactix에 오신 것을 환영합니다!</h2><p>이것은 <b>현대적인</b> WYSIWYG 편집기입니다. 텍스트를 선택하면 <i>플로팅 도구 모음</i>이 표시됩니다. <code>/</code>를 입력하여 명령 메뉴를 엽니다.</p><ul><li>블록을 드래그하여 재정렬</li><li>핸들을 클릭하여 옵션 표시</li><li>완전한 RTL 지원</li></ul><aside class="information">편집기 인터페이스가 완전히 현지화되었습니다. 위의 언어 카드를 클릭하여 전환하세요!</aside>',
+            zh: '<h2>欢迎使用 Redactix！</h2><p>这是一个<b>现代</b>的所见即所得编辑器。选择文本以查看<i>浮动工具栏</i>。输入 <code>/</code> 打开命令菜单。</p><ul><li>拖动块以重新排序</li><li>点击手柄查看选项</li><li>完整的RTL支持</li></ul><aside class="information">编辑器界面已完全本地化。点击上方的语言卡片进行切换！</aside>',
+            kk: '<h2>Redactix-қа қош келдіңіз!</h2><p>Бұл <b>заманауи</b> WYSIWYG редакторы. <i>Қалқымалы құралдар тақтасын</i> көру үшін мәтінді таңдаңыз. Командалар мәзірін ашу үшін <code>/</code> теріңіз.</p><ul><li>Қайта реттеу үшін блоктарды сүйреңіз</li><li>Опциялар үшін тұтқаны басыңыз</li><li>Толық RTL қолдауы</li></ul><aside class="information">Редактор интерфейсі толығымен локализацияланған. Ауыстыру үшін жоғарыдағы тіл карталарын басыңыз!</aside>',
+            uz: '<h2>Redactix-ga xush kelibsiz!</h2><p>Bu <b>zamonaviy</b> WYSIWYG muharrir. <i>Suzuvchi asboblar paneli</i>ni ko\'rish uchun matnni tanlang. Buyruqlar menyusini ochish uchun <code>/</code> kiriting.</p><ul><li>Qayta tartiblash uchun bloklarni torting</li><li>Variantlar uchun dastakni bosing</li><li>To\'liq RTL qo\'llab-quvvatlash</li></ul><aside class="information">Muharrir interfeysi to\'liq mahalliylashtrilgan. Almashtirish uchun yuqoridagi til kartalarini bosing!</aside>'
+        };
+
+        let localeEditor = null;
+        const localeTextarea = document.getElementById('locale-demo-editor');
+        const localeDisplay = document.getElementById('current-locale-display');
+        
+        function initLocaleEditor(locale) {
+            // Remove old editor wrapper if exists
+            const oldWrapper = localeTextarea.parentElement.querySelector('.redactix-wrapper');
+            if (oldWrapper) {
+                oldWrapper.remove();
+            }
+            
+            // Reset textarea - remove init flag and show it
+            delete localeTextarea.dataset.redactixInit;
+            localeTextarea.removeAttribute('data-redactix-init');
+            localeTextarea.value = localeContent[locale] || localeContent.en;
+            localeTextarea.style.display = '';
+            
+            // Create new editor
+            localeEditor = new Redactix({
+                selector: '#locale-demo-editor',
+                locale: locale
+            });
+            
+            // Update display
+            localeDisplay.textContent = `'${locale}'`;
+        }
+        
+        // Initialize with English
+        initLocaleEditor('en');
+        
+        // Language card click handlers
+        document.querySelectorAll('.lang-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const locale = card.dataset.locale;
+                
+                // Update active state
+                document.querySelectorAll('.lang-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                
+                // Reinitialize editor with new locale
+                initLocaleEditor(locale);
+            });
         });
 
         // Smooth scroll for anchor links

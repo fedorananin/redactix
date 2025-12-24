@@ -46,7 +46,7 @@ export default class FindReplace extends Module {
             {
                 name: 'find',
                 icon: Icons.search,
-                title: 'Find and Replace (Ctrl+F)',
+                title: this.t('toolbar.findReplace'),
                 action: () => this.open()
             }
         ];
@@ -99,27 +99,27 @@ export default class FindReplace extends Module {
         this.panel = document.createElement('div');
         this.panel.className = 'redactix-find-panel';
         
-        this.panel.innerHTML = `
+this.panel.innerHTML = `
             <div class="redactix-find-row">
-                <input type="text" class="redactix-find-input" placeholder="Find...">
+                <input type="text" class="redactix-find-input" placeholder="${this.t('findReplace.findPlaceholder')}">
                 <span class="redactix-find-count"></span>
-                <button type="button" class="redactix-find-btn" data-action="prev" title="Previous (Shift+Enter)">
+                <button type="button" class="redactix-find-btn" data-action="prev" title="${this.t('findReplace.previousTooltip')}">
                     ${Icons.chevronUp}
                 </button>
-                <button type="button" class="redactix-find-btn" data-action="next" title="Next (Enter)">
+                <button type="button" class="redactix-find-btn" data-action="next" title="${this.t('findReplace.nextTooltip')}">
                     ${Icons.chevronDown}
                 </button>
-                <button type="button" class="redactix-find-btn" data-action="close" title="Close (Esc)">
+                <button type="button" class="redactix-find-btn" data-action="close" title="${this.t('findReplace.closeTooltip')}">
                     ${Icons.close}
                 </button>
             </div>
             <div class="redactix-replace-row">
-                <input type="text" class="redactix-replace-input" placeholder="Replace with...">
-                <button type="button" class="redactix-find-btn redactix-replace-btn" data-action="replace" title="Replace">
-                    Replace
+                <input type="text" class="redactix-replace-input" placeholder="${this.t('findReplace.replacePlaceholder')}">
+                <button type="button" class="redactix-find-btn redactix-replace-btn" data-action="replace" title="${this.t('findReplace.replace')}">
+                    ${this.t('findReplace.replace')}
                 </button>
-                <button type="button" class="redactix-find-btn redactix-replace-btn" data-action="replaceAll" title="Replace All">
-                    All
+                <button type="button" class="redactix-find-btn redactix-replace-btn" data-action="replaceAll" title="${this.t('findReplace.replaceAll')}">
+                    ${this.t('findReplace.replaceAll')}
                 </button>
             </div>
         `;
@@ -344,17 +344,17 @@ export default class FindReplace extends Module {
         const countEl = this.panel?.querySelector('.redactix-find-count');
         if (!countEl) return;
 
-        if (this.currentMatches.length === 0) {
+if (this.currentMatches.length === 0) {
             const searchInput = this.panel.querySelector('.redactix-find-input');
             if (searchInput.value) {
-                countEl.textContent = 'No results';
+                countEl.textContent = this.t('findReplace.noResults');
                 countEl.classList.add('not-found');
             } else {
                 countEl.textContent = '';
                 countEl.classList.remove('not-found');
             }
         } else {
-            countEl.textContent = `${this.currentIndex + 1} of ${this.currentMatches.length}`;
+            countEl.textContent = `${this.currentIndex + 1} ${this.t('findReplace.ofCount')} ${this.currentMatches.length}`;
             countEl.classList.remove('not-found');
         }
     }

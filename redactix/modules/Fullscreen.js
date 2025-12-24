@@ -18,7 +18,7 @@ export default class Fullscreen extends Module {
             {
                 name: 'fullscreen',
                 icon: Icons.fullscreen,
-                title: 'Fullscreen Mode',
+                title: this.t('toolbar.fullscreen'),
                 action: () => this.toggleFullscreen()
             }
         ];

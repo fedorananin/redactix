@@ -27,98 +27,98 @@ export default class SlashCommands extends Module {
         const commands = [
             {
                 id: 'h1',
-                label: 'Heading 1',
-                description: 'Large section heading',
+                label: this.t('slashCommands.heading1'),
+                description: this.t('slashCommands.heading1Desc'),
                 icon: Icons.h1,
-                keywords: ['h1', 'heading', 'title', 'header'],
+                keywords: ['h1', 'heading', 'title', 'header', 'заголовок'],
                 action: () => this.formatBlock('h1')
             },
             {
                 id: 'h2',
-                label: 'Heading 2',
-                description: 'Medium section heading',
+                label: this.t('slashCommands.heading2'),
+                description: this.t('slashCommands.heading2Desc'),
                 icon: Icons.h2,
-                keywords: ['h2', 'heading', 'subtitle'],
+                keywords: ['h2', 'heading', 'subtitle', 'заголовок'],
                 action: () => this.formatBlock('h2')
             },
             {
                 id: 'h3',
-                label: 'Heading 3',
-                description: 'Small section heading',
+                label: this.t('slashCommands.heading3'),
+                description: this.t('slashCommands.heading3Desc'),
                 icon: Icons.h3,
-                keywords: ['h3', 'heading'],
+                keywords: ['h3', 'heading', 'заголовок'],
                 action: () => this.formatBlock('h3')
             },
             {
                 id: 'quote',
-                label: 'Quote',
-                description: 'Blockquote for citations',
+                label: this.t('slashCommands.quote'),
+                description: this.t('slashCommands.quoteDesc'),
                 icon: Icons.blockquote,
-                keywords: ['quote', 'blockquote', 'citation'],
+                keywords: ['quote', 'blockquote', 'citation', 'цитата'],
                 action: () => this.formatBlock('blockquote')
             },
             {
                 id: 'callout',
-                label: 'Callout',
-                description: 'Highlighted info block',
+                label: this.t('slashCommands.callout'),
+                description: this.t('slashCommands.calloutDesc'),
                 icon: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
-                keywords: ['callout', 'aside', 'info', 'warning', 'alert', 'note'],
+                keywords: ['callout', 'aside', 'info', 'warning', 'alert', 'note', 'выноска'],
                 action: () => this.formatBlock('aside')
             },
             {
                 id: 'code',
-                label: 'Code Block',
-                description: 'Code with syntax highlighting',
+                label: this.t('slashCommands.codeBlock'),
+                description: this.t('slashCommands.codeBlockDesc'),
                 icon: Icons.codeblock,
-                keywords: ['code', 'pre', 'snippet', 'programming'],
+                keywords: ['code', 'pre', 'snippet', 'programming', 'код'],
                 action: () => this.insertCodeBlock()
             },
             {
                 id: 'image',
-                label: 'Image',
-                description: 'Insert an image',
+                label: this.t('slashCommands.image'),
+                description: this.t('slashCommands.imageDesc'),
                 icon: Icons.image,
-                keywords: ['image', 'picture', 'photo', 'img'],
+                keywords: ['image', 'picture', 'photo', 'img', 'изображение', 'картинка'],
                 action: () => this.openImageModal()
             },
             {
                 id: 'youtube',
-                label: 'YouTube',
-                description: 'Embed a video',
+                label: this.t('slashCommands.youtube'),
+                description: this.t('slashCommands.youtubeDesc'),
                 icon: Icons.youtube,
-                keywords: ['youtube', 'video', 'embed', 'media'],
+                keywords: ['youtube', 'video', 'embed', 'media', 'видео'],
                 action: () => this.openYoutubeModal()
             },
             {
                 id: 'table',
-                label: 'Table',
-                description: 'Insert a table',
+                label: this.t('slashCommands.table'),
+                description: this.t('slashCommands.tableDesc'),
                 icon: Icons.table,
-                keywords: ['table', 'grid', 'spreadsheet'],
+                keywords: ['table', 'grid', 'spreadsheet', 'таблица'],
                 action: () => this.openTableModal()
             },
             {
                 id: 'hr',
-                label: 'Divider',
-                description: 'Horizontal separator line',
+                label: this.t('slashCommands.divider'),
+                description: this.t('slashCommands.dividerDesc'),
                 icon: Icons.hr,
-                keywords: ['hr', 'divider', 'separator', 'line', 'horizontal'],
+                keywords: ['hr', 'divider', 'separator', 'line', 'horizontal', 'разделитель'],
                 action: () => this.insertSeparator()
             },
             {
                 id: 'ol',
-                label: 'Numbered List',
-                description: 'List with numbers',
+                label: this.t('slashCommands.numberedList'),
+                description: this.t('slashCommands.numberedListDesc'),
                 icon: Icons.ol,
-                keywords: ['ol', 'ordered', 'numbered', 'list'],
+                keywords: ['ol', 'ordered', 'numbered', 'list', 'нумерованный', 'список'],
                 action: () => this.insertList('ol')
             },
             {
                 id: 'ul',
-                label: 'Bullet List',
-                description: 'List with bullets',
+                label: this.t('slashCommands.bulletList'),
+                description: this.t('slashCommands.bulletListDesc'),
                 icon: Icons.ul,
-                keywords: ['ul', 'unordered', 'bullet', 'list'],
+                keywords: ['ul', 'unordered', 'bullet', 'list', 'маркированный', 'список'],
                 action: () => this.insertList('ul')
             }
         ];
@@ -256,7 +256,7 @@ export default class SlashCommands extends Module {
         this.menu.innerHTML = '';
 
         if (this.filteredCommands.length === 0) {
-            this.menu.innerHTML = '<div class="redactix-slash-empty">No commands found</div>';
+            this.menu.innerHTML = `<div class="redactix-slash-empty">${this.t('slashCommands.noCommands')}</div>`;
             return;
         }
 

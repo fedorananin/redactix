@@ -1,11 +1,21 @@
 export default class Modal {
-    constructor(wrapper = null) {
+    constructor(wrapper = null, instance = null) {
         this.overlay = null;
         this.container = null;
         this.onSave = null;
         this.onCancel = null;
         this.wrapper = wrapper; // Reference to redactix-wrapper for theme classes
+        this.instance = instance; // Reference to RedactixInstance for i18n
         this.render();
+    }
+    
+    /**
+     * Shorthand for getting translations
+     * @param {string} key - Translation key
+     * @returns {string}
+     */
+    t(key) {
+        return this.instance ? this.instance.t(key) : key;
     }
 
     render() {
@@ -82,7 +92,7 @@ export default class Modal {
         rightButtons.className = 'redactix-modal-footer-right';
 
         const saveBtn = document.createElement('button');
-        saveBtn.textContent = 'Save';
+        saveBtn.textContent = this.t('save');
         saveBtn.className = 'redactix-modal-btn redactix-modal-btn-primary';
         saveBtn.addEventListener('click', () => {
             if (this.onSave) {
@@ -92,7 +102,7 @@ export default class Modal {
         });
 
         const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
+        cancelBtn.textContent = this.t('cancel');
         cancelBtn.className = 'redactix-modal-btn redactix-modal-btn-secondary';
         cancelBtn.addEventListener('click', () => this.close());
 

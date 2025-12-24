@@ -22,7 +22,7 @@ export default class Table extends Module {
                 name: 'table',
                 label: 'Table',
                 icon: Icons.table,
-                title: 'Insert Table',
+                title: this.t('toolbar.insertTable'),
                 action: () => this.openModal()
             }
         ];
@@ -39,7 +39,7 @@ export default class Table extends Module {
             <rect x="14" y="14" width="7" height="7" rx="1"/>
         </svg>`;
         this.cellHandle.style.display = 'none';
-        this.cellHandle.title = 'Cell Settings';
+        this.cellHandle.title = this.t('blockControl.cellSettings');
         this.instance.wrapper.appendChild(this.cellHandle);
 
         // Ручка для строки (tr)
@@ -51,7 +51,7 @@ export default class Table extends Module {
             <rect x="3" y="16" width="18" height="3" rx="1"/>
         </svg>`;
         this.rowHandle.style.display = 'none';
-        this.rowHandle.title = 'Row Settings';
+        this.rowHandle.title = this.t('blockControl.rowSettings');
         this.instance.wrapper.appendChild(this.rowHandle);
 
         // Клик по ручке ячейки
@@ -177,47 +177,47 @@ export default class Table extends Module {
         if (type === 'cell') {
             // Меню для ячейки
             actions = [
-                { label: 'Insert column left', action: () => this.insertColumn('before') },
-                { label: 'Insert column right', action: () => this.insertColumn('after') },
+                { label: this.t('table.insertColumnLeft'), action: () => this.insertColumn('before') },
+                { label: this.t('table.insertColumnRight'), action: () => this.insertColumn('after') },
                 { type: 'divider' },
-                { label: this.currentCell.tagName === 'TH' ? 'Make regular (TD)' : 'Make header (TH)', action: () => this.toggleHeaderCell() },
+                { label: this.currentCell.tagName === 'TH' ? this.t('table.makeRegular') : this.t('table.makeHeader'), action: () => this.toggleHeaderCell() },
                 { type: 'divider' },
-                { label: 'Cell Attributes', action: () => this.openAttributesModal(this.currentCell) },
+                { label: this.t('table.cellAttributes'), action: () => this.openAttributesModal(this.currentCell) },
                 { type: 'divider' },
-                { label: 'Delete column', action: () => this.deleteColumn(), danger: true }
+                { label: this.t('table.deleteColumn'), action: () => this.deleteColumn(), danger: true }
             ];
         } else if (type === 'row') {
             // Menu for row
             const row = this.currentCell?.closest('tr');
             actions = [
-                { label: 'Insert row above', action: () => this.insertRow('before') },
-                { label: 'Insert row below', action: () => this.insertRow('after') },
+                { label: this.t('table.insertRowAbove'), action: () => this.insertRow('before') },
+                { label: this.t('table.insertRowBelow'), action: () => this.insertRow('after') },
                 { type: 'divider' },
-                { label: 'Make row a header', action: () => this.toggleHeaderRow() },
+                { label: this.t('table.makeRowHeader'), action: () => this.toggleHeaderRow() },
                 { type: 'divider' },
-                { label: 'Row Attributes', action: () => this.openAttributesModal(row) },
+                { label: this.t('table.rowAttributes'), action: () => this.openAttributesModal(row) },
                 { type: 'divider' },
-                { label: 'Delete row', action: () => this.deleteRow(), danger: true },
-                { label: 'Delete table', action: () => this.deleteTable(), danger: true }
+                { label: this.t('table.deleteRow'), action: () => this.deleteRow(), danger: true },
+                { label: this.t('table.deleteTable'), action: () => this.deleteTable(), danger: true }
             ];
         } else {
             // Full menu (on right click)
             actions = [
-                { label: 'Insert row above', action: () => this.insertRow('before') },
-                { label: 'Insert row below', action: () => this.insertRow('after') },
+                { label: this.t('table.insertRowAbove'), action: () => this.insertRow('before') },
+                { label: this.t('table.insertRowBelow'), action: () => this.insertRow('after') },
                 { type: 'divider' },
-                { label: 'Insert column left', action: () => this.insertColumn('before') },
-                { label: 'Insert column right', action: () => this.insertColumn('after') },
+                { label: this.t('table.insertColumnLeft'), action: () => this.insertColumn('before') },
+                { label: this.t('table.insertColumnRight'), action: () => this.insertColumn('after') },
                 { type: 'divider' },
-                { label: this.currentCell.tagName === 'TH' ? 'Make regular (TD)' : 'Make header (TH)', action: () => this.toggleHeaderCell() },
-                { label: 'Make row a header', action: () => this.toggleHeaderRow() },
+                { label: this.currentCell.tagName === 'TH' ? this.t('table.makeRegular') : this.t('table.makeHeader'), action: () => this.toggleHeaderCell() },
+                { label: this.t('table.makeRowHeader'), action: () => this.toggleHeaderRow() },
                 { type: 'divider' },
-                { label: 'Cell Attributes', action: () => this.openAttributesModal(this.currentCell) },
-                { label: 'Row Attributes', action: () => this.openAttributesModal(this.currentCell?.closest('tr')) },
+                { label: this.t('table.cellAttributes'), action: () => this.openAttributesModal(this.currentCell) },
+                { label: this.t('table.rowAttributes'), action: () => this.openAttributesModal(this.currentCell?.closest('tr')) },
                 { type: 'divider' },
-                { label: 'Delete row', action: () => this.deleteRow(), danger: true },
-                { label: 'Delete column', action: () => this.deleteColumn(), danger: true },
-                { label: 'Delete table', action: () => this.deleteTable(), danger: true }
+                { label: this.t('table.deleteRow'), action: () => this.deleteRow(), danger: true },
+                { label: this.t('table.deleteColumn'), action: () => this.deleteColumn(), danger: true },
+                { label: this.t('table.deleteTable'), action: () => this.deleteTable(), danger: true }
             ];
         }
 
@@ -298,8 +298,8 @@ export default class Table extends Module {
 
         const form = document.createElement('div');
         
-        const rowsGroup = this.createInputGroup('Rows', 'number', '3');
-        const colsGroup = this.createInputGroup('Columns', 'number', '3');
+        const rowsGroup = this.createInputGroup(this.t('table.rows'), 'number', '3');
+        const colsGroup = this.createInputGroup(this.t('table.columns'), 'number', '3');
         
         // Чекбокс для заголовка
         const headerDiv = document.createElement('div');
@@ -314,13 +314,13 @@ export default class Table extends Module {
         headerCheck.style.width = 'auto';
         headerCheck.style.marginRight = '5px';
         headerCheck.checked = true;
-        headerLabel.append(headerCheck, 'First row is header');
+        headerLabel.append(headerCheck, this.t('table.firstRowHeader'));
         headerDiv.appendChild(headerLabel);
         
         form.append(rowsGroup, colsGroup, headerDiv);
 
         this.instance.modal.open({
-            title: 'Insert Table',
+            title: this.t('table.title'),
             body: form,
             onSave: () => {
                 const rows = parseInt(rowsGroup.querySelector('input').value, 10);
@@ -357,7 +357,7 @@ export default class Table extends Module {
             const tr = document.createElement('tr');
             for (let j = 0; j < cols; j++) {
                 const th = document.createElement('th');
-                th.textContent = `Header ${j + 1}`;
+                th.textContent = `${this.t('table.headerPrefix')} ${j + 1}`;
                 tr.appendChild(th);
             }
             thead.appendChild(tr);
@@ -450,7 +450,7 @@ export default class Table extends Module {
             const cells = row.children;
             const isHeader = row.closest('thead') !== null;
             const newCell = document.createElement(isHeader ? 'th' : 'td');
-            newCell.innerHTML = isHeader ? 'Header' : '<br>';
+            newCell.innerHTML = isHeader ? this.t('table.headerPrefix') : '<br>';
 
             if (position === 'before') {
                 row.insertBefore(newCell, cells[cellIndex]);

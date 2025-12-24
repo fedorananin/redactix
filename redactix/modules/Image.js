@@ -341,7 +341,7 @@ export default class Image extends Module {
                         <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/>
                     </circle>
                 </svg>
-                <span>Uploading...</span>
+                <span>${this.t('image.uploading')}</span>
             </div>
         `;
         return placeholder;
@@ -383,7 +383,7 @@ export default class Image extends Module {
                     <line x1="9" y1="9" x2="15" y2="15"/>
                 </svg>
                 <span>${message}</span>
-                <button type="button" class="redactix-upload-error-close">Remove</button>
+                <button type="button" class="redactix-upload-error-close">${this.t('upload.remove')}</button>
             </div>
         `;
 
@@ -394,13 +394,13 @@ export default class Image extends Module {
         });
     }
 
-    getButtons() {
+getButtons() {
         return [
             {
                 name: 'image',
                 label: 'Img',
                 icon: Icons.image,
-                title: 'Insert Image',
+                title: this.t('toolbar.insertImage'),
                 action: () => this.openModal()
             }
         ];
@@ -498,8 +498,8 @@ export default class Image extends Module {
                     <polyline points="17 8 12 3 7 8"/>
                     <line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
-                <div style="color: #6b7280; font-size: 14px;">${isEditing ? 'Replace image: click to upload' : 'Click to upload or drag & drop'}</div>
-                <div style="color: #9ca3af; font-size: 12px; margin-top: 4px;">JPG, PNG, GIF, WebP, AVIF, HEIC, SVG</div>
+                <div style="color: #6b7280; font-size: 14px;">${isEditing ? this.t('image.uploadReplace') : this.t('image.uploadClick')}</div>
+                <div style="color: #9ca3af; font-size: 12px; margin-top: 4px;">${this.t('image.uploadFormats')}</div>
             `;
 
             fileInput = document.createElement('input');
@@ -552,7 +552,7 @@ export default class Image extends Module {
             
             const browseBtn = document.createElement('button');
             browseBtn.type = 'button';
-            browseBtn.textContent = 'Choose from uploaded images';
+            browseBtn.textContent = this.t('image.chooseFromUploaded');
             browseBtn.style.width = '100%';
             browseBtn.style.padding = '10px';
             browseBtn.style.background = '#f3f4f6';
@@ -593,7 +593,7 @@ export default class Image extends Module {
             orDivider.style.margin = '12px 0';
             orDivider.style.position = 'relative';
             orDivider.innerHTML = `
-                <span style="background: white; padding: 0 12px; position: relative; z-index: 1;">or enter URL</span>
+                <span style="background: white; padding: 0 12px; position: relative; z-index: 1;">${this.t('image.orEnterUrl')}</span>
                 <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #e5e7eb; z-index: 0;"></div>
             `;
             form.appendChild(orDivider);
@@ -604,34 +604,34 @@ export default class Image extends Module {
         grid.className = 'redactix-modal-grid';
         
         // Основные поля
-        const urlGroup = this.createInputGroup('Image URL *', 'text', existingData.url);
+        const urlGroup = this.createInputGroup(this.t('image.url') + ' *', 'text', existingData.url);
         urlGroup.className = 'redactix-modal-full-width';
         const urlInput = urlGroup.querySelector('input');
 
-        const altGroup = this.createInputGroup('Alt text', 'text', existingData.alt);
+        const altGroup = this.createInputGroup(this.t('image.alt'), 'text', existingData.alt);
         const altInput = altGroup.querySelector('input');
 
-        const titleGroup = this.createInputGroup('Title (tooltip)', 'text', existingData.title);
+        const titleGroup = this.createInputGroup(this.t('image.title_attr'), 'text', existingData.title);
         const titleInput = titleGroup.querySelector('input');
 
-        const srcsetGroup = this.createInputGroup('Srcset (optional)', 'text', existingData.srcset);
+        const srcsetGroup = this.createInputGroup(this.t('image.srcset'), 'text', existingData.srcset);
         srcsetGroup.className = 'redactix-modal-full-width';
         const srcsetInput = srcsetGroup.querySelector('input');
-        srcsetInput.placeholder = 'small.jpg 320w, large.jpg 800w';
+        srcsetInput.placeholder = this.t('image.srcsetPlaceholder');
 
         // Loading атрибут
-        const loadingGroup = this.createSelectGroup('Loading', existingData.loading, [
-            { value: '', label: 'Default' },
-            { value: 'lazy', label: 'lazy (deferred loading)' },
-            { value: 'eager', label: 'eager (immediate loading)' }
+        const loadingGroup = this.createSelectGroup(this.t('image.loading'), existingData.loading, [
+            { value: '', label: this.t('image.loadingDefault') },
+            { value: 'lazy', label: this.t('image.loadingLazy') },
+            { value: 'eager', label: this.t('image.loadingEager') }
         ]);
         const loadingSelect = loadingGroup.querySelector('select');
 
         // Caption (подпись)
-        const captionGroup = this.createTextareaGroup('Caption', existingData.caption);
+        const captionGroup = this.createTextareaGroup(this.t('image.caption'), existingData.caption);
         captionGroup.className = 'redactix-modal-full-width';
         const captionInput = captionGroup.querySelector('textarea');
-        captionInput.placeholder = 'HTML supported';
+        captionInput.placeholder = this.t('image.captionPlaceholder');
 
         // Добавляем поля в сетку
         grid.append(urlGroup, altGroup, titleGroup, srcsetGroup, loadingGroup, captionGroup);
@@ -644,7 +644,7 @@ export default class Image extends Module {
         linkSection.style.paddingTop = '15px';
         
         const linkTitle = document.createElement('div');
-        linkTitle.textContent = 'Link on image click';
+        linkTitle.textContent = this.t('image.linkSection');
         linkTitle.style.fontWeight = '600';
         linkTitle.style.marginBottom = '10px';
         linkTitle.style.fontSize = '14px';
@@ -655,14 +655,14 @@ export default class Image extends Module {
         linkGrid.className = 'redactix-modal-grid';
 
         // Ссылка для изображения
-        const linkGroup = this.createInputGroup('Link URL (optional)', 'text', existingData.linkUrl);
+        const linkGroup = this.createInputGroup(this.t('image.linkUrl'), 'text', existingData.linkUrl);
         const linkInput = linkGroup.querySelector('input');
-        linkInput.placeholder = 'https://...';
+        linkInput.placeholder = this.t('image.linkUrlPlaceholder');
         
         // Rel (дополнительные значения)
-        const relGroup = this.createInputGroup('Rel (except nofollow)', 'text', existingData.relExtra);
+        const relGroup = this.createInputGroup(this.t('image.relExceptNofollow'), 'text', existingData.relExtra);
         const relInput = relGroup.querySelector('input');
-        relInput.placeholder = 'sponsored, ugc, ...';
+        relInput.placeholder = this.t('image.relPlaceholder');
         
         linkGrid.append(linkGroup, relGroup);
         linkSection.appendChild(linkGrid);
@@ -682,7 +682,7 @@ export default class Image extends Module {
         targetCheck.style.width = 'auto';
         targetCheck.style.marginRight = '5px';
         targetCheck.checked = existingData.isBlank;
-        targetLabel.append(targetCheck, 'Open in new window');
+        targetLabel.append(targetCheck, this.t('image.openNewWindow'));
 
         const nofollowLabel = document.createElement('label');
         nofollowLabel.style.fontWeight = 'normal';
@@ -694,7 +694,7 @@ export default class Image extends Module {
         nofollowCheck.style.width = 'auto';
         nofollowCheck.style.marginRight = '5px';
         nofollowCheck.checked = existingData.isNofollow;
-        nofollowLabel.append(nofollowCheck, 'nofollow');
+        nofollowLabel.append(nofollowCheck, this.t('image.nofollow'));
 
         checksDiv.append(targetLabel, nofollowLabel);
         linkSection.appendChild(checksDiv);
@@ -718,7 +718,7 @@ export default class Image extends Module {
                             <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/>
                         </circle>
                     </svg>
-                    Uploading...
+                    ${this.t('image.uploading')}
                 `;
 
                 try {
@@ -749,7 +749,7 @@ export default class Image extends Module {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
                                 <polyline points="20 6 9 17 4 12"/>
                             </svg>
-                            Uploaded successfully
+                            ${this.t('image.uploadSuccess')}
                         `;
 
                         // Заполняем поля данными с сервера
@@ -775,7 +775,7 @@ export default class Image extends Module {
         const extraButtons = [];
         if (isEditing) {
             extraButtons.push({
-                text: 'Remove Image',
+                text: this.t('image.removeImage'),
                 danger: true,
                 onClick: () => {
                     if (existingFigure) {
@@ -795,7 +795,7 @@ export default class Image extends Module {
         }
 
         this.instance.modal.open({
-            title: isEditing ? 'Edit Image' : 'Insert Image',
+            title: isEditing ? this.t('image.editTitle') : this.t('image.title'),
             body: form,
             extraButtons: extraButtons,
             onSave: () => {
@@ -876,13 +876,13 @@ export default class Image extends Module {
         const form = document.createElement('div');
         
         // Только URL и Alt - простая форма
-        const urlGroup = this.createInputGroup('Image URL *', 'text', existingData.url);
+        const urlGroup = this.createInputGroup(this.t('image.url') + ' *', 'text', existingData.url);
         const urlInput = urlGroup.querySelector('input');
         urlInput.placeholder = 'https://example.com/image.jpg';
 
-        const altGroup = this.createInputGroup('Alt text (description)', 'text', existingData.alt);
+        const altGroup = this.createInputGroup(this.t('image.altDescription'), 'text', existingData.alt);
         const altInput = altGroup.querySelector('input');
-        altInput.placeholder = 'Describe the image';
+        altInput.placeholder = '';
 
         form.append(urlGroup, altGroup);
 
@@ -890,7 +890,7 @@ export default class Image extends Module {
         const extraButtons = [];
         if (isEditing) {
             extraButtons.push({
-                text: 'Remove Image',
+                text: this.t('image.removeImage'),
                 danger: true,
                 onClick: () => {
                     if (existingFigure) {
@@ -905,7 +905,7 @@ export default class Image extends Module {
         }
 
         this.instance.modal.open({
-            title: isEditing ? 'Edit Image' : 'Insert Image',
+            title: isEditing ? this.t('image.editTitle') : this.t('image.title'),
             body: form,
             extraButtons: extraButtons,
             onSave: () => {
@@ -1003,7 +1003,7 @@ export default class Image extends Module {
                         <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/>
                     </circle>
                 </svg>
-                <div style="margin-top: 8px;">Loading images...</div>
+                <div style="margin-top: 8px;">${this.t('image.loadingImages')}</div>
             </div>
         `;
         
@@ -1016,7 +1016,7 @@ export default class Image extends Module {
                 }
                 
                 if (data.images.length === 0) {
-                    container.innerHTML = `<div style="color: #6b7280; padding: 20px; text-align: center;">No images uploaded yet</div>`;
+                    container.innerHTML = `<div style="color: #6b7280; padding: 20px; text-align: center;">${this.t('image.noImages')}</div>`;
                     return;
                 }
                 
@@ -1080,7 +1080,7 @@ export default class Image extends Module {
             item.addEventListener('click', () => {
                 onSelect(img);
                 // Закрываем панель после выбора
-                container.innerHTML = `<div style="color: #10b981; padding: 10px; text-align: center;">Image selected: ${img.filename}</div>`;
+                container.innerHTML = `<div style="color: #10b981; padding: 10px; text-align: center;">${this.t('image.imageSelected')}: ${img.filename}</div>`;
                 setTimeout(() => {
                     // Восстанавливаем кнопку browse
                     this.restoreBrowseButton(container, onSelect);
@@ -1151,7 +1151,7 @@ export default class Image extends Module {
         // Кнопка "Закрыть"
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';
-        closeBtn.textContent = 'Close gallery';
+        closeBtn.textContent = this.t('image.closeGallery');
         closeBtn.style.width = '100%';
         closeBtn.style.marginTop = '8px';
         closeBtn.style.padding = '8px';
@@ -1177,7 +1177,7 @@ export default class Image extends Module {
         
         const browseBtn = document.createElement('button');
         browseBtn.type = 'button';
-        browseBtn.textContent = 'Choose from uploaded images';
+        browseBtn.textContent = this.t('image.chooseFromUploaded');
         browseBtn.style.width = '100%';
         browseBtn.style.padding = '10px';
         browseBtn.style.background = '#f3f4f6';

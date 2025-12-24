@@ -1428,6 +1428,162 @@ body.redactix-fullscreen-active {
     font-size: 14px;
 }
 
+/* ================================
+   RTL (Right-to-Left) Support
+   ================================ */
+.redactix-wrapper.redactix-rtl {
+    direction: rtl;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-editor {
+    text-align: right;
+    padding-left: 20px;
+    padding-right: 40px;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-toolbar {
+    flex-direction: row-reverse;
+}
+
+/* Кнопка поиска - первая в левой группе (инвертировано для RTL) */
+.redactix-wrapper.redactix-rtl .redactix-btn[data-command="find"] {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-block-handle {
+    left: auto;
+    right: 8px;
+}
+
+/* Списки в RTL */
+.redactix-wrapper.redactix-rtl .redactix-editor ul,
+.redactix-wrapper.redactix-rtl .redactix-editor ol {
+    padding-left: 0;
+    padding-right: 1.5em;
+}
+
+/* Цитаты в RTL */
+.redactix-wrapper.redactix-rtl .redactix-editor blockquote {
+    border-left: none;
+    border-right: 4px solid var(--redactix-primary);
+}
+
+.redactix-wrapper.redactix-rtl .redactix-editor blockquote.big {
+    border-right: none;
+}
+
+/* Счётчик в RTL */
+.redactix-wrapper.redactix-rtl .redactix-counter {
+    right: auto;
+    left: 12px;
+}
+
+/* Модальные окна в RTL */
+.redactix-wrapper.redactix-rtl .redactix-modal-content {
+    text-align: right;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-modal-footer {
+    flex-direction: row-reverse;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-modal-footer-right {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+/* Inputs и textareas в RTL */
+.redactix-wrapper.redactix-rtl input[type="text"],
+.redactix-wrapper.redactix-rtl input[type="number"],
+.redactix-wrapper.redactix-rtl textarea,
+.redactix-wrapper.redactix-rtl select {
+    direction: rtl;
+    text-align: right;
+}
+
+/* Меню в RTL */
+.redactix-wrapper.redactix-rtl .redactix-block-menu,
+.redactix-wrapper.redactix-rtl .redactix-table-menu {
+    text-align: right;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-menu-item {
+    flex-direction: row-reverse;
+}
+
+/* Slash Commands в RTL */
+.redactix-wrapper.redactix-rtl .redactix-slash-menu {
+    text-align: right;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-slash-item {
+    flex-direction: row-reverse;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-slash-content {
+    text-align: right;
+}
+
+/* Find & Replace панель в RTL */
+.redactix-wrapper.redactix-rtl .redactix-find-panel {
+    right: auto;
+    left: 12px;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-find-row,
+.redactix-wrapper.redactix-rtl .redactix-replace-row {
+    flex-direction: row-reverse;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-find-input,
+.redactix-wrapper.redactix-rtl .redactix-replace-input {
+    direction: rtl;
+    text-align: right;
+}
+
+/* Floating Toolbar в RTL */
+.redactix-wrapper.redactix-rtl .redactix-floating-toolbar {
+    flex-direction: row-reverse;
+}
+
+/* Table handles в RTL */
+.redactix-wrapper.redactix-rtl .redactix-editor td,
+.redactix-wrapper.redactix-rtl .redactix-editor th {
+    text-align: right;
+}
+
+/* Code editor (остаётся LTR, код всегда слева направо) */
+.redactix-wrapper.redactix-rtl .redactix-code-editor {
+    direction: ltr;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-code-textarea {
+    direction: ltr;
+    text-align: left;
+}
+
+/* Pre блоки (код остаётся LTR) */
+.redactix-wrapper.redactix-rtl .redactix-editor pre {
+    direction: ltr;
+    text-align: left;
+}
+
+/* Mobile RTL */
+@media (max-width: 768px) {
+    .redactix-wrapper.redactix-rtl .redactix-editor {
+        padding-right: 20px;
+    }
+    
+    .redactix-wrapper.redactix-rtl .redactix-block-handle {
+        right: 2px !important;
+        left: auto !important;
+    }
+}
+
+/* ================================
+   Lite Mode
+   ================================ */
 /* Lite mode - скрываем тулбар */
 .redactix-wrapper.redactix-lite-mode .redactix-toolbar {
     display: none;

@@ -18,11 +18,11 @@ export default class Link extends Module {
         const form = document.createElement('div');
         
         // URL
-        const urlGroup = this.createInputGroup('URL', 'text', 'https://');
+        const urlGroup = this.createInputGroup(this.t('link.url'), 'text', 'https://');
         const urlInput = urlGroup.querySelector('input');
         
         // Text (если текст не выделен, даем возможность его ввести)
-        const textGroup = this.createInputGroup('Link Text', 'text', selectedText);
+        const textGroup = this.createInputGroup(this.t('link.linkText'), 'text', selectedText);
         const textInput = textGroup.querySelector('input');
         
         // Checkboxes
@@ -37,7 +37,7 @@ export default class Link extends Module {
         targetCheck.type = 'checkbox';
         targetCheck.style.width = 'auto';
         targetCheck.style.marginRight = '5px';
-        targetLabel.append(targetCheck, 'Open in new window');
+        targetLabel.append(targetCheck, this.t('link.openNewWindow'));
 
         const nofollowLabel = document.createElement('label');
         nofollowLabel.style.fontWeight = 'normal';
@@ -46,7 +46,7 @@ export default class Link extends Module {
         nofollowCheck.type = 'checkbox';
         nofollowCheck.style.width = 'auto';
         nofollowCheck.style.marginRight = '5px';
-        nofollowLabel.append(nofollowCheck, 'nofollow');
+        nofollowLabel.append(nofollowCheck, this.t('link.nofollow'));
 
         checksDiv.append(targetLabel, nofollowLabel);
 
@@ -54,7 +54,7 @@ export default class Link extends Module {
 
         // 3. Открываем модалку
         this.instance.modal.open({
-            title: 'Insert Link',
+            title: this.t('link.title'),
             body: form,
             onSave: () => {
                 const url = urlInput.value;

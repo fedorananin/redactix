@@ -21,18 +21,18 @@ export default class FloatingToolbar extends Module {
         this.toolbar.className = 'redactix-floating-toolbar';
         this.toolbar.style.display = 'none';
         
-        // Кнопки форматирования
+// Кнопки форматирования
         const buttons = [
-            { name: 'bold', icon: Icons.bold, title: 'Bold', command: 'bold' },
-            { name: 'italic', icon: Icons.italic, title: 'Italic', command: 'italic' },
-            { name: 'underline', icon: Icons.underline, title: 'Underline', command: 'underline' },
-            { name: 'strike', icon: Icons.strike, title: 'Strikethrough', command: 'strikeThrough' },
-            { name: 'mark', icon: Icons.mark, title: 'Highlight', action: () => this.toggleInlineTag('mark') },
+            { name: 'bold', icon: Icons.bold, title: this.t('toolbar.bold'), command: 'bold' },
+            { name: 'italic', icon: Icons.italic, title: this.t('toolbar.italic'), command: 'italic' },
+            { name: 'underline', icon: Icons.underline, title: this.t('toolbar.underline'), command: 'underline' },
+            { name: 'strike', icon: Icons.strike, title: this.t('toolbar.strikethrough'), command: 'strikeThrough' },
+            { name: 'mark', icon: Icons.mark, title: this.t('toolbar.highlight'), action: () => this.toggleInlineTag('mark') },
             { type: 'separator' },
-            { name: 'code', icon: Icons.code, title: 'Monospace', action: () => this.toggleInlineTag('code') },
-            { name: 'spoiler', icon: Icons.spoiler, title: 'Spoiler', action: () => this.toggleInlineTag('span', 'spoiler') },
+            { name: 'code', icon: Icons.code, title: this.t('toolbar.monospace'), action: () => this.toggleInlineTag('code') },
+            { name: 'spoiler', icon: Icons.spoiler, title: this.t('toolbar.spoiler'), action: () => this.toggleInlineTag('span', 'spoiler') },
             { type: 'separator' },
-            { name: 'link', icon: Icons.link, title: 'Link', action: () => this.openLinkModal() },
+            { name: 'link', icon: Icons.link, title: this.t('toolbar.link'), action: () => this.openLinkModal() },
         ];
 
         buttons.forEach(btn => {
@@ -263,21 +263,21 @@ export default class FloatingToolbar extends Module {
         const form = document.createElement('div');
         
         // URL
-        const urlGroup = this.createInputGroup('URL', 'text', existingLink ? existingLink.href : 'https://');
+        const urlGroup = this.createInputGroup(this.t('link.url'), 'text', existingLink ? existingLink.href : 'https://');
         const urlInput = urlGroup.querySelector('input');
         
         // Текст ссылки
-        const textGroup = this.createInputGroup('Link Text', 'text', selectedText);
+        const textGroup = this.createInputGroup(this.t('link.linkText'), 'text', selectedText);
         const textInput = textGroup.querySelector('input');
         
         // Title
-        const titleGroup = this.createInputGroup('Title (tooltip)', 'text', existingLink ? existingLink.title || '' : '');
+        const titleGroup = this.createInputGroup(this.t('link.titleAttr'), 'text', existingLink ? existingLink.title || '' : '');
         const titleInput = titleGroup.querySelector('input');
         
         // Rel (дополнительные значения)
-        const relGroup = this.createInputGroup('Rel (except nofollow)', 'text', existingLink ? (existingLink.rel || '').replace('nofollow', '').trim() : '');
+        const relGroup = this.createInputGroup(this.t('link.relExceptNofollow'), 'text', existingLink ? (existingLink.rel || '').replace('nofollow', '').trim() : '');
         const relInput = relGroup.querySelector('input');
-        relInput.placeholder = 'sponsored, ugc, ...';
+        relInput.placeholder = this.t('link.relPlaceholder');
         
         // Чекбоксы
         const checksDiv = document.createElement('div');
@@ -294,7 +294,7 @@ export default class FloatingToolbar extends Module {
         targetCheck.style.width = 'auto';
         targetCheck.style.marginRight = '5px';
         targetCheck.checked = existingLink ? existingLink.target === '_blank' : false;
-        targetLabel.append(targetCheck, 'Open in new window');
+        targetLabel.append(targetCheck, this.t('link.openNewWindow'));
 
         const nofollowLabel = document.createElement('label');
         nofollowLabel.style.fontWeight = 'normal';
@@ -306,7 +306,7 @@ export default class FloatingToolbar extends Module {
         nofollowCheck.style.width = 'auto';
         nofollowCheck.style.marginRight = '5px';
         nofollowCheck.checked = existingLink ? (existingLink.rel || '').includes('nofollow') : false;
-        nofollowLabel.append(nofollowCheck, 'nofollow');
+        nofollowLabel.append(nofollowCheck, this.t('link.nofollow'));
 
         checksDiv.append(targetLabel, nofollowLabel);
 
@@ -318,7 +318,7 @@ export default class FloatingToolbar extends Module {
         const extraButtons = [];
         if (existingLink) {
             extraButtons.push({
-                text: 'Remove Link',
+                text: this.t('link.removeLink'),
                 danger: true,
                 onClick: () => {
                     this.instance.selection.restore();
@@ -331,7 +331,7 @@ export default class FloatingToolbar extends Module {
         }
 
         this.instance.modal.open({
-            title: existingLink ? 'Edit Link' : 'Insert Link',
+            title: existingLink ? this.t('link.editTitle') : this.t('link.title'),
             body: form,
             extraButtons: extraButtons,
             onSave: () => {
@@ -405,12 +405,12 @@ export default class FloatingToolbar extends Module {
         const form = document.createElement('div');
         
         // URL
-        const urlGroup = this.createInputGroup('URL', 'text', existingLink ? existingLink.href : 'https://');
+        const urlGroup = this.createInputGroup(this.t('link.url'), 'text', existingLink ? existingLink.href : 'https://');
         const urlInput = urlGroup.querySelector('input');
         urlInput.placeholder = 'https://example.com';
         
         // Текст ссылки
-        const textGroup = this.createInputGroup('Link Text', 'text', selectedText);
+        const textGroup = this.createInputGroup(this.t('link.linkText'), 'text', selectedText);
         const textInput = textGroup.querySelector('input');
 
         form.append(urlGroup, textGroup);
@@ -421,7 +421,7 @@ export default class FloatingToolbar extends Module {
         const extraButtons = [];
         if (existingLink) {
             extraButtons.push({
-                text: 'Remove Link',
+                text: this.t('link.removeLink'),
                 danger: true,
                 onClick: () => {
                     this.instance.selection.restore();
@@ -434,7 +434,7 @@ export default class FloatingToolbar extends Module {
         }
 
         this.instance.modal.open({
-            title: existingLink ? 'Edit Link' : 'Insert Link',
+            title: existingLink ? this.t('link.editTitle') : this.t('link.title'),
             body: form,
             extraButtons: extraButtons,
             onSave: () => {
