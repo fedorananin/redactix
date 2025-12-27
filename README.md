@@ -28,6 +28,7 @@ Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero depen
 - 🔍 **Find & Replace** — Built-in search with navigation and replace functionality
 - 🕐 **History** — Unlimited undo/redo with smart batching
 - 🌐 **HTML Mode** — Switch to raw HTML editing with syntax highlighting
+- 🌍 **Internationalization** — Native support for 20+ languages with automatic RTL detection
 - 🔄 **Auto-sync** — Automatic synchronization with original textarea
 - 🎯 **Element Attributes** — Edit ID (anchors) and CSS classes for any element
 - 📏 **Word/Character Counter** — Real-time statistics in the bottom right
@@ -230,6 +231,7 @@ console.log(textarea.value);
 ```javascript
 new Redactix({
     selector: '.redactix',              // CSS selector for textareas
+    locale: 'en',                       // Language (en, ru, fr, es, etc.)
     uploadUrl: '/upload.php',           // Image upload endpoint
     browseUrl: '/browse.php',           // Image gallery endpoint
     allowImageDelete: true,             // Show delete buttons in gallery
@@ -795,6 +797,48 @@ new Redactix({
     ]
 });
 ```
+
+---
+
+## 🌍 Internationalization
+
+Redactix comes with built-in support for multiple languages and Right-to-Left (RTL) text direction.
+
+### Setting the Language
+
+Specify the `locale` option during initialization:
+
+```javascript
+new Redactix({
+    selector: '.redactix',
+    locale: 'ru' // Set language to Russian
+});
+```
+
+### Supported Languages
+
+| Code | Language | | Code | Language |
+|------|----------|-|------|----------|
+| `en` | English | | `ru` | Russian |
+| `fr` | French | | `es` | Spanish |
+| `de` | German | | `pt` | Portuguese |
+| `uk` | Ukrainian | | `pl` | Polish |
+| `tr` | Turkish | | `sr` | Serbian |
+| `ja` | Japanese | | `ko` | Korean |
+| `zh` | Chinese | | `vi` | Vietnamese |
+| `th` | Thai | | `sw` | Swahili |
+| `ka` | Georgian | | `kk` | Kazakh |
+| `uz` | Uzbek | | `ar` | Arabic (RTL) |
+| `he` | Hebrew (RTL) | | | |
+
+### RTL Support
+
+Redactix automatically detects RTL languages (like Arabic and Hebrew) and adjusts the UI accordingly:
+- Toolbar alignment
+- Text direction
+- UI elements positioning
+
+No extra configuration is needed—just set the `locale`.
 
 ---
 
