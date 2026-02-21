@@ -1,17 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Redactix - Modern WYSIWYG Editor</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="/redactix/Redactix.css">
-    <script defer src="https://umami.geeksy.media/script.js" data-website-id="dc74cdd4-2692-4ce8-b76c-02b8fd237f94"></script>
+    <script defer src="https://umami.geeksy.media/script.js"
+        data-website-id="dc74cdd4-2692-4ce8-b76c-02b8fd237f94"></script>
     <style>
         * {
             box-sizing: border-box;
         }
-        
+
         :root {
             --landing-primary: #2563eb;
             --landing-primary-dark: #1d4ed8;
@@ -21,7 +23,7 @@
             --landing-bg-alt: #f9fafb;
             --landing-border: #e5e7eb;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: var(--landing-bg);
@@ -30,7 +32,7 @@
             color: var(--landing-text);
             line-height: 1.6;
         }
-        
+
         /* ============ Hero Section ============ */
         .hero {
             background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
@@ -38,32 +40,32 @@
             padding: 80px 20px;
             text-align: center;
         }
-        
+
         .hero-content {
             max-width: 800px;
             margin: 0 auto;
         }
-        
+
         .hero h1 {
             font-size: 3.5em;
             margin: 0 0 20px;
             font-weight: 700;
             letter-spacing: -0.02em;
         }
-        
+
         .hero-tagline {
             font-size: 1.4em;
             opacity: 0.9;
             margin-bottom: 40px;
         }
-        
+
         .hero-buttons {
             display: flex;
             gap: 16px;
             justify-content: center;
             flex-wrap: wrap;
         }
-        
+
         .btn {
             display: inline-flex;
             align-items: center;
@@ -77,51 +79,51 @@
             cursor: pointer;
             border: none;
         }
-        
+
         .btn-primary {
             background: white;
             color: var(--landing-primary);
         }
-        
+
         .btn-primary:hover {
             background: #f0f0f0;
             transform: translateY(-2px);
         }
-        
+
         .btn-secondary {
-            background: rgba(255,255,255,0.15);
+            background: rgba(255, 255, 255, 0.15);
             color: white;
-            border: 2px solid rgba(255,255,255,0.3);
+            border: 2px solid rgba(255, 255, 255, 0.3);
         }
-        
+
         .btn-secondary:hover {
-            background: rgba(255,255,255,0.25);
+            background: rgba(255, 255, 255, 0.25);
             transform: translateY(-2px);
         }
-        
+
         /* ============ Container ============ */
         .container {
             max-width: 1100px;
             margin: 0 auto;
             padding: 0 20px;
         }
-        
+
         /* ============ Section ============ */
         .section {
             padding: 80px 0;
         }
-        
+
         .section-alt {
             background: var(--landing-bg-alt);
         }
-        
+
         .section-title {
             font-size: 2.2em;
             text-align: center;
             margin: 0 0 16px;
             font-weight: 700;
         }
-        
+
         .section-subtitle {
             text-align: center;
             color: var(--landing-text-muted);
@@ -131,14 +133,14 @@
             margin-left: auto;
             margin-right: auto;
         }
-        
+
         /* ============ Features Grid ============ */
         .features-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 30px;
         }
-        
+
         .feature-card {
             background: var(--landing-bg);
             border: 1px solid var(--landing-border);
@@ -146,17 +148,17 @@
             padding: 30px;
             transition: all 0.2s ease;
         }
-        
+
         .section-alt .feature-card {
             background: white;
         }
-        
+
         .feature-card:hover {
             border-color: var(--landing-primary);
             box-shadow: 0 10px 40px rgba(37, 99, 235, 0.1);
             transform: translateY(-4px);
         }
-        
+
         .feature-icon {
             width: 48px;
             height: 48px;
@@ -168,26 +170,26 @@
             font-size: 24px;
             margin-bottom: 20px;
         }
-        
+
         .feature-card h3 {
             font-size: 1.25em;
             margin: 0 0 12px;
         }
-        
+
         .feature-card p {
             color: var(--landing-text-muted);
             margin: 0;
             font-size: 0.95em;
         }
-        
+
         /* ============ Demo Section ============ */
         .demo-wrapper {
             background: white;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
             overflow: hidden;
         }
-        
+
         .demo-header {
             background: var(--landing-bg-alt);
             padding: 12px 20px;
@@ -196,21 +198,29 @@
             align-items: center;
             gap: 8px;
         }
-        
+
         .demo-dot {
             width: 12px;
             height: 12px;
             border-radius: 50%;
         }
-        
-        .demo-dot-red { background: #ef4444; }
-        .demo-dot-yellow { background: #f59e0b; }
-        .demo-dot-green { background: #22c55e; }
-        
+
+        .demo-dot-red {
+            background: #ef4444;
+        }
+
+        .demo-dot-yellow {
+            background: #f59e0b;
+        }
+
+        .demo-dot-green {
+            background: #22c55e;
+        }
+
         .demo-content {
             padding: 20px;
         }
-        
+
         /* ============ Shortcuts Table ============ */
         .shortcuts-table {
             width: 100%;
@@ -218,16 +228,16 @@
             background: white;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
         }
-        
+
         .shortcuts-table th,
         .shortcuts-table td {
             padding: 16px 20px;
             text-align: left;
             border-bottom: 1px solid var(--landing-border);
         }
-        
+
         .shortcuts-table th {
             background: var(--landing-bg-alt);
             font-weight: 600;
@@ -236,11 +246,11 @@
             letter-spacing: 0.5px;
             color: var(--landing-text-muted);
         }
-        
+
         .shortcuts-table tr:last-child td {
             border-bottom: none;
         }
-        
+
         .shortcuts-table code {
             background: #f3f4f6;
             padding: 4px 10px;
@@ -249,7 +259,7 @@
             font-size: 0.9em;
             color: #e11d48;
         }
-        
+
         /* ============ Installation ============ */
         .code-block {
             background: #1f2937;
@@ -258,7 +268,7 @@
             overflow-x: auto;
             margin: 20px 0;
         }
-        
+
         .code-block code {
             color: #e5e7eb;
             font-family: 'SF Mono', Consolas, monospace;
@@ -267,36 +277,36 @@
             display: block;
             white-space: pre;
         }
-        
+
         .code-block .comment {
             color: #6b7280;
         }
-        
+
         .code-block .string {
             color: #a5f3fc;
         }
-        
+
         .code-block .keyword {
             color: #c084fc;
         }
-        
+
         .code-block .property {
             color: #fbbf24;
         }
-        
+
         .install-steps {
             display: grid;
             gap: 30px;
             margin-top: 40px;
         }
-        
+
         .install-step {
             display: grid;
             grid-template-columns: 50px 1fr;
             gap: 20px;
             align-items: start;
         }
-        
+
         .step-number {
             width: 50px;
             height: 50px;
@@ -309,17 +319,17 @@
             font-weight: 700;
             font-size: 1.2em;
         }
-        
+
         .step-content h3 {
             margin: 0 0 10px;
             font-size: 1.2em;
         }
-        
+
         .step-content p {
             margin: 0;
             color: var(--landing-text-muted);
         }
-        
+
         /* ============ Config Options ============ */
         .config-grid {
             display: grid;
@@ -327,14 +337,14 @@
             gap: 20px;
             margin-top: 30px;
         }
-        
+
         .config-item {
             background: white;
             border: 1px solid var(--landing-border);
             border-radius: 8px;
             padding: 20px;
         }
-        
+
         .config-item code {
             background: #f3f4f6;
             padding: 2px 8px;
@@ -343,98 +353,98 @@
             font-size: 0.85em;
             color: var(--landing-primary);
         }
-        
+
         .config-item h4 {
             margin: 0 0 8px;
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        
+
         .config-item p {
             margin: 0;
             color: var(--landing-text-muted);
             font-size: 0.9em;
         }
-        
+
         /* Language card clickable */
         .lang-card {
             cursor: pointer;
             transition: all 0.2s ease;
         }
-        
+
         .lang-card:hover {
             border-color: var(--landing-primary);
             transform: translateY(-2px);
         }
-        
+
         .lang-card.active {
             border-color: var(--landing-primary);
             background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
             box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
         }
-        
+
         .lang-card.active code {
             background: var(--landing-primary);
             color: white;
         }
-        
+
         /* ============ Why Section ============ */
         .why-section {
             background: #111827;
             color: #e5e7eb;
         }
-        
+
         .why-section .section-title {
             color: white;
         }
-        
+
         .why-section .section-subtitle {
             color: #9ca3af;
         }
-        
+
         .problem-cards {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 24px;
             margin-bottom: 50px;
         }
-        
+
         .problem-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
             padding: 28px;
             text-align: center;
         }
-        
+
         .problem-card .problem-icon {
             font-size: 2.5em;
             margin-bottom: 16px;
         }
-        
+
         .problem-card h3 {
             color: white;
             margin: 0 0 12px;
             font-size: 1.2em;
         }
-        
+
         .problem-card p {
             color: #9ca3af;
             margin: 0;
             font-size: 0.95em;
             line-height: 1.6;
         }
-        
+
         .why-content {
             max-width: 800px;
             margin: 0 auto;
         }
-        
+
         .why-block {
             margin-bottom: 40px;
         }
-        
+
         .why-block h3 {
             color: white;
             font-size: 1.4em;
@@ -443,26 +453,26 @@
             align-items: center;
             gap: 12px;
         }
-        
+
         .why-block h3 span {
             font-size: 1.2em;
         }
-        
+
         .why-block p {
             color: #d1d5db;
             margin: 0 0 12px;
             line-height: 1.7;
         }
-        
+
         .why-block code {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             padding: 2px 8px;
             border-radius: 4px;
             font-family: 'SF Mono', Consolas, monospace;
             font-size: 0.9em;
             color: #fbbf24;
         }
-        
+
         .vibe-banner {
             background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
             border-radius: 16px;
@@ -470,20 +480,20 @@
             text-align: center;
             margin-top: 50px;
         }
-        
+
         .vibe-banner h3 {
             color: white;
             font-size: 1.6em;
             margin: 0 0 16px;
         }
-        
+
         .vibe-banner p {
-            color: rgba(255,255,255,0.9);
+            color: rgba(255, 255, 255, 0.9);
             margin: 0;
             font-size: 1.1em;
             line-height: 1.7;
         }
-        
+
         .vibe-banner .vibe-stats {
             display: flex;
             justify-content: center;
@@ -492,29 +502,29 @@
             margin-bottom: 30px;
             flex-wrap: wrap;
         }
-        
+
         .vibe-stat {
             text-align: center;
         }
-        
+
         .vibe-stat .number {
             display: block;
             font-size: 2.5em;
             font-weight: 700;
             color: white;
         }
-        
+
         .vibe-stat .label {
             font-size: 0.95em;
-            color: rgba(255,255,255,0.8);
+            color: rgba(255, 255, 255, 0.8);
         }
-        
+
         /* ============ Author Section ============ */
         .author-section {
             background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
             color: white;
         }
-        
+
         .author-card {
             display: flex;
             align-items: center;
@@ -524,62 +534,62 @@
             flex-wrap: wrap;
             justify-content: center;
         }
-        
+
         .author-photo {
             width: 150px;
             height: 150px;
             border-radius: 50%;
-            border: 4px solid rgba(255,255,255,0.3);
+            border: 4px solid rgba(255, 255, 255, 0.3);
             object-fit: cover;
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
         }
-        
+
         .author-info {
             flex: 1;
             min-width: 280px;
             text-align: left;
         }
-        
+
         .author-info h3 {
             font-size: 1.8em;
             margin: 0 0 8px;
         }
-        
+
         .author-info .author-role {
             opacity: 0.8;
             margin-bottom: 20px;
         }
-        
+
         .author-links {
             display: flex;
             gap: 16px;
             justify-content: start;
         }
-        
+
         .author-link {
             display: inline-flex;
             align-items: center;
             gap: 8px;
             padding: 10px 20px;
-            background: rgba(255,255,255,0.15);
-            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             border-radius: 8px;
             color: white;
             text-decoration: none;
             font-weight: 500;
             transition: all 0.2s ease;
         }
-        
+
         .author-link:hover {
-            background: rgba(255,255,255,0.25);
+            background: rgba(255, 255, 255, 0.25);
             transform: translateY(-2px);
         }
-        
+
         .author-link svg {
             width: 20px;
             height: 20px;
         }
-        
+
         /* ============ Footer ============ */
         .footer {
             background: #111827;
@@ -587,92 +597,100 @@
             padding: 40px 20px;
             text-align: center;
         }
-        
+
         .footer a {
             color: #60a5fa;
             text-decoration: none;
         }
-        
+
         .footer a:hover {
             text-decoration: underline;
         }
-        
+
         /* ============ Responsive ============ */
         @media (max-width: 768px) {
             .hero {
                 padding: 60px 20px;
             }
-            
+
             .hero h1 {
                 font-size: 2.5em;
             }
-            
+
             .hero-tagline {
                 font-size: 1.1em;
             }
-            
+
             .section {
                 padding: 60px 0;
             }
-            
+
             .section-title {
                 font-size: 1.8em;
             }
-            
+
             .install-step {
                 grid-template-columns: 1fr;
                 text-align: center;
             }
-            
+
             .step-number {
                 margin: 0 auto;
             }
-            
+
             .author-card {
                 flex-direction: column;
                 text-align: center;
             }
-            
+
             /* Fix code blocks width on mobile */
             .code-block {
                 max-width: calc(100vw - 40px);
                 overflow-x: auto;
             }
-            
+
             .code-block code {
                 font-size: 0.8em;
             }
-            
+
             .shortcuts-table {
                 font-size: 0.9em;
             }
-            
+
             .shortcuts-table th,
             .shortcuts-table td {
                 padding: 10px 8px;
             }
-            
+
             .config-grid {
                 grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
+
 <body>
 
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <img src="favicon.png" style="width:100%;max-width:128px;">
+            <img src="favicon.svg" style="width:100%;max-width:128px; filter: brightness(0) invert(1);">
             <h1>Redactix</h1>
-            <p class="hero-tagline">Modern WYSIWYG editor for content creators. Notion-like experience.<br>Slash commands, floating toolbar, clean HTML output. Zero dependencies.<br><b>Compatible with everything that can work with a plain &lt;textarea&gt;.</b></p>
+            <p class="hero-tagline">Modern WYSIWYG editor for content creators. Notion-like experience.<br>Slash
+                commands, floating toolbar, clean HTML output. Zero dependencies.<br><b>Compatible with everything that
+                    can work with a plain &lt;textarea&gt;.</b></p>
             <div class="hero-buttons">
                 <a href="#demo" class="btn btn-primary">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
                     Try Demo
                 </a>
                 <a href="https://github.com/fedorananin/redactix" class="btn btn-secondary" target="_blank">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                    </svg>
                     GitHub
                 </a>
             </div>
@@ -683,75 +701,79 @@
     <section class="section">
         <div class="container">
             <h2 class="section-title">Why Redactix?</h2>
-            <p class="section-subtitle">A lightweight, powerful editor that produces clean semantic HTML without any framework dependencies.</p>
-            
+            <p class="section-subtitle">A lightweight, powerful editor that produces clean semantic HTML without any
+                framework dependencies.</p>
+
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon">&#9997;</div>
                     <h3>Rich Text Formatting</h3>
-                    <p>Bold, italic, underline, strikethrough, inline code, spoilers, and text highlighting with a floating toolbar.</p>
+                    <p>Bold, italic, underline, strikethrough, inline code, spoilers, and text highlighting with a
+                        floating toolbar.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128221;</div>
                     <h3>Slash Commands</h3>
-                    <p>Type <code>/</code> to open command menu. Insert headings, lists, images, tables, and more. Just like Notion.</p>
+                    <p>Type <code>/</code> to open command menu. Insert headings, lists, images, tables, and more. Just
+                        like Notion.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128195;</div>
                     <h3>Block Controls</h3>
                     <p>Drag-and-drop blocks, transform types, duplicate, delete. Full control with the handle menu.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128202;</div>
                     <h3>Tables</h3>
                     <p>Insert and edit tables with context menus for rows, columns, and header management.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#127912;</div>
                     <h3>Images & Media</h3>
-                    <p>Drag & drop, paste, or upload images. Full control over alt, title, srcset, and captions. YouTube embeds with responsive wrapper.</p>
+                    <p>Drag & drop, paste, or upload images. Full control over alt, title, srcset, and captions. YouTube
+                        embeds with responsive wrapper.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128187;</div>
                     <h3>Code Blocks</h3>
                     <p>Syntax-highlighted code blocks with language selection. Click to edit in a dedicated modal.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128161;</div>
                     <h3>Callouts & Quotes</h3>
                     <p>Styled callout boxes (info, warning, danger, success) and quote presets for visual variety.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128269;</div>
                     <h3>Find & Replace</h3>
                     <p>Search through content with highlighting, navigate matches, and replace text globally.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128196;</div>
                     <h3>Clean HTML Output</h3>
                     <p>Semantic HTML without inline styles or unnecessary attributes. Perfect for CMS integration.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#9850;</div>
                     <h3>Smart Paste</h3>
                     <p>Paste from Google Docs, Word, or any source. Formatting is preserved, junk is removed.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128260;</div>
                     <h3>Undo/Redo History</h3>
                     <p>Full history stack with Ctrl+Z and Ctrl+Y support. Never lose your changes.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#9974;</div>
                     <h3>Fullscreen Mode</h3>
@@ -764,9 +786,9 @@
     <!-- Shortcuts Section -->
     <section class="section section-alt">
         <div class="container">
-<h2 class="section-title">Keyboard Shortcuts</h2>
+            <h2 class="section-title">Keyboard Shortcuts</h2>
             <p class="section-subtitle">Speed up your workflow with slash commands and Markdown-style shortcuts.</p>
-            
+
             <table class="shortcuts-table">
                 <thead>
                     <tr>
@@ -779,7 +801,8 @@
                     <tr style="background: #eff6ff;">
                         <td><code>/</code></td>
                         <td><b>Slash Commands</b></td>
-                        <td>Opens command menu with all block types (h1, h2, h3, quote, callout, code, image, youtube, table, hr, ol, ul)</td>
+                        <td>Opens command menu with all block types (h1, h2, h3, quote, callout, code, image, youtube,
+                            table, hr, ol, ul)</td>
                     </tr>
                     <tr>
                         <td><code># </code></td>
@@ -846,7 +869,7 @@
         <div class="container">
             <h2 class="section-title">Try It Out</h2>
             <p class="section-subtitle">Play with the editor below. All features are enabled.</p>
-            
+
             <div class="demo-wrapper">
                 <div class="demo-header">
                     <span class="demo-dot demo-dot-red"></span>
@@ -854,7 +877,8 @@
                     <span class="demo-dot demo-dot-green"></span>
                 </div>
                 <div class="demo-content">
-                    <textarea class="redactix-full"><h1>Welcome to Redactix!</h1><p>This is a <b>modern</b> WYSIWYG editor with Notion-like experience. Select text to see the <i>floating toolbar</i> with formatting options including <code>inline code</code>, <span class="spoiler">spoilers</span> and <mark>text highlighting</mark>.</p><h2>Text Formatting</h2><p>The editor supports <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s> text. Also <code>inline code</code> for technical terms, <span class="spoiler">spoilers for hidden content</span> and <mark>highlighting important fragments</mark>.</p><p>Links can have <a href="https://example.com" title="Example link" target="_blank" rel="nofollow">title and rel attributes</a>.</p><h2>Lists</h2><ul><li>Unordered list item</li><li>Drag items to reorder</li><li>Click the handle for menu options</li></ul><ol><li>Ordered list item</li><li>Convert via context menu</li><li>Or type <code>1. </code> at line start</li></ol><h2>Blockquotes</h2><blockquote>Standard quote created via block menu or by typing <code>> </code> at the start of a line. Click the handle on the left to choose a quote style.</blockquote><blockquote class="big">Large quote — perfect for highlighting key thoughts or article epigraphs.</blockquote><h2>Callout Blocks</h2><p>Callout is a block for important information with different styles. Click the handle on the left to select a preset:</p><aside>Standard callout without a class — gray, neutral.</aside><aside class="information">Information block — for helpful tips and additional info.</aside><aside class="warning">Warning — for important notices that need attention.</aside><aside class="danger">Danger — for critical warnings and errors.</aside><aside class="success">Success — for positive results and confirmations.</aside><h2>Images</h2><p>Click on an image to edit its settings:</p><figure><img src="/uploads/cat.jpg" alt="Demo image"><figcaption>Image caption — click to edit</figcaption></figure><h2>Code Blocks</h2><p>For technical articles and tutorials:</p><pre><code class="language-javascript">// JavaScript example
+                    <textarea
+                        class="redactix-full"><h1>Welcome to Redactix!</h1><p>This is a <b>modern</b> WYSIWYG editor with Notion-like experience. Select text to see the <i>floating toolbar</i> with formatting options including <code>inline code</code>, <span class="spoiler">spoilers</span> and <mark>text highlighting</mark>.</p><h2>Text Formatting</h2><p>The editor supports <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s> text. Also <code>inline code</code> for technical terms, <span class="spoiler">spoilers for hidden content</span> and <mark>highlighting important fragments</mark>.</p><p>Links can have <a href="https://example.com" title="Example link" target="_blank" rel="nofollow">title and rel attributes</a>.</p><h2>Lists</h2><ul><li>Unordered list item</li><li>Drag items to reorder</li><li>Click the handle for menu options</li></ul><ol><li>Ordered list item</li><li>Convert via context menu</li><li>Or type <code>1. </code> at line start</li></ol><h2>Blockquotes</h2><blockquote>Standard quote created via block menu or by typing <code>> </code> at the start of a line. Click the handle on the left to choose a quote style.</blockquote><blockquote class="big">Large quote — perfect for highlighting key thoughts or article epigraphs.</blockquote><h2>Callout Blocks</h2><p>Callout is a block for important information with different styles. Click the handle on the left to select a preset:</p><aside>Standard callout without a class — gray, neutral.</aside><aside class="information">Information block — for helpful tips and additional info.</aside><aside class="warning">Warning — for important notices that need attention.</aside><aside class="danger">Danger — for critical warnings and errors.</aside><aside class="success">Success — for positive results and confirmations.</aside><h2>Images</h2><p>Click on an image to edit its settings:</p><figure><img src="/uploads/cat.jpg" alt="Demo image"><figcaption>Image caption — click to edit</figcaption></figure><h2>Code Blocks</h2><p>For technical articles and tutorials:</p><pre><code class="language-javascript">// JavaScript example
 function greet(name) {
     console.log(`Hello, ${name}!`);
     return true;
@@ -865,8 +889,10 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
             </div>
             <!-- Lite Mode Demo -->
             <h3 style="margin-top: 50px; margin-bottom: 15px;">Lite Mode</h3>
-            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Simplified editor for comments and forum posts. No toolbar, no image uploads, no advanced settings, all links are nofollow. Use <code>/</code> command or Markdown shortcuts for formatting.</p>
-            
+            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Simplified editor for comments and forum
+                posts. No toolbar, no image uploads, no advanced settings, all links are nofollow. Use <code>/</code>
+                command or Markdown shortcuts for formatting.</p>
+
             <div class="demo-wrapper">
                 <div class="demo-header">
                     <span class="demo-dot demo-dot-red"></span>
@@ -874,16 +900,20 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                     <span class="demo-dot demo-dot-green"></span>
                 </div>
                 <div class="demo-content">
-                    <textarea class="redactix-lite"><p>This is <b>lite mode</b> - a simplified version of the editor perfect for comment forms and forums.</p><p>Features removed in lite mode:</p><ul><li>No fullscreen, HTML mode, or find/replace buttons</li><li>No image uploads - only URL-based images allowed</li><li>All links are automatically nofollow</li><li>No advanced attributes editing (classes, IDs)</li><li>Simplified image dialog - just URL and alt text</li></ul><p>All basic formatting still works: <b>bold</b>, <i>italic</i>, <u>underline</u>, <code>code</code>, and <a href="https://example.com" rel="nofollow">links</a>.</p></textarea>
+                    <textarea
+                        class="redactix-lite"><p>This is <b>lite mode</b> - a simplified version of the editor perfect for comment forms and forums.</p><p>Features removed in lite mode:</p><ul><li>No fullscreen, HTML mode, or find/replace buttons</li><li>No image uploads - only URL-based images allowed</li><li>All links are automatically nofollow</li><li>No advanced attributes editing (classes, IDs)</li><li>Simplified image dialog - just URL and alt text</li></ul><p>All basic formatting still works: <b>bold</b>, <i>italic</i>, <u>underline</u>, <code>code</code>, and <a href="https://example.com" rel="nofollow">links</a>.</p></textarea>
                 </div>
             </div>
 
             <!-- Localization -->
             <h3 style="margin-top: 50px; margin-bottom: 15px;">Localization</h3>
-            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Redactix supports multiple languages out of the box. Click on a language card to see the editor in action.</p>
+            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Redactix supports multiple languages out
+                of the box. Click on a language card to see the editor in action.</p>
 
-            <div id="lang-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 30px;">
-                <div class="config-item lang-card active" data-locale="en" style="text-align: center; padding: 16px 12px;">
+            <div id="lang-cards"
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 30px;">
+                <div class="config-item lang-card active" data-locale="en"
+                    style="text-align: center; padding: 16px 12px;">
                     <span style="font-size: 28px;">🇺🇸</span>
                     <div style="font-weight: 600; font-size: 0.9em; margin: 6px 0 4px;">English</div>
                     <code style="font-size: 0.85em;">'en'</code>
@@ -996,7 +1026,8 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                     <span class="demo-dot demo-dot-red"></span>
                     <span class="demo-dot demo-dot-yellow"></span>
                     <span class="demo-dot demo-dot-green"></span>
-                    <span style="margin-left: auto; font-size: 0.85em; color: var(--landing-text-muted);">locale: <code id="current-locale-display">'en'</code></span>
+                    <span style="margin-left: auto; font-size: 0.85em; color: var(--landing-text-muted);">locale: <code
+                            id="current-locale-display">'en'</code></span>
                 </div>
                 <div class="demo-content">
                     <textarea id="locale-demo-editor"></textarea>
@@ -1005,8 +1036,10 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
 
             <!-- Dark Theme Demo -->
             <h3 style="margin-top: 50px; margin-bottom: 15px;">Dark Theme</h3>
-            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Built-in dark theme with full CSS variable support. All UI elements are themed including <b>modal dialogs</b>, menus, and buttons. Use <code>theme: 'dark'</code> or <code>theme: 'auto'</code> (follows system preference).</p>
-            
+            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Built-in dark theme with full CSS variable
+                support. All UI elements are themed including <b>modal dialogs</b>, menus, and buttons. Use
+                <code>theme: 'dark'</code> or <code>theme: 'auto'</code> (follows system preference).</p>
+
             <div class="demo-wrapper" style="background: #111827;">
                 <div class="demo-header" style="background: #1f2937; border-color: #374151;">
                     <span class="demo-dot demo-dot-red"></span>
@@ -1028,7 +1061,7 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
         <div class="container">
             <h2 class="section-title">Getting Started</h2>
             <p class="section-subtitle">Set up Redactix in your project in minutes.</p>
-            
+
             <div class="install-steps">
                 <div class="install-step">
                     <div class="step-number">1</div>
@@ -1036,7 +1069,7 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                         <h3>Include the Files</h3>
                         <p>Add the CSS and JS files to your project.</p>
                         <div class="code-block">
-<code><span class="comment">&lt;!-- CSS --&gt;</span>
+                            <code><span class="comment">&lt;!-- CSS --&gt;</span>
 &lt;<span class="keyword">link</span> <span class="property">rel</span>=<span class="string">"stylesheet"</span> <span class="property">href</span>=<span class="string">"/redactix/Redactix.css"</span>&gt;
 
 <span class="comment">&lt;!-- JS (ES Module) --&gt;</span>
@@ -1046,27 +1079,27 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="install-step">
                     <div class="step-number">2</div>
                     <div class="step-content">
                         <h3>Add a Textarea</h3>
                         <p>Create a textarea element with initial content (optional).</p>
                         <div class="code-block">
-<code>&lt;<span class="keyword">textarea</span> <span class="property">class</span>=<span class="string">"redactix"</span>&gt;
+                            <code>&lt;<span class="keyword">textarea</span> <span class="property">class</span>=<span class="string">"redactix"</span>&gt;
   &lt;p&gt;Your initial content here...&lt;/p&gt;
 &lt;/<span class="keyword">textarea</span>&gt;</code>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="install-step">
                     <div class="step-number">3</div>
                     <div class="step-content">
                         <h3>Initialize the Editor</h3>
                         <p>Create a new Redactix instance with optional configuration.</p>
                         <div class="code-block">
-<code><span class="keyword">new</span> Redactix({
+                            <code><span class="keyword">new</span> Redactix({
   <span class="property">selector</span>: <span class="string">'.redactix'</span>,
   
   <span class="comment">// Custom callout presets (optional)</span>
@@ -1083,7 +1116,7 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                     </div>
                 </div>
             </div>
-            
+
             <h3 style="margin-top: 60px; margin-bottom: 20px; text-align: center;">Configuration Options</h3>
             <div class="config-grid">
                 <div class="config-item">
@@ -1092,23 +1125,28 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                 </div>
                 <div class="config-item">
                     <h4><code>uploadUrl</code></h4>
-                    <p>URL endpoint for image uploads. Enables drag & drop, paste, and file picker. Default: <code>null</code></p>
+                    <p>URL endpoint for image uploads. Enables drag & drop, paste, and file picker. Default:
+                        <code>null</code></p>
                 </div>
                 <div class="config-item">
                     <h4><code>browseUrl</code></h4>
-                    <p>URL endpoint for browsing uploaded images. Shows "Choose from uploaded" button. Default: <code>null</code></p>
+                    <p>URL endpoint for browsing uploaded images. Shows "Choose from uploaded" button. Default:
+                        <code>null</code></p>
                 </div>
                 <div class="config-item">
                     <h4><code>allowImageDelete</code></h4>
-                    <p>Show delete buttons in image gallery. Requires server-side support. Default: <code>false</code></p>
+                    <p>Show delete buttons in image gallery. Requires server-side support. Default: <code>false</code>
+                    </p>
                 </div>
                 <div class="config-item">
                     <h4><code>maxHeight</code></h4>
-                    <p>Maximum height of the editor area. Any CSS value: <code>'500px'</code>, <code>'50vh'</code>. Default: <code>null</code> (no limit)</p>
+                    <p>Maximum height of the editor area. Any CSS value: <code>'500px'</code>, <code>'50vh'</code>.
+                        Default: <code>null</code> (no limit)</p>
                 </div>
                 <div class="config-item">
                     <h4><code>classes</code></h4>
-                    <p>Array of CSS classes for quick select in Attributes dialog. If empty/null, the section is hidden.</p>
+                    <p>Array of CSS classes for quick select in Attributes dialog. If empty/null, the section is hidden.
+                    </p>
                 </div>
                 <div class="config-item">
                     <h4><code>calloutPresets</code></h4>
@@ -1120,19 +1158,25 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                 </div>
                 <div class="config-item">
                     <h4><code>theme</code></h4>
-                    <p>Color theme: <code>'light'</code> (default), <code>'dark'</code>, or <code>'auto'</code> (follows system preference).</p>
+                    <p>Color theme: <code>'light'</code> (default), <code>'dark'</code>, or <code>'auto'</code> (follows
+                        system preference).</p>
                 </div>
                 <div class="config-item">
                     <h4><code>locale</code></h4>
-                    <p>Interface language: <code>'en'</code>, <code>'ru'</code>, <code>'uk'</code>, <code>'pl'</code>, <code>'de'</code>, <code>'fr'</code>, <code>'es'</code>, <code>'pt'</code>, <code>'sr'</code>, <code>'ka'</code>, <code>'vi'</code>, <code>'th'</code>, <code>'sw'</code>, <code>'tr'</code>, <code>'ar'</code>, <code>'he'</code>, <code>'ja'</code>, <code>'ko'</code>, <code>'zh'</code>, <code>'kk'</code>, <code>'uz'</code>. RTL languages (ar, he) auto-detect.</p>
+                    <p>Interface language: <code>'en'</code>, <code>'ru'</code>, <code>'uk'</code>, <code>'pl'</code>,
+                        <code>'de'</code>, <code>'fr'</code>, <code>'es'</code>, <code>'pt'</code>, <code>'sr'</code>,
+                        <code>'ka'</code>, <code>'vi'</code>, <code>'th'</code>, <code>'sw'</code>, <code>'tr'</code>,
+                        <code>'ar'</code>, <code>'he'</code>, <code>'ja'</code>, <code>'ko'</code>, <code>'zh'</code>,
+                        <code>'kk'</code>, <code>'uz'</code>. RTL languages (ar, he) auto-detect.</p>
                 </div>
             </div>
 
             <h3 style="margin-top: 60px; margin-bottom: 20px; text-align: center;">JavaScript API</h3>
-            <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 20px;">Access editor instances via <code>textarea.redactix</code> for programmatic control.</p>
-            
+            <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 20px;">Access editor
+                instances via <code>textarea.redactix</code> for programmatic control.</p>
+
             <div class="code-block" style="max-width: 800px; margin: 0 auto;">
-<code><span class="comment">// Get textarea element</span>
+                <code><span class="comment">// Get textarea element</span>
 <span class="keyword">const</span> textarea = document.querySelector(<span class="string">'#my-editor'</span>);
 
 <span class="comment">// Get clean HTML content</span>
@@ -1144,7 +1188,7 @@ textarea.<span class="property">redactix</span>.setContent(<span class="string">
 <span class="comment">// Copy content between editors</span>
 target.<span class="property">redactix</span>.setContent(source.<span class="property">redactix</span>.getContent());</code>
             </div>
-            
+
             <div class="config-grid" style="margin-top: 30px;">
                 <div class="config-item">
                     <h4><code>getContent()</code></h4>
@@ -1152,7 +1196,8 @@ target.<span class="property">redactix</span>.setContent(source.<span class="pro
                 </div>
                 <div class="config-item">
                     <h4><code>setContent(html)</code></h4>
-                    <p>Sets new HTML content, re-initializes editor elements (figures, code blocks), resets undo history.</p>
+                    <p>Sets new HTML content, re-initializes editor elements (figures, code blocks), resets undo
+                        history.</p>
                 </div>
                 <div class="config-item">
                     <h4><code>sync()</code></h4>
@@ -1161,10 +1206,12 @@ target.<span class="property">redactix</span>.setContent(source.<span class="pro
             </div>
 
             <h3 style="margin-top: 60px; margin-bottom: 20px; text-align: center;">Theming with CSS Variables</h3>
-            <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 30px;">All colors use CSS custom properties — editor, toolbar, modals, menus, buttons. Override them without <code>!important</code>.</p>
-            
+            <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 30px;">All colors use CSS
+                custom properties — editor, toolbar, modals, menus, buttons. Override them without
+                <code>!important</code>.</p>
+
             <div class="code-block" style="max-width: 800px; margin: 0 auto;">
-<code><span class="comment">/* Light theme customization */</span>
+                <code><span class="comment">/* Light theme customization */</span>
 .<span class="keyword">redactix-wrapper</span> {
     <span class="property">--redactix-primary</span>: <span class="string">#8b5cf6</span>;        <span class="comment">/* Purple accent */</span>
     <span class="property">--redactix-primary-hover</span>: <span class="string">#7c3aed</span>;
@@ -1176,29 +1223,38 @@ target.<span class="property">redactix</span>.setContent(source.<span class="pro
     <span class="property">--redactix-primary-hover</span>: <span class="string">#c084fc</span>;
 }</code>
             </div>
-            
-            <p style="text-align: center; color: var(--landing-text-muted); margin-top: 20px; font-size: 0.9em;"><b>Note:</b> When customizing dark theme, use <code>.redactix-wrapper.redactix-dark</code> selector for proper specificity.</p>
+
+            <p style="text-align: center; color: var(--landing-text-muted); margin-top: 20px; font-size: 0.9em;">
+                <b>Note:</b> When customizing dark theme, use <code>.redactix-wrapper.redactix-dark</code> selector for
+                proper specificity.</p>
 
             <div class="config-grid" style="margin-top: 30px;">
                 <div class="config-item">
                     <h4>Primary Colors</h4>
-                    <p><code>--redactix-primary</code>, <code>--redactix-primary-hover</code>, <code>--redactix-primary-light</code> — accent color for buttons, links, focus states.</p>
+                    <p><code>--redactix-primary</code>, <code>--redactix-primary-hover</code>,
+                        <code>--redactix-primary-light</code> — accent color for buttons, links, focus states.</p>
                 </div>
                 <div class="config-item">
                     <h4>Base Colors</h4>
-                    <p><code>--redactix-bg</code>, <code>--redactix-bg-secondary</code>, <code>--redactix-bg-hover</code>, <code>--redactix-border</code> — backgrounds and borders.</p>
+                    <p><code>--redactix-bg</code>, <code>--redactix-bg-secondary</code>,
+                        <code>--redactix-bg-hover</code>, <code>--redactix-border</code> — backgrounds and borders.</p>
                 </div>
                 <div class="config-item">
                     <h4>Text Colors</h4>
-                    <p><code>--redactix-text</code>, <code>--redactix-text-muted</code>, <code>--redactix-text-placeholder</code> — main text, secondary text, placeholders.</p>
+                    <p><code>--redactix-text</code>, <code>--redactix-text-muted</code>,
+                        <code>--redactix-text-placeholder</code> — main text, secondary text, placeholders.</p>
                 </div>
                 <div class="config-item">
                     <h4>Content Elements</h4>
-                    <p><code>--redactix-code-bg</code>, <code>--redactix-code-color</code>, <code>--redactix-mark-bg</code>, <code>--redactix-blockquote-bg</code> — inline and block styles.</p>
+                    <p><code>--redactix-code-bg</code>, <code>--redactix-code-color</code>,
+                        <code>--redactix-mark-bg</code>, <code>--redactix-blockquote-bg</code> — inline and block
+                        styles.</p>
                 </div>
             </div>
-            
-            <p style="text-align: center; color: var(--landing-text-muted); margin-top: 30px;">See <a href="https://github.com/fedorananin/redactix#-theming--customization" target="_blank">README</a> for the complete list of 40+ CSS variables.</p>
+
+            <p style="text-align: center; color: var(--landing-text-muted); margin-top: 30px;">See <a
+                    href="https://github.com/fedorananin/redactix#-theming--customization" target="_blank">README</a>
+                for the complete list of 40+ CSS variables.</p>
         </div>
     </section>
 
@@ -1206,56 +1262,64 @@ target.<span class="property">redactix</span>.setContent(source.<span class="pro
     <section class="section">
         <div class="container">
             <h2 class="section-title">Image Upload & Gallery</h2>
-            <p class="section-subtitle">Built-in support for drag & drop, paste, file picker, and image gallery with a unified PHP backend.</p>
-            
+            <p class="section-subtitle">Built-in support for drag & drop, paste, file picker, and image gallery with a
+                unified PHP backend.</p>
+
             <div class="features-grid" style="margin-bottom: 50px;">
                 <div class="feature-card">
                     <div class="feature-icon">&#128233;</div>
                     <h3>Drag & Drop</h3>
-                    <p>Simply drag images from your desktop or file manager directly into the editor. Visual feedback shows where images will be inserted.</p>
+                    <p>Simply drag images from your desktop or file manager directly into the editor. Visual feedback
+                        shows where images will be inserted.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128203;</div>
                     <h3>Paste from Clipboard</h3>
-                    <p>Copy an image and press Ctrl+V to insert it. Works with screenshots, copied images from browsers, and image editors.</p>
+                    <p>Copy an image and press Ctrl+V to insert it. Works with screenshots, copied images from browsers,
+                        and image editors.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128193;</div>
                     <h3>File Picker</h3>
-                    <p>Click the Image button in the toolbar to open a modal with file upload zone. Drag & drop works there too.</p>
+                    <p>Click the Image button in the toolbar to open a modal with file upload zone. Drag & drop works
+                        there too.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128444;</div>
                     <h3>Image Gallery</h3>
-                    <p>Browse and select from previously uploaded images. Square thumbnails with filename and file size. Optional delete functionality.</p>
+                    <p>Browse and select from previously uploaded images. Square thumbnails with filename and file size.
+                        Optional delete functionality.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128260;</div>
                     <h3>Replace Images</h3>
-                    <p>When editing an existing image, you can upload a new one to replace it or choose from the gallery. All settings are preserved.</p>
+                    <p>When editing an existing image, you can upload a new one to replace it or choose from the
+                        gallery. All settings are preserved.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <div class="feature-icon">&#128279;</div>
                     <h3>Link Settings</h3>
-                    <p>Full control over image links: URL, target, and rel attributes (nofollow, sponsored, ugc). Same options as text links.</p>
+                    <p>Full control over image links: URL, target, and rel attributes (nofollow, sponsored, ugc). Same
+                        options as text links.</p>
                 </div>
             </div>
-            
+
             <h3 style="margin-bottom: 20px;">Setting Up Image Management</h3>
-            
+
             <div class="install-steps">
                 <div class="install-step">
                     <div class="step-number">1</div>
                     <div class="step-content">
                         <h3>Configure Upload and Browse URLs</h3>
-                        <p>Pass the <code>uploadUrl</code> and <code>browseUrl</code> options. Both can point to the same unified script.</p>
+                        <p>Pass the <code>uploadUrl</code> and <code>browseUrl</code> options. Both can point to the
+                            same unified script.</p>
                         <div class="code-block">
-<code><span class="keyword">new</span> Redactix({
+                            <code><span class="keyword">new</span> Redactix({
   <span class="property">selector</span>: <span class="string">'.redactix'</span>,
   <span class="property">uploadUrl</span>: <span class="string">'/redactix_images.php'</span>,
   <span class="property">browseUrl</span>: <span class="string">'/redactix_images.php'</span>,
@@ -1265,14 +1329,15 @@ target.<span class="property">redactix</span>.setContent(source.<span class="pro
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="install-step">
                     <div class="step-number">2</div>
                     <div class="step-content">
                         <h3>Configure the PHP Script</h3>
-                        <p>The <code>redactix_images.php</code> script handles upload, browse, and delete operations. Configure settings at the top.</p>
+                        <p>The <code>redactix_images.php</code> script handles upload, browse, and delete operations.
+                            Configure settings at the top.</p>
                         <div class="code-block">
-<code><span class="comment">// redactix_images.php configuration</span>
+                            <code><span class="comment">// redactix_images.php configuration</span>
 <span class="property">$uploadDir</span> = __DIR__ . <span class="string">'/uploads/'</span>;
 <span class="property">$uploadUrlPrefix</span> = <span class="string">'/uploads/'</span>;
 <span class="property">$maxFileSize</span> = 5 * 1024 * 1024;
@@ -1280,49 +1345,57 @@ target.<span class="property">redactix</span>.setContent(source.<span class="pro
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="install-step">
                     <div class="step-number">3</div>
                     <div class="step-content">
                         <h3>Create the Uploads Directory</h3>
                         <p>Make sure the uploads directory exists and is writable by the web server.</p>
                         <div class="code-block">
-<code>mkdir uploads
+                            <code>mkdir uploads
 chmod 755 uploads</code>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
             <h3 style="margin-top: 60px; margin-bottom: 20px; text-align: center;">API Endpoints</h3>
             <div class="config-grid">
                 <div class="config-item">
                     <h4><code>POST</code> Upload</h4>
-                    <p>Send form data with <code>image</code> file. Returns JSON with <code>src</code>, <code>srcset</code>, <code>alt</code>, <code>title</code>, <code>caption</code>.</p>
+                    <p>Send form data with <code>image</code> file. Returns JSON with <code>src</code>,
+                        <code>srcset</code>, <code>alt</code>, <code>title</code>, <code>caption</code>.</p>
                 </div>
                 <div class="config-item">
                     <h4><code>GET ?action=browse</code></h4>
-                    <p>Returns JSON array of images with <code>src</code>, <code>filename</code>, <code>size</code>, and optional metadata.</p>
+                    <p>Returns JSON array of images with <code>src</code>, <code>filename</code>, <code>size</code>, and
+                        optional metadata.</p>
                 </div>
                 <div class="config-item">
                     <h4><code>POST action=delete</code></h4>
-                    <p>Deletes image by <code>file</code> parameter. Only works if <code>$allowDelete</code> is true in PHP config.</p>
+                    <p>Deletes image by <code>file</code> parameter. Only works if <code>$allowDelete</code> is true in
+                        PHP config.</p>
                 </div>
                 <div class="config-item">
                     <h4>Browse Response</h4>
-                    <p>Includes <code>allowDelete</code> flag so the JS knows whether to show delete buttons in the gallery.</p>
+                    <p>Includes <code>allowDelete</code> flag so the JS knows whether to show delete buttons in the
+                        gallery.</p>
                 </div>
             </div>
-            
-            <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 20px; margin-top: 30px;">
+
+            <div
+                style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 20px; margin-top: 30px;">
                 <h4 style="margin: 0 0 10px; color: #92400e;">Security Note</h4>
-                <p style="margin: 0; color: #78350f; font-size: 0.95em;">The included <code>redactix_images.php</code> is a basic example. For production use, add your own security measures: authentication, CSRF tokens, rate limiting, and file storage outside web root. Enable delete functionality with caution.</p>
+                <p style="margin: 0; color: #78350f; font-size: 0.95em;">The included <code>redactix_images.php</code>
+                    is a basic example. For production use, add your own security measures: authentication, CSRF tokens,
+                    rate limiting, and file storage outside web root. Enable delete functionality with caution.</p>
             </div>
-            
+
             <h3 style="margin-top: 60px; margin-bottom: 20px; text-align: center;">Server Response Format</h3>
-            <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 20px;">Upload endpoint should return JSON with these fields:</p>
+            <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 20px;">Upload endpoint should
+                return JSON with these fields:</p>
             <div class="code-block" style="max-width: 600px; margin: 0 auto;">
-<code>{
+                <code>{
   <span class="property">"success"</span>: <span class="keyword">true</span>,
   <span class="property">"src"</span>: <span class="string">"/uploads/abc123.jpg"</span>,   <span class="comment">// Required</span>
   <span class="property">"srcset"</span>: <span class="string">""</span>,                    <span class="comment">// Optional</span>
@@ -1339,45 +1412,56 @@ chmod 755 uploads</code>
         <div class="container">
             <h2 class="section-title">Why I Built This</h2>
             <p class="section-subtitle">The WYSIWYG landscape is broken. Here's what's wrong with it.</p>
-            
+
             <div class="problem-cards">
                 <div class="problem-card">
                     <div class="problem-icon">&#128176;</div>
                     <h3>Enterprise Pricing</h3>
-                    <p>CKEditor, Imperavi... Great features, but licensing costs can reach thousands per year. Not everyone has that budget.</p>
+                    <p>CKEditor, Imperavi... Great features, but licensing costs can reach thousands per year. Not
+                        everyone has that budget.</p>
                 </div>
                 <div class="problem-card">
                     <div class="problem-icon">&#128148;</div>
                     <h3>Stuck in 2012</h3>
-                    <p>jQuery-based editors with outdated UX. Clunky toolbars, messy HTML output full of inline styles and deprecated tags.</p>
+                    <p>jQuery-based editors with outdated UX. Clunky toolbars, messy HTML output full of inline styles
+                        and deprecated tags.</p>
                 </div>
                 <div class="problem-card">
                     <div class="problem-icon">&#128230;</div>
                     <h3>Framework Lock-in</h3>
-                    <p>Modern alternatives require React, Vue, or 100+ npm dependencies. Good luck integrating that into a simple PHP project.</p>
+                    <p>Modern alternatives require React, Vue, or 100+ npm dependencies. Good luck integrating that into
+                        a simple PHP project.</p>
                 </div>
             </div>
-            
+
             <div class="why-content">
                 <div class="why-block">
                     <h3><span>&#127919;</span> The Goal</h3>
-                    <p>I wanted something functional on the level of Notion, but under the hood — just a simple <code>&lt;textarea&gt;</code>. 100% compatibility with any CMS. No third-party components. No complex state management. Just paste the files, initialize, and it works.</p>
+                    <p>I wanted something functional on the level of Notion, but under the hood — just a simple
+                        <code>&lt;textarea&gt;</code>. 100% compatibility with any CMS. No third-party components. No
+                        complex state management. Just paste the files, initialize, and it works.</p>
                 </div>
-                
+
                 <div class="why-block">
                     <h3><span>&#128196;</span> Why HTML, Not Markdown?</h3>
-                    <p>Markdown is great for developers, but try configuring <code>srcset</code>, <code>loading="lazy"</code>, or custom attributes for an image. How do you add <code>rel="nofollow"</code> to a link? What about tables with <code>colspan</code>?</p>
-                    <p>Clean semantic HTML gives you full control over formatting. And if you really need Markdown — there are plenty of html-to-md converters out there.</p>
+                    <p>Markdown is great for developers, but try configuring <code>srcset</code>,
+                        <code>loading="lazy"</code>, or custom attributes for an image. How do you add
+                        <code>rel="nofollow"</code> to a link? What about tables with <code>colspan</code>?</p>
+                    <p>Clean semantic HTML gives you full control over formatting. And if you really need Markdown —
+                        there are plenty of html-to-md converters out there.</p>
                 </div>
-                
+
                 <div class="why-block">
                     <h3><span>&#128166;</span> Clean Output</h3>
-                    <p>No <code>style="font-family: Arial; font-size: 14px; color: rgb(0,0,0);"</code> garbage. No <code>&lt;span&gt;</code> wrappers for every word. No Microsoft Office artifacts. Just pure, semantic HTML that your CMS will love.</p>
+                    <p>No <code>style="font-family: Arial; font-size: 14px; color: rgb(0,0,0);"</code> garbage. No
+                        <code>&lt;span&gt;</code> wrappers for every word. No Microsoft Office artifacts. Just pure,
+                        semantic HTML that your CMS will love.</p>
                 </div>
-                
+
                 <div class="vibe-banner">
                     <h3>&#10024; Built with Vibe Coding</h3>
-                    <p>This entire editor was vibe-coded with Claude Opus 4.5. I described what I wanted, iterated on feedback, and watched the magic happen.</p>
+                    <p>This entire editor was vibe-coded with Claude Opus 4.5. I described what I wanted, iterated on
+                        feedback, and watched the magic happen.</p>
                     <br>
                     <p>Is it perfect? No. Does it work exactly how I need it? Absolutely.</p>
                     <div class="vibe-stats">
@@ -1412,14 +1496,21 @@ chmod 755 uploads</code>
                 <div class="author-info">
                     <h3>Fëdor Ananin</h3>
                     <p class="author-role"><big>Wannabe founder, marketer, and ludocoder 🎰</big></p>
-                    <p style="opacity: 0.9; margin-bottom: 24px;">I travel with my cat and try to make this world a little bit better.</p>
+                    <p style="opacity: 0.9; margin-bottom: 24px;">I travel with my cat and try to make this world a
+                        little bit better.</p>
                     <div class="author-links">
                         <a href="https://github.com/fedorananin" class="author-link" target="_blank">
-                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path
+                                    d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                            </svg>
                             GitHub
                         </a>
                         <a href="https://linkedin.com/in/fedorananin" class="author-link" target="_blank">
-                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path
+                                    d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                            </svg>
                             LinkedIn
                         </a>
                     </div>
@@ -1430,7 +1521,7 @@ chmod 755 uploads</code>
 
     <!-- Footer -->
     <footer class="footer">
-        <p>Redactix is open source software.  <a href="https://github.com/fedorananin/redactix">View on GitHub</a></p>
+        <p>Redactix is open source software. <a href="https://github.com/fedorananin/redactix">View on GitHub</a></p>
         <p style="margin-top: 8px; font-size: 0.9em;">MIT License &copy; 2025</p>
     </footer>
 
@@ -1499,42 +1590,42 @@ chmod 755 uploads</code>
         let localeEditor = null;
         const localeTextarea = document.getElementById('locale-demo-editor');
         const localeDisplay = document.getElementById('current-locale-display');
-        
+
         function initLocaleEditor(locale) {
             // Remove old editor wrapper if exists
             const oldWrapper = localeTextarea.parentElement.querySelector('.redactix-wrapper');
             if (oldWrapper) {
                 oldWrapper.remove();
             }
-            
+
             // Reset textarea - remove init flag and show it
             delete localeTextarea.dataset.redactixInit;
             localeTextarea.removeAttribute('data-redactix-init');
             localeTextarea.value = localeContent[locale] || localeContent.en;
             localeTextarea.style.display = '';
-            
+
             // Create new editor
             localeEditor = new Redactix({
                 selector: '#locale-demo-editor',
                 locale: locale
             });
-            
+
             // Update display
             localeDisplay.textContent = `'${locale}'`;
         }
-        
+
         // Initialize with English
         initLocaleEditor('en');
-        
+
         // Language card click handlers
         document.querySelectorAll('.lang-card').forEach(card => {
             card.addEventListener('click', () => {
                 const locale = card.dataset.locale;
-                
+
                 // Update active state
                 document.querySelectorAll('.lang-card').forEach(c => c.classList.remove('active'));
                 card.classList.add('active');
-                
+
                 // Reinitialize editor with new locale
                 initLocaleEditor(locale);
             });
@@ -1552,4 +1643,5 @@ chmod 755 uploads</code>
         });
     </script>
 </body>
+
 </html>

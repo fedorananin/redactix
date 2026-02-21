@@ -1007,7 +1007,13 @@ getButtons() {
             </div>
         `;
         
-        fetch(this.browseUrl + '?action=browse')
+        const browseFormData = new FormData();
+        browseFormData.append('action', 'browse');
+        
+        fetch(this.browseUrl, {
+            method: 'POST',
+            body: browseFormData
+        })
             .then(response => response.json())
             .then(data => {
                 if (!data.success) {

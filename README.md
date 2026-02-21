@@ -137,7 +137,9 @@ Response:
 
 **Browse**
 ```
-GET /redactix_images.php?action=browse
+POST /redactix_images.php
+Content-Type: multipart/form-data
+Body: action=browse
 
 Response:
 {
@@ -158,7 +160,7 @@ Response:
 **Delete**
 ```
 POST /redactix_images.php
-Content-Type: application/x-www-form-urlencoded
+Content-Type: multipart/form-data
 Body: action=delete&file=image.jpg
 
 Response:
