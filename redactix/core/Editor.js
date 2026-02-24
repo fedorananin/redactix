@@ -89,12 +89,27 @@ export default class Editor {
 
             this.el.insertBefore(p, this.el.firstChild);
         }
+
+        // Убедиться, что в самом конце редактора есть пустой параграф, 
+        // если последний элемент — нетекстовый блок (чтобы можно было кликнуть ниже)
+        const lastChild = this.el.lastElementChild;
+        if (lastChild && (
+            ['FIGURE', 'TABLE', 'HR', 'PRE'].includes(lastChild.tagName) ||
+            (lastChild.tagName === 'DIV' && (lastChild.classList.contains('redactix-separator') || lastChild.classList.contains('redactix-video-wrapper')))
+        )) {
+            const p = document.createElement('p');
+            p.innerHTML = '<br>';
+            this.el.appendChild(p);
+        }
     }
 
     bindEvents() {
         // Observer для любых изменений DOM (самый надежный способ синхронизации)
         this.observer = new MutationObserver((mutations) => {
-            // Проверяем, есть ли реальные изменения контента
+            // Проверяем структуру (добавит пустой параграф в конец если нужно)
+            this.ensureEditorStructure();
+
+            // Синхронизируем изменения контента
             this.instance.sync();
             this.updatePlaceholder();
         });
