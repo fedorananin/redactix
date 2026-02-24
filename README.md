@@ -2,7 +2,7 @@
 
 Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero dependencies. Vanilla JS.
 
-![Redactix Editor](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Redactix Editor](https://img.shields.io/badge/version-1.7.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-js-yellow.svg)
 
