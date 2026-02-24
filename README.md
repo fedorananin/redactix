@@ -216,6 +216,21 @@ textarea.redactix.sync();
 console.log(textarea.value);
 ```
 
+### Changing Theme at Runtime
+
+```javascript
+const textarea = document.querySelector('#my-editor');
+
+// Switch to dark theme
+textarea.redactix.setTheme('dark');
+
+// Switch to light theme
+textarea.redactix.setTheme('light');
+
+// Follow system preference (prefers-color-scheme)
+textarea.redactix.setTheme('auto');
+```
+
 ### API Reference
 
 | Method | Description |
@@ -223,6 +238,7 @@ console.log(textarea.value);
 | `getContent()` | Returns clean HTML without editor-specific wrappers |
 | `setContent(html)` | Sets new HTML content, re-initializes editor elements, resets history |
 | `sync()` | Manually syncs editor content to the original textarea |
+| `setTheme(theme)` | Changes the editor theme at runtime. Accepts `'light'`, `'dark'`, or `'auto'` |
 
 ---
 

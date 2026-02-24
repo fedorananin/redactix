@@ -29,40 +29,40 @@ export default class Redactix {
         this.selector = options.selector || '.redactix';
         // Конфиг для модулей (например, список классов)
         this.predefinedClasses = options.classes || ['red', 'blue', 'large-text', 'hidden-mobile'];
-        
+
         // Пользовательские пресеты для callout и цитат
         // Формат: [{ name: 'custom', label: 'Мой стиль', class: 'custom-class' }]
         this.calloutPresets = options.calloutPresets || [];
         this.quotePresets = options.quotePresets || [];
-        
+
         // URL для загрузки изображений (если указан - включается drag&drop, paste и upload)
         this.uploadUrl = options.uploadUrl || null;
-        
+
         // URL для просмотра загруженных изображений
         this.browseUrl = options.browseUrl || null;
-        
+
         // Разрешить удаление изображений через браузер
         this.allowImageDelete = options.allowImageDelete || false;
-        
+
         // Максимальная высота редактора (например: '500px', '50vh')
         this.maxHeight = options.maxHeight || null;
-        
+
         // Классы для quick select в атрибутах (если не указано - блок не отображается)
         this.predefinedClasses = options.classes || null;
-        
+
         // Lite mode - упрощённый редактор для комментариев
         // Отключает: fullscreen, html mode, find/replace, атрибуты, загрузку фото, расширенные настройки
         this.liteMode = options.liteMode || false;
-        
+
         // Theme: 'light' (default), 'dark', or 'auto' (follows system preference)
         this.theme = options.theme || 'light';
-        
+
         // Language/locale: 'en' (default), 'ru', etc.
         this.locale = options.locale || 'en';
-        
+
         // Initialize i18n
         this.i18n = new I18n(this.locale);
-        
+
         this.elements = document.querySelectorAll(this.selector);
         this.instances = [];
         // Список классов модулей для подключения
@@ -80,7 +80,7 @@ export default class Redactix {
         this.elements.forEach(el => {
             // Пропускаем, если уже инициализирован
             if (el.dataset.redactixInit) return;
-            
+
             // Формируем конфиг для инстанса
             const instanceConfig = {
                 modulesConfig: this.modulesConfig,
@@ -100,7 +100,7 @@ export default class Redactix {
             const instance = new RedactixInstance(el, instanceConfig);
             this.instances.push(instance);
             el.dataset.redactixInit = "true";
-            
+
             // Сохраняем ссылку на инстанс в textarea для внешнего доступа
             el.redactix = instance;
         });
@@ -113,10 +113,10 @@ class RedactixInstance {
         this.config = config; // Сохраняем весь конфиг
         this.wrapper = null;
         this.editorEl = null;
-        
+
         // i18n - translation helper
         this.i18n = config.i18n;
-        
+
         // Core components
         this.toolbar = null;
         this.core = null;
@@ -126,7 +126,7 @@ class RedactixInstance {
 
         this.render();
     }
-    
+
     /**
      * Shorthand for getting translations
      * @param {string} key - Translation key (e.g., 'toolbar.bold')
@@ -137,23 +137,23 @@ class RedactixInstance {
         return this.i18n.t(key, params);
     }
 
-render() {
+    render() {
         // 1. Создаем обертку
         this.wrapper = document.createElement('div');
         this.wrapper.className = 'redactix-wrapper';
-        
+
         // Добавляем класс для lite mode
         if (this.config.liteMode) {
             this.wrapper.classList.add('redactix-lite-mode');
         }
-        
+
         // Добавляем класс темы
         if (this.config.theme === 'dark') {
             this.wrapper.classList.add('redactix-dark');
         } else if (this.config.theme === 'auto') {
             this.wrapper.classList.add('redactix-auto');
         }
-        
+
         // Добавляем RTL поддержку для арабского и других RTL языков
         if (this.i18n.isRTL()) {
             this.wrapper.classList.add('redactix-rtl');
@@ -171,20 +171,20 @@ render() {
         this.editorEl = document.createElement('div');
         this.editorEl.className = 'redactix-editor';
         this.editorEl.contentEditable = true;
-        
+
         // Применяем максимальную высоту если указана
         if (this.config.maxHeight) {
             this.editorEl.style.maxHeight = this.config.maxHeight;
             this.editorEl.style.overflowY = 'auto';
             this.wrapper.classList.add('redactix-has-max-height');
         }
-        
+
         // Чистим исходный HTML от лишних пробелов и переносов строк между тегами
         // Это уберет отступы кода, но сохранит контент
         const cleanHtml = this.textarea.value
             .replace(/>\s+</g, '><') // Убираем пробелы между тегами
             .trim();
-            
+
         this.editorEl.innerHTML = cleanHtml;
 
         // Пост-обработка: оборачиваем hr, настраиваем figure и code blocks
@@ -209,7 +209,7 @@ render() {
 
         // 8. Инициализируем модули
         this.initModules();
-        
+
         // 9. Обновляем счётчик (не в lite mode)
         if (!this.config.liteMode) {
             this.updateCounter();
@@ -225,18 +225,18 @@ render() {
     updateCounter() {
         // В lite mode счётчик не создаётся
         if (!this.counter) return;
-        
+
         // Получаем текст для подсчёта (без HTML-тегов, но с figcaption)
         const clone = this.editorEl.cloneNode(true);
-        
+
         // Удаляем alt и title атрибуты из изображений, ссылок и фреймов чтобы не считать их
         clone.querySelectorAll('img, a, iframe').forEach(el => {
             el.removeAttribute('alt');
             el.removeAttribute('title');
         });
-        
+
         const text = clone.innerText || '';
-        
+
         // Подсчёт символов (без пробелов в начале/конце)
         const chars = text.trim().length;
         // Подсчёт слов
@@ -266,18 +266,18 @@ render() {
     setContent(html) {
         // Чистим HTML от лишних пробелов между тегами
         const cleanHtml = html.replace(/>\s+</g, '><').trim();
-        
+
         // Устанавливаем в визуальный редактор
         this.editorEl.innerHTML = cleanHtml;
-        
+
         // Пост-обработка как при инициализации
         this.wrapSeparators();
         this.setupFigures();
         this.setupCodeBlocks();
-        
+
         // Синхронизируем с textarea
         this.sync();
-        
+
         // Уведомляем модуль истории о новом контенте (сброс истории)
         const historyModule = this.modules.find(m => m.constructor.name === 'History');
         if (historyModule && historyModule.reset) {
@@ -289,7 +289,7 @@ render() {
     sync() {
         // Создаем клон для очистки служебных элементов перед сохранением
         const clone = this.editorEl.cloneNode(true);
-        
+
         // Убираем обертки сепараторов
         clone.querySelectorAll('.redactix-separator').forEach(wrapper => {
             const hr = wrapper.querySelector('hr');
@@ -302,7 +302,7 @@ render() {
                 wrapper.remove();
             }
         });
-        
+
         // Убираем contenteditable у figure и figcaption
         clone.querySelectorAll('figure').forEach(figure => {
             figure.removeAttribute('contenteditable');
@@ -316,54 +316,71 @@ render() {
                 }
             }
         });
-        
+
         // Убираем служебные атрибуты contenteditable у всех элементов
         clone.querySelectorAll('[contenteditable]').forEach(el => {
             el.removeAttribute('contenteditable');
         });
-        
+
         // Убираем contenteditable у pre
         clone.querySelectorAll('pre').forEach(pre => {
             pre.removeAttribute('contenteditable');
         });
-        
+
         // Убираем подсветку поиска
         clone.querySelectorAll('.redactix-find-highlight').forEach(mark => {
             const text = document.createTextNode(mark.textContent);
             mark.parentNode.replaceChild(text, mark);
         });
         clone.normalize();
-        
+
         // Получаем чистый HTML
         let html = clone.innerHTML;
-        
+
         // Убираем лишние пробелы между тегами (сжимаем)
         // html = html.replace(/>\s+</g, '><').trim(); 
         // Примечание: выше строка может быть опасной для pre тегов, 
         // пока оставим как есть или используем более аккуратную очистку.
         // Оставим просто копирование innerHTML, но без оберток.
-        
+
         this.textarea.value = html;
-        
+
         // Триггерим событие change на textarea, чтобы внешние скрипты знали об изменении
         this.textarea.dispatchEvent(new Event('change', { bubbles: true }));
         this.textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        
+
         // Обновляем счётчик
         this.updateCounter();
     }
 
+    // Change editor theme at runtime
+    // @param {string} theme - 'light', 'dark', or 'auto'
+    setTheme(theme) {
+        // Remove existing theme classes
+        this.wrapper.classList.remove('redactix-dark', 'redactix-auto');
+
+        // Apply new theme
+        if (theme === 'dark') {
+            this.wrapper.classList.add('redactix-dark');
+        } else if (theme === 'auto') {
+            this.wrapper.classList.add('redactix-auto');
+        }
+
+        // Update config
+        this.config.theme = theme;
+    }
+
     wrapSeparators() {
         this.editorEl.querySelectorAll('hr').forEach(hr => {
-             if (hr.parentNode.classList.contains('redactix-separator')) return;
-             
-             const wrapper = document.createElement('div');
-             wrapper.className = 'redactix-separator';
-             wrapper.contentEditable = false;
-             wrapper.innerHTML = ''; // Очистим, если вдруг что-то попало
-             
-             hr.parentNode.replaceChild(wrapper, hr);
-             wrapper.appendChild(hr);
+            if (hr.parentNode.classList.contains('redactix-separator')) return;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'redactix-separator';
+            wrapper.contentEditable = false;
+            wrapper.innerHTML = ''; // Очистим, если вдруг что-то попало
+
+            hr.parentNode.replaceChild(wrapper, hr);
+            wrapper.appendChild(hr);
         });
     }
 
@@ -372,9 +389,9 @@ render() {
         this.editorEl.querySelectorAll('figure').forEach(figure => {
             // Пропускаем video wrapper
             if (figure.classList.contains('redactix-video-wrapper')) return;
-            
+
             figure.contentEditable = 'false';
-            
+
             let figcaption = figure.querySelector('figcaption');
             if (!figcaption) {
                 // Создаём пустой figcaption для возможности ввода
