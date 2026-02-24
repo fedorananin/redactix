@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'belgi',
     words: 'so\'z',
-    
+
     // Modal buttons
     save: 'Saqlash',
     cancel: 'Bekor qilish',
     remove: 'O\'chirish',
     close: 'Yopish',
     delete: 'O\'chirish',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Rasm qo\'shish',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'Spoyler',
         link: 'Havola'
     },
-    
+
     // Image module
     image: {
         title: 'Rasm qo\'shish',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'Galereyani yopish',
         deleteConfirm: 'O\'chirish'
     },
-    
+
     // Link module
     link: {
         title: 'Havola qo\'shish',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (nofollow dan tashqari)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'Jadval qo\'shish',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'Jadvalni o\'chirish',
         headerPrefix: 'Sarlavha'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'YouTube video havolasi',
         invalidUrl: 'Noto\'g\'ri YouTube URL'
     },
-    
+
     // Code module
     code: {
         title: 'Kod blokini qo\'shish',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'Kodingizni shu yerga qo\'ying...',
         removeCodeBlock: 'Kod blokini o\'chirish'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'Topish...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'Keyingi (Enter)',
         closeTooltip: 'Yopish (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'Aylantirish',
@@ -162,9 +162,12 @@ export default {
         attributes: 'Atributlar',
         cellSettings: 'Katak sozlamalari',
         rowSettings: 'Qator sozlamalari',
-        dragEntireList: 'Butun ro\'yxatni sudrab boring'
+        dragEntireList: 'Butun ro\'yxatni sudrab boring',
+        citePlaceholder: 'Iqtibos qo\'shish...',
+        addCitation: 'Iqtibos qo\'shish',
+        removeCitation: 'Iqtibosni olib tashlash'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'Element atributlari',
@@ -175,7 +178,7 @@ export default {
         classes: 'Klasslar (bo\'sh joy bilan ajratilgan)',
         quickSelect: 'Tezkor tanlash'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'Buyruqlar topilmadi',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'Belgilangan ro\'yxat',
         bulletListDesc: 'Belgilangan ro\'yxat'
     },
-    
+
     // Upload errors
     upload: {
         error: 'Yuklash muvaffaqiyatsiz',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'Noto\'g\'ri server javobi',
         remove: 'O\'chirish'
     },
-    
+
     // Counter
     counter: {
         chars: 'belgi',

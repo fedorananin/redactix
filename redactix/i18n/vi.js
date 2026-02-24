@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'ký tự',
     words: 'từ',
-    
+
     // Modal buttons
     save: 'Lưu',
     cancel: 'Hủy',
     remove: 'Xóa',
     close: 'Đóng',
     delete: 'Xóa',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Chèn hình ảnh',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'Spoiler',
         link: 'Liên kết'
     },
-    
+
     // Image module
     image: {
         title: 'Chèn hình ảnh',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'Đóng thư viện',
         deleteConfirm: 'Xóa'
     },
-    
+
     // Link module
     link: {
         title: 'Chèn liên kết',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (ngoại trừ nofollow)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'Chèn bảng',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'Xóa bảng',
         headerPrefix: 'Tiêu đề'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'Liên kết video YouTube',
         invalidUrl: 'URL YouTube không hợp lệ'
     },
-    
+
     // Code module
     code: {
         title: 'Chèn khối mã',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'Dán mã của bạn vào đây...',
         removeCodeBlock: 'Xóa khối mã'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'Tìm...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'Tiếp theo (Enter)',
         closeTooltip: 'Đóng (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'Chuyển thành',
@@ -162,9 +162,12 @@ export default {
         attributes: 'Thuộc tính',
         cellSettings: 'Cài đặt ô',
         rowSettings: 'Cài đặt hàng',
-        dragEntireList: 'Kéo toàn bộ danh sách'
+        dragEntireList: 'Kéo toàn bộ danh sách',
+        citePlaceholder: 'Thêm trích dẫn...',
+        addCitation: 'Thêm trích dẫn',
+        removeCitation: 'Xóa trích dẫn'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'Thuộc tính phần tử',
@@ -175,7 +178,7 @@ export default {
         classes: 'Lớp (cách nhau bằng dấu cách)',
         quickSelect: 'Chọn nhanh'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'Không tìm thấy lệnh',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'Danh sách đầu dòng',
         bulletListDesc: 'Danh sách có dấu đầu dòng'
     },
-    
+
     // Upload errors
     upload: {
         error: 'Tải lên thất bại',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'Phản hồi máy chủ không hợp lệ',
         remove: 'Xóa'
     },
-    
+
     // Counter
     counter: {
         chars: 'ký tự',

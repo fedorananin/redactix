@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'karakter',
     words: 'kelime',
-    
+
     // Modal buttons
     save: 'Kaydet',
     cancel: 'İptal',
     remove: 'Kaldır',
     close: 'Kapat',
     delete: 'Sil',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Resim Ekle',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'Spoiler',
         link: 'Bağlantı'
     },
-    
+
     // Image module
     image: {
         title: 'Resim Ekle',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'Galeriyi kapat',
         deleteConfirm: 'Sil'
     },
-    
+
     // Link module
     link: {
         title: 'Bağlantı Ekle',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (nofollow hariç)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'Tablo Ekle',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'Tabloyu sil',
         headerPrefix: 'Başlık'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'YouTube Video Bağlantısı',
         invalidUrl: 'Geçersiz YouTube URL'
     },
-    
+
     // Code module
     code: {
         title: 'Kod Bloğu Ekle',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'Kodunuzu buraya yapıştırın...',
         removeCodeBlock: 'Kod Bloğunu Kaldır'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'Bul...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'Sonraki (Enter)',
         closeTooltip: 'Kapat (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'Dönüştür',
@@ -162,9 +162,12 @@ export default {
         attributes: 'Özellikler',
         cellSettings: 'Hücre Ayarları',
         rowSettings: 'Satır Ayarları',
-        dragEntireList: 'Tüm listeyi sürükle'
+        dragEntireList: 'Tüm listeyi sürükle',
+        citePlaceholder: 'Alıntı ekle...',
+        addCitation: 'Alıntı ekle',
+        removeCitation: 'Alıntıyı kaldır'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'Eleman Özellikleri',
@@ -175,7 +178,7 @@ export default {
         classes: 'Sınıflar (boşlukla ayırın)',
         quickSelect: 'Hızlı seçim'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'Komut bulunamadı',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'Madde İşaretli Liste',
         bulletListDesc: 'Madde işaretli liste'
     },
-    
+
     // Upload errors
     upload: {
         error: 'Yükleme başarısız',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'Geçersiz sunucu yanıtı',
         remove: 'Kaldır'
     },
-    
+
     // Counter
     counter: {
         chars: 'karakter',

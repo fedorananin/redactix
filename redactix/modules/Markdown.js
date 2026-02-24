@@ -37,11 +37,11 @@ export default class Markdown extends Module {
                 // 1. Списки (вложенность)
                 const parentListItem = node.parentElement.closest('li');
                 if (parentListItem && (rule.command === 'insertUnorderedList' || rule.command === 'insertOrderedList')) {
-                     const matchLength = text.match(rule.regex)[0].length;
-                     node.textContent = node.textContent.substring(matchLength);
-                     document.execCommand('indent');
-                     e.preventDefault();
-                     return;
+                    const matchLength = text.match(rule.regex)[0].length;
+                    node.textContent = node.textContent.substring(matchLength);
+                    document.execCommand('indent');
+                    e.preventDefault();
+                    return;
                 }
 
                 const matchLength = text.match(rule.regex)[0].length;
@@ -57,7 +57,7 @@ export default class Markdown extends Module {
                 if (block !== this.editor.el) {
                     let needSplit = false;
                     let prev = node.previousSibling;
-                    while(prev) {
+                    while (prev) {
                         if ((prev.nodeType === Node.ELEMENT_NODE && prev.tagName === 'BR') ||
                             (prev.nodeType === Node.TEXT_NODE && prev.textContent.trim().length > 0) ||
                             (prev.nodeType === Node.ELEMENT_NODE)) {
@@ -70,31 +70,31 @@ export default class Markdown extends Module {
                     if (needSplit) {
                         const newBlock = block.cloneNode(false);
                         newBlock.removeAttribute('id');
-                        
+
                         if (block.nextSibling) {
                             block.parentNode.insertBefore(newBlock, block.nextSibling);
                         } else {
                             block.parentNode.appendChild(newBlock);
                         }
-                        
+
                         const siblingsToMove = [];
                         let curr = node;
-                        while(curr) {
+                        while (curr) {
                             siblingsToMove.push(curr);
                             curr = curr.nextSibling;
                         }
                         siblingsToMove.forEach(s => newBlock.appendChild(s));
-                        
+
                         block = newBlock;
                     }
                 } else {
-                     // Root case: Wrap current line in a P
-                     const p = document.createElement('p');
-                     node.parentNode.insertBefore(p, node);
-                     p.appendChild(node);
-                     
-                     let next = p.nextSibling;
-                     while(next) {
+                    // Root case: Wrap current line in a P
+                    const p = document.createElement('p');
+                    node.parentNode.insertBefore(p, node);
+                    p.appendChild(node);
+
+                    let next = p.nextSibling;
+                    while (next) {
                         const candidate = next;
                         next = next.nextSibling;
                         if (candidate.nodeType === Node.ELEMENT_NODE && candidate.tagName === 'BR') {
@@ -102,8 +102,8 @@ export default class Markdown extends Module {
                             break;
                         }
                         p.appendChild(candidate);
-                     }
-                     block = p;
+                    }
+                    block = p;
                 }
 
                 // 2. FormatBlock Specifics
@@ -112,7 +112,7 @@ export default class Markdown extends Module {
                     const newEl = document.createElement(tagName);
 
                     block.parentNode.insertBefore(newEl, block);
-                    while(block.firstChild) {
+                    while (block.firstChild) {
                         newEl.appendChild(block.firstChild);
                     }
                     block.parentNode.removeChild(block);
@@ -120,7 +120,7 @@ export default class Markdown extends Module {
                     if (node.textContent.length >= matchLength) {
                         node.textContent = node.textContent.substring(matchLength);
                     }
-                    
+
                     const hasContent = newEl.textContent.trim().length > 0 || newEl.querySelector('img, iframe');
                     let brAdded = false;
                     if (!hasContent) {
@@ -132,12 +132,13 @@ export default class Markdown extends Module {
                     const newRange = document.createRange();
                     newRange.setStart(node, 0);
                     newRange.collapse(true);
-                    
+
                     const sel = window.getSelection();
                     sel.removeAllRanges();
                     sel.addRange(newRange);
-                    
+
                     e.preventDefault();
+
                     return;
                 }
 
@@ -149,19 +150,19 @@ export default class Markdown extends Module {
                     wrapper.contentEditable = 'false';
                     const hr = document.createElement('hr');
                     wrapper.appendChild(hr);
-                    
+
                     // Создаём параграф для продолжения ввода
                     const nextP = document.createElement('p');
                     nextP.innerHTML = '<br>';
-                    
+
                     // Очищаем текст в блоке
                     if (node.textContent.length >= matchLength) {
                         node.textContent = node.textContent.substring(matchLength);
                     }
-                    
+
                     // Если после очистки блок пустой, заменяем его на separator
                     const isEmpty = !block.textContent.trim() && !block.querySelector('img, iframe');
-                    
+
                     if (isEmpty) {
                         block.parentNode.replaceChild(wrapper, block);
                         wrapper.parentNode.insertBefore(nextP, wrapper.nextSibling);
@@ -170,16 +171,16 @@ export default class Markdown extends Module {
                         block.parentNode.insertBefore(wrapper, block);
                         block.parentNode.insertBefore(nextP, block);
                     }
-                    
+
                     // Ставим курсор в новый параграф
                     const newRange = document.createRange();
                     newRange.setStart(nextP, 0);
                     newRange.collapse(true);
-                    
+
                     const sel = window.getSelection();
                     sel.removeAllRanges();
                     sel.addRange(newRange);
-                    
+
                     // Оборачиваем все hr в обёртки (для консистентности)
                     this.editor.el.querySelectorAll('hr').forEach(h => {
                         if (!h.parentNode.classList.contains('redactix-separator')) {
@@ -190,7 +191,7 @@ export default class Markdown extends Module {
                             w.appendChild(h);
                         }
                     });
-                    
+
                     this.instance.sync();
                     e.preventDefault();
                     return;
@@ -201,17 +202,17 @@ export default class Markdown extends Module {
                     const listTag = rule.command === 'insertUnorderedList' ? 'ul' : 'ol';
                     const listEl = document.createElement(listTag);
                     const liEl = document.createElement('li');
-                    
+
                     listEl.appendChild(liEl);
-                    
+
                     // Move content from block to li
-                    while(block.firstChild) {
+                    while (block.firstChild) {
                         liEl.appendChild(block.firstChild);
                     }
-                    
+
                     // Replace block with list
                     block.parentNode.replaceChild(listEl, block);
-                    
+
                     // Check for merge with previous list
                     const previousSibling = listEl.previousElementSibling;
                     if (previousSibling && previousSibling.tagName.toLowerCase() === listTag) {
@@ -223,16 +224,16 @@ export default class Markdown extends Module {
                     if (node.textContent.length >= matchLength) {
                         node.textContent = node.textContent.substring(matchLength);
                     }
-                    
+
                     // Restore cursor
                     const newRange = document.createRange();
                     newRange.setStart(node, 0);
                     newRange.collapse(true);
-                    
+
                     const sel = window.getSelection();
                     sel.removeAllRanges();
                     sel.addRange(newRange);
-                    
+
                     e.preventDefault();
                     return;
                 }

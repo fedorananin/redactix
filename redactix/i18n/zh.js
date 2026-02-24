@@ -5,14 +5,14 @@ export default {
     // General
     chars: '字符',
     words: '词',
-    
+
     // Modal buttons
     save: '保存',
     cancel: '取消',
     remove: '移除',
     close: '关闭',
     delete: '删除',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: '插入图片',
@@ -31,7 +31,7 @@ export default {
         spoiler: '剧透',
         link: '链接'
     },
-    
+
     // Image module
     image: {
         title: '插入图片',
@@ -69,7 +69,7 @@ export default {
         closeGallery: '关闭图库',
         deleteConfirm: '删除'
     },
-    
+
     // Link module
     link: {
         title: '插入链接',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel（除nofollow外）',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: '插入表格',
@@ -104,14 +104,14 @@ export default {
         deleteTable: '删除表格',
         headerPrefix: '表头'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'YouTube视频链接',
         invalidUrl: '无效的YouTube URL'
     },
-    
+
     // Code module
     code: {
         title: '插入代码块',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: '在此粘贴代码...',
         removeCodeBlock: '移除代码块'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: '查找...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: '下一个 (Enter)',
         closeTooltip: '关闭 (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: '转换为',
@@ -162,9 +162,12 @@ export default {
         attributes: '属性',
         cellSettings: '单元格设置',
         rowSettings: '行设置',
-        dragEntireList: '拖动整个列表'
+        dragEntireList: '拖动整个列表',
+        citePlaceholder: '添加引用...',
+        addCitation: '添加引用',
+        removeCitation: '删除引用'
     },
-    
+
     // Attributes module
     attributes: {
         title: '元素属性',
@@ -175,7 +178,7 @@ export default {
         classes: '类（空格分隔）',
         quickSelect: '快速选择'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: '未找到命令',
@@ -204,7 +207,7 @@ export default {
         bulletList: '项目符号列表',
         bulletListDesc: '带项目符号的列表'
     },
-    
+
     // Upload errors
     upload: {
         error: '上传失败',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: '无效的服务器响应',
         remove: '移除'
     },
-    
+
     // Counter
     counter: {
         chars: '字符',

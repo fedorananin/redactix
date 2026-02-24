@@ -187,10 +187,11 @@ class RedactixInstance {
 
         this.editorEl.innerHTML = cleanHtml;
 
-        // Пост-обработка: оборачиваем hr, настраиваем figure и code blocks
+        // Post-processing: wrap hr, setup figure, code blocks, blockquote cites
         this.wrapSeparators();
         this.setupFigures();
         this.setupCodeBlocks();
+        this.setupBlockquotes();
 
         this.wrapper.appendChild(this.editorEl);
 
@@ -270,10 +271,11 @@ class RedactixInstance {
         // Устанавливаем в визуальный редактор
         this.editorEl.innerHTML = cleanHtml;
 
-        // Пост-обработка как при инициализации
+        // Post-processing as during initialization
         this.wrapSeparators();
         this.setupFigures();
         this.setupCodeBlocks();
+        this.setupBlockquotes();
 
         // Синхронизируем с textarea
         this.sync();
@@ -303,16 +305,30 @@ class RedactixInstance {
             }
         });
 
-        // Убираем contenteditable у figure и figcaption
+        // Clean up figure and figcaption
         clone.querySelectorAll('figure').forEach(figure => {
             figure.removeAttribute('contenteditable');
             const figcaption = figure.querySelector('figcaption');
             if (figcaption) {
                 figcaption.removeAttribute('contenteditable');
-                // Убираем пустые figcaption (только <br> или пустые)
+                // Remove empty figcaption (only <br> or empty)
                 const innerHtml = figcaption.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
                 if (!innerHtml && !figcaption.querySelector('img, iframe')) {
                     figcaption.remove();
+                }
+            }
+        });
+
+        // Clean up blockquote cite: remove empty cites and service attributes
+        clone.querySelectorAll('blockquote').forEach(bq => {
+            const cite = bq.querySelector('cite');
+            if (cite) {
+                cite.removeAttribute('contenteditable');
+                cite.removeAttribute('data-placeholder');
+                // Remove empty cite (only <br> or empty)
+                const citeHtml = cite.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
+                if (!citeHtml) {
+                    cite.remove();
                 }
             }
         });
@@ -404,9 +420,20 @@ class RedactixInstance {
     }
 
     setupCodeBlocks() {
-        // Настраиваем contenteditable для блоков кода
+        // Setup contenteditable for code blocks
         this.editorEl.querySelectorAll('pre').forEach(pre => {
             pre.contentEditable = 'false';
+        });
+    }
+
+    setupBlockquotes() {
+        // Configure existing cite elements inside blockquotes (make editable, set placeholder)
+        this.editorEl.querySelectorAll('blockquote').forEach(bq => {
+            const cite = bq.querySelector('cite');
+            if (cite) {
+                cite.contentEditable = 'true';
+                cite.setAttribute('data-placeholder', this.t('blockControl.citePlaceholder'));
+            }
         });
     }
 }

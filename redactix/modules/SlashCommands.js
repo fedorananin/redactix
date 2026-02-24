@@ -122,7 +122,7 @@ export default class SlashCommands extends Module {
                 action: () => this.insertList('ul')
             }
         ];
-        
+
         return commands;
     }
 
@@ -220,7 +220,7 @@ export default class SlashCommands extends Module {
 
         // Filter and show commands
         this.filterCommands(filterText);
-        
+
         if (this.filteredCommands.length > 0) {
             this.openMenu();
         } else {
@@ -240,8 +240,8 @@ export default class SlashCommands extends Module {
         } else {
             this.filteredCommands = commands.filter(cmd => {
                 return cmd.label.toLowerCase().includes(search) ||
-                       cmd.id.toLowerCase().includes(search) ||
-                       cmd.keywords.some(k => k.toLowerCase().includes(search));
+                    cmd.id.toLowerCase().includes(search) ||
+                    cmd.keywords.some(k => k.toLowerCase().includes(search));
             });
         }
 
@@ -347,7 +347,7 @@ export default class SlashCommands extends Module {
         // For modal commands (image, youtube, table, code), don't delete "/" immediately
         // Save the range for later deletion if the modal action succeeds
         const modalCommands = ['image', 'youtube', 'table', 'code'];
-        
+
         if (modalCommands.includes(cmd.id)) {
             // Save range for deferred deletion
             this.pendingSlashRange = this.slashRange ? this.slashRange.cloneRange() : null;
@@ -360,37 +360,37 @@ export default class SlashCommands extends Module {
             cmd.action();
         }
     }
-    
+
     /**
      * Delete "/" and preserve empty block with <br>
      */
     deleteSlashAndPreserveBlock() {
         if (!this.slashRange) return;
-        
+
         try {
             // Get the block element before deleting
             let block = this.slashRange.startContainer;
             while (block && block !== this.instance.editorEl) {
-                if (block.nodeType === Node.ELEMENT_NODE && 
+                if (block.nodeType === Node.ELEMENT_NODE &&
                     ['P', 'DIV', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'ASIDE', 'LI'].includes(block.tagName)) {
                     break;
                 }
                 block = block.parentNode;
             }
-            
+
             // Select and delete the "/" content
             const selection = window.getSelection();
             selection.removeAllRanges();
             selection.addRange(this.slashRange);
             this.slashRange.deleteContents();
-            
+
             // Note: For immediate commands (formatBlock, insertList, etc.), 
             // we don't need to preserve the block because the command will transform it
         } catch (e) {
             // Range may be invalid
         }
     }
-    
+
     /**
      * Delete the pending "/" from modal command and save cursor position
      * Called when modal action succeeds
@@ -401,23 +401,23 @@ export default class SlashCommands extends Module {
                 // Get the block element before deleting
                 let block = this.pendingSlashRange.startContainer;
                 while (block && block !== this.instance.editorEl) {
-                    if (block.nodeType === Node.ELEMENT_NODE && 
+                    if (block.nodeType === Node.ELEMENT_NODE &&
                         ['P', 'DIV', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'ASIDE', 'LI'].includes(block.tagName)) {
                         break;
                     }
                     block = block.parentNode;
                 }
-                
+
                 // Delete the "/" content
                 this.pendingSlashRange.deleteContents();
-                
+
                 // If the block is now empty, add <br> to keep it visible
                 if (block && block !== this.instance.editorEl) {
                     const isEmpty = !block.textContent.trim() && !block.querySelector('img, iframe, hr, table');
                     if (isEmpty && !block.querySelector('br')) {
                         block.innerHTML = '<br>';
                     }
-                    
+
                     // Save this block for cursor restoration after modal closes
                     this.cursorRestoreBlock = block;
                 }
@@ -427,17 +427,17 @@ export default class SlashCommands extends Module {
             this.pendingSlashRange = null;
         }
     }
-    
+
     /**
      * Restore cursor to the saved block (called after modal closes)
      */
     restoreCursor() {
         if (this.cursorRestoreBlock && this.instance.editorEl.contains(this.cursorRestoreBlock)) {
             this.instance.editorEl.focus();
-            
+
             const selection = window.getSelection();
             const range = document.createRange();
-            
+
             // Place cursor at the start of the block
             if (this.cursorRestoreBlock.firstChild) {
                 range.setStart(this.cursorRestoreBlock, 0);
@@ -445,13 +445,13 @@ export default class SlashCommands extends Module {
                 range.setStart(this.cursorRestoreBlock, 0);
             }
             range.collapse(true);
-            
+
             selection.removeAllRanges();
             selection.addRange(range);
         }
         this.cursorRestoreBlock = null;
     }
-    
+
     /**
      * Clear pending slash without deleting
      * Called when modal is cancelled
@@ -540,7 +540,7 @@ export default class SlashCommands extends Module {
         if (!block || block === this.instance.editorEl) {
             // Create a new block if none found
             document.execCommand('formatBlock', false, `<${tagName}>`);
-            
+
             // Ensure the new block has content for proper height
             const newSelection = window.getSelection();
             if (newSelection.rangeCount) {
@@ -564,17 +564,17 @@ export default class SlashCommands extends Module {
             while (block.firstChild) {
                 newBlock.appendChild(block.firstChild);
             }
-            
+
             // Copy classes for aside/blockquote
             if (block.className) {
                 newBlock.className = block.className;
             }
-            
+
             // Ensure the block has content for proper height
             if (!newBlock.textContent.trim() && !newBlock.querySelector('br, img, iframe')) {
                 newBlock.innerHTML = '<br>';
             }
-            
+
             block.parentNode.replaceChild(newBlock, block);
 
             // Place cursor in the new block
@@ -642,14 +642,14 @@ export default class SlashCommands extends Module {
             tableModule.openModal();
         }
     }
-    
+
     /**
      * Setup handler to restore cursor when modal closes
      */
     setupModalCloseHandler() {
         // Store existing onClose if any
         const existingOnClose = this.instance.modal.onClose;
-        
+
         this.instance.modal.onClose = () => {
             // Call existing handler first
             if (existingOnClose) {
@@ -674,7 +674,7 @@ export default class SlashCommands extends Module {
         nextP.innerHTML = '<br>';
 
         this.instance.selection.insertNode(wrapper);
-        
+
         // Insert paragraph after separator
         if (wrapper.nextSibling) {
             wrapper.parentNode.insertBefore(nextP, wrapper.nextSibling);

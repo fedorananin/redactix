@@ -24,11 +24,11 @@ export default class Editor {
     ensureEditorStructure() {
         // Если редактор полностью пуст или содержит только <br>
         const content = this.el.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-        
+
         if (!content) {
             // Создаём пустой параграф
             this.el.innerHTML = '<p><br></p>';
-            
+
             // Ставим курсор в параграф
             const p = this.el.querySelector('p');
             if (p) {
@@ -41,19 +41,26 @@ export default class Editor {
             }
             return;
         }
-        
+
         // Проверяем: если остался один пустой блочный элемент (не P) — заменяем на P
         // Это случается когда пользователь выделяет всё и удаляет
         if (this.el.children.length === 1) {
             const child = this.el.children[0];
-            const childContent = child.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-            
-            if (!childContent && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'ASIDE'].includes(child.tagName)) {
+            // For blockquote, exclude cite when checking if empty
+            let checkContent = child.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
+            if (child.tagName === 'BLOCKQUOTE') {
+                const clone = child.cloneNode(true);
+                const cite = clone.querySelector('cite');
+                if (cite) cite.remove();
+                checkContent = clone.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
+            }
+
+            if (!checkContent && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'ASIDE'].includes(child.tagName)) {
                 // Заменяем пустой заголовок/цитату на параграф
                 const p = document.createElement('p');
                 p.innerHTML = '<br>';
                 this.el.replaceChild(p, child);
-                
+
                 // Ставим курсор
                 const range = document.createRange();
                 const sel = window.getSelection();
@@ -64,22 +71,22 @@ export default class Editor {
                 return;
             }
         }
-        
+
         // Если есть "голый" текст напрямую в редакторе (не в блочном элементе)
         // Это может произойти после удаления всего и начала ввода
         const firstChild = this.el.firstChild;
         if (firstChild && firstChild.nodeType === Node.TEXT_NODE && firstChild.textContent.trim()) {
             // Оборачиваем в параграф
             const p = document.createElement('p');
-            
+
             // Собираем все текстовые узлы и inline элементы в начале
-            while (this.el.firstChild && 
-                   (this.el.firstChild.nodeType === Node.TEXT_NODE || 
-                    (this.el.firstChild.nodeType === Node.ELEMENT_NODE && 
-                     !['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'BLOCKQUOTE', 'ASIDE', 'PRE', 'TABLE', 'FIGURE', 'HR', 'DIV'].includes(this.el.firstChild.tagName)))) {
+            while (this.el.firstChild &&
+                (this.el.firstChild.nodeType === Node.TEXT_NODE ||
+                    (this.el.firstChild.nodeType === Node.ELEMENT_NODE &&
+                        !['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'BLOCKQUOTE', 'ASIDE', 'PRE', 'TABLE', 'FIGURE', 'HR', 'DIV'].includes(this.el.firstChild.tagName)))) {
                 p.appendChild(this.el.firstChild);
             }
-            
+
             this.el.insertBefore(p, this.el.firstChild);
         }
     }
@@ -91,7 +98,7 @@ export default class Editor {
             this.instance.sync();
             this.updatePlaceholder();
         });
-        
+
         this.observer.observe(this.el, {
             childList: true,
             subtree: true,
@@ -101,7 +108,7 @@ export default class Editor {
         // Синхронизация при вводе (как дополнение для мгновенной реакции)
         this.el.addEventListener('input', () => {
             this.ensureEditorStructure();
-            this.instance.sync(); 
+            this.instance.sync();
             this.updatePlaceholder();
         });
 
@@ -137,7 +144,7 @@ export default class Editor {
 
     handlePaste(e) {
         const clipboardData = e.clipboardData || window.clipboardData;
-        
+
         // Пытаемся получить HTML
         let html = clipboardData.getData('text/html');
         let text = clipboardData.getData('text/plain');
@@ -146,12 +153,17 @@ export default class Editor {
             // Санитизация HTML
             html = this.sanitizeHtml(html);
             document.execCommand('insertHTML', false, html);
-            
+
             // Настраиваем вставленные figure
             if (this.instance.setupFigures) {
                 this.instance.setupFigures();
             }
-            
+
+            // Setup cite elements for pasted blockquotes
+            if (this.instance.setupBlockquotes) {
+                this.instance.setupBlockquotes();
+            }
+
             // Убираем пустые параграфы после вставки
             this.el.querySelectorAll('p, div').forEach(el => {
                 const inner = el.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
@@ -207,24 +219,24 @@ export default class Editor {
         styledSpans.forEach(span => {
             const style = span.getAttribute('style') || '';
             let wrapper = null;
-            
+
             // Проверяем стили и создаём соответствующие теги
             // Порядок важен: сначала внешние, потом внутренние
             const isBold = /font-weight:\s*(bold|700|800|900)/i.test(style);
             const isItalic = /font-style:\s*italic/i.test(style);
             const isUnderline = /text-decoration:[^;]*underline/i.test(style);
             const isStrike = /text-decoration:[^;]*line-through/i.test(style);
-            
+
             if (isBold || isItalic || isUnderline || isStrike) {
                 // Собираем содержимое span
                 const content = document.createDocumentFragment();
                 while (span.firstChild) {
                     content.appendChild(span.firstChild);
                 }
-                
+
                 // Оборачиваем в теги (от внешнего к внутреннему)
                 let result = content;
-                
+
                 if (isStrike) {
                     const s = document.createElement('s');
                     s.appendChild(result);
@@ -245,7 +257,7 @@ export default class Editor {
                     b.appendChild(result);
                     result = b;
                 }
-                
+
                 span.parentNode.replaceChild(result, span);
             }
         });
@@ -255,11 +267,11 @@ export default class Editor {
         // Разрешённые классы (наши внутренние)
         const allowedClasses = ['spoiler', 'warning', 'danger', 'information', 'success', 'big'];
         const allElements = temp.getElementsByTagName('*');
-        
+
         for (let i = 0; i < allElements.length; i++) {
             const el = allElements[i];
             const attrs = Array.from(el.attributes);
-            
+
             attrs.forEach(attr => {
                 if (!allowedAttributes.includes(attr.name.toLowerCase())) {
                     // Для class — фильтруем, оставляя только разрешённые
@@ -274,9 +286,9 @@ export default class Editor {
                         el.removeAttribute(attr.name);
                     }
                 }
-                
+
                 // Проверяем href и src на javascript:
-                if ((attr.name === 'href' || attr.name === 'src') && 
+                if ((attr.name === 'href' || attr.name === 'src') &&
                     attr.value.toLowerCase().includes('javascript:')) {
                     el.removeAttribute(attr.name);
                 }
@@ -285,18 +297,18 @@ export default class Editor {
             // Удаляем inline стили
             el.removeAttribute('style');
         }
-        
+
         // Упрощаем структуру списков: если li содержит только один p — разворачиваем
         const listItems = Array.from(temp.querySelectorAll('li'));
         listItems.forEach(li => {
             const children = Array.from(li.children);
             const paragraphs = children.filter(c => c.tagName === 'P');
-            
+
             // Если внутри li только параграфы (и возможно br)
             if (paragraphs.length > 0 && children.every(c => c.tagName === 'P' || c.tagName === 'BR')) {
                 // Разворачиваем содержимое параграфов в li
                 const fragment = document.createDocumentFragment();
-                
+
                 children.forEach((child, index) => {
                     if (child.tagName === 'P') {
                         // Переносим содержимое p
@@ -309,7 +321,7 @@ export default class Editor {
                         }
                     }
                 });
-                
+
                 li.innerHTML = '';
                 li.appendChild(fragment);
             }
@@ -326,9 +338,9 @@ export default class Editor {
                 if (nestedBlocks.length > 0) {
                     // Собираем содержимое вложенных блоков
                     const fragment = document.createDocumentFragment();
-                    
+
                     Array.from(el.childNodes).forEach(child => {
-                        if (child.nodeType === Node.ELEMENT_NODE && 
+                        if (child.nodeType === Node.ELEMENT_NODE &&
                             ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV'].includes(child.tagName)) {
                             // Это вложенный блочный элемент — вытаскиваем его содержимое
                             // или сам элемент, если родитель — заголовок, а вложенный — p
@@ -349,12 +361,12 @@ export default class Editor {
                             fragment.appendChild(child.cloneNode(true));
                         }
                     });
-                    
+
                     // Заменяем содержимое
                     el.innerHTML = '';
                     el.appendChild(fragment);
                 }
-                
+
                 // Если после очистки элемент пустой или содержит только br — удаляем
                 const innerContent = el.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
                 if (!innerContent) {
@@ -366,7 +378,7 @@ export default class Editor {
         // Очищаем пустые span и font
         const emptyTags = temp.querySelectorAll('span:empty, font:empty');
         emptyTags.forEach(el => el.remove());
-        
+
         // Разворачиваем span без атрибутов (бесполезные обёртки)
         const spans = Array.from(temp.querySelectorAll('span'));
         spans.forEach(span => {
@@ -388,7 +400,7 @@ export default class Editor {
             }
             font.parentNode.replaceChild(span, font);
         }
-        
+
         // Удаляем пустые div и заменяем непустые на p
         const divs = Array.from(temp.querySelectorAll('div'));
         divs.forEach(div => {
@@ -408,23 +420,23 @@ export default class Editor {
         images.forEach(img => {
             // Пропускаем если уже внутри figure
             if (img.closest('figure')) return;
-            
+
             // Убираем style у img
             img.removeAttribute('style');
-            
+
             const figure = document.createElement('figure');
             const figcaption = document.createElement('figcaption');
             figcaption.innerHTML = '<br>';
-            
+
             const parent = img.parentNode;
-            
+
             // Если img внутри p или div и есть куда выносить — выносим figure на уровень выше
             if ((parent.tagName === 'P' || parent.tagName === 'DIV') && parent.parentNode) {
                 parent.parentNode.insertBefore(figure, parent);
             } else {
                 parent.insertBefore(figure, img);
             }
-            
+
             figure.appendChild(img);
             figure.appendChild(figcaption);
         });
@@ -456,19 +468,20 @@ export default class Editor {
 
         const range = selection.getRangeAt(0);
         let block = range.startContainer;
-        
-        // Проверяем, находимся ли мы в figcaption - вставляем <br> вместо создания нового figcaption
-        let figcaption = block;
-        while (figcaption && figcaption !== this.el) {
-            if (figcaption.nodeType === Node.ELEMENT_NODE && figcaption.tagName === 'FIGCAPTION') {
+
+        // Check if we are inside a figcaption or cite — insert <br> instead of splitting
+        let inlineEditable = block;
+        while (inlineEditable && inlineEditable !== this.el) {
+            if (inlineEditable.nodeType === Node.ELEMENT_NODE &&
+                (inlineEditable.tagName === 'FIGCAPTION' || inlineEditable.tagName === 'CITE')) {
                 e.preventDefault();
                 document.execCommand('insertLineBreak');
                 this.instance.sync();
                 return true;
             }
-            figcaption = figcaption.parentNode;
+            inlineEditable = inlineEditable.parentNode;
         }
-        
+
         // Находим блочный элемент
         while (block && block !== this.el) {
             if (block.nodeType === Node.ELEMENT_NODE) {
@@ -488,25 +501,25 @@ export default class Editor {
         // Выход из списка на пустом LI
         if (block.tagName === 'LI' && isEmpty) {
             e.preventDefault();
-            
+
             const list = block.parentElement;
             const nextSibling = block.nextElementSibling;
-            
+
             // Проверяем, вложенный ли это список
             // 1. Стандартная вложенность: родитель списка это LI
             const parentLi = list.parentElement.closest('li');
             // 2. Нестандартная (ошибочная) вложенность: список внутри списка
             const parentIsList = ['UL', 'OL'].includes(list.parentElement.tagName);
-            
+
             const isNested = !!parentLi || parentIsList;
-            
+
             if (isNested) {
                 // Это вложенный список - нужно выйти на уровень выше
-                
+
                 // Определяем куда переносить элемент
                 let targetList;
                 let referenceNode;
-                
+
                 if (parentLi) {
                     targetList = parentLi.parentElement;
                     referenceNode = parentLi;
@@ -515,10 +528,10 @@ export default class Editor {
                     targetList = list.parentElement;
                     referenceNode = list;
                 }
-                
+
                 // Создаём новый LI для родительского списка
                 const newLi = document.createElement('li');
-                
+
                 // Если есть элементы после текущего LI во вложенном списке
                 if (nextSibling) {
                     // Создаём новый вложенный список для оставшихся элементов
@@ -536,37 +549,37 @@ export default class Editor {
                 } else {
                     newLi.innerHTML = '<br>';
                 }
-                
+
                 // Вставляем новый LI после родительского элемента (LI или вложенного списка)
                 if (referenceNode.nextSibling) {
                     targetList.insertBefore(newLi, referenceNode.nextSibling);
                 } else {
                     targetList.appendChild(newLi);
                 }
-                
+
                 // Удаляем пустой LI из вложенного списка
                 block.remove();
-                
+
                 // Если вложенный список стал пустым - удаляем его
                 if (list.children.length === 0) {
                     list.remove();
                 }
-                
+
                 // Ставим курсор в новый LI
                 const newRange = document.createRange();
                 newRange.setStart(newLi, 0);
                 newRange.collapse(true);
                 selection.removeAllRanges();
                 selection.addRange(newRange);
-                
+
                 this.instance.sync();
                 return true;
             }
-            
+
             // Это список верхнего уровня - выходим в параграф
             const p = document.createElement('p');
             p.innerHTML = '<br>';
-            
+
             // Если есть элементы после текущего - нужно разбить список
             if (nextSibling) {
                 // Создаём новый список для оставшихся элементов
@@ -577,7 +590,7 @@ export default class Editor {
                     newList.appendChild(current);
                     current = next;
                 }
-                
+
                 // Вставляем параграф и новый список после текущего списка
                 list.parentNode.insertBefore(p, list.nextSibling);
                 p.parentNode.insertBefore(newList, p.nextSibling);
@@ -585,44 +598,54 @@ export default class Editor {
                 // Просто вставляем параграф после списка
                 list.parentNode.insertBefore(p, list.nextSibling);
             }
-            
+
             // Удаляем пустой LI
             block.remove();
-            
+
             // Если список стал пустым - удаляем
             if (list.children.length === 0) {
                 list.remove();
             }
-            
+
             // Ставим курсор в новый параграф
             const newRange = document.createRange();
             newRange.setStart(p, 0);
             newRange.collapse(true);
             selection.removeAllRanges();
             selection.addRange(newRange);
-            
+
             this.instance.sync();
             return true;
         }
 
-        // Выход из цитаты на пустом параграфе внутри
-        if (block.tagName === 'BLOCKQUOTE' && isEmpty) {
-            e.preventDefault();
-            
-            const p = document.createElement('p');
-            p.innerHTML = '<br>';
-            
-            block.parentNode.insertBefore(p, block.nextSibling);
-            block.remove();
-            
-            const newRange = document.createRange();
-            newRange.setStart(p, 0);
-            newRange.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-            
-            this.instance.sync();
-            return true;
+        // Exit blockquote on empty content (excluding cite element)
+        if (block.tagName === 'BLOCKQUOTE') {
+            // Check if blockquote is empty, ignoring cite
+            const bqClone = block.cloneNode(true);
+            const bqCite = bqClone.querySelector('cite');
+            if (bqCite) bqCite.remove();
+            const bqText = bqClone.textContent.trim();
+            const bqHasMedia = bqClone.querySelector('img, iframe');
+            const bqIsEmpty = !bqText && !bqHasMedia;
+
+            if (bqIsEmpty) {
+                e.preventDefault();
+
+                const p = document.createElement('p');
+                p.innerHTML = '<br>';
+
+                block.parentNode.insertBefore(p, block.nextSibling);
+                block.remove();
+
+                const newRange = document.createRange();
+                newRange.setStart(p, 0);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+
+                this.instance.sync();
+                return true;
+            }
         }
 
         return false;
@@ -633,7 +656,7 @@ export default class Editor {
         if (!selection.rangeCount || !selection.isCollapsed) return false;
 
         const range = selection.getRangeAt(0);
-        
+
         // Проверяем что курсор в начале
         if (range.startOffset !== 0) return false;
 
@@ -660,43 +683,48 @@ export default class Editor {
         // Преобразуем заголовок в параграф
         if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(block.tagName)) {
             e.preventDefault();
-            
+
             const p = document.createElement('p');
             while (block.firstChild) {
                 p.appendChild(block.firstChild);
             }
             if (!p.innerHTML.trim()) p.innerHTML = '<br>';
-            
+
             block.parentNode.replaceChild(p, block);
-            
+
             const newRange = document.createRange();
             newRange.setStart(p, 0);
             newRange.collapse(true);
             selection.removeAllRanges();
             selection.addRange(newRange);
-            
+
             this.instance.sync();
             return true;
         }
 
-        // Преобразуем цитату или aside в параграф
+        // Convert blockquote or aside to paragraph
         if (block.tagName === 'BLOCKQUOTE' || block.tagName === 'ASIDE') {
             e.preventDefault();
-            
+
             const p = document.createElement('p');
             while (block.firstChild) {
+                // Skip cite element when converting blockquote to paragraph
+                if (block.firstChild.nodeType === Node.ELEMENT_NODE && block.firstChild.tagName === 'CITE') {
+                    block.firstChild.remove();
+                    continue;
+                }
                 p.appendChild(block.firstChild);
             }
             if (!p.innerHTML.trim()) p.innerHTML = '<br>';
-            
+
             block.parentNode.replaceChild(p, block);
-            
+
             const newRange = document.createRange();
             newRange.setStart(p, 0);
             newRange.collapse(true);
             selection.removeAllRanges();
             selection.addRange(newRange);
-            
+
             this.instance.sync();
             return true;
         }
@@ -710,7 +738,7 @@ export default class Editor {
 
         const range = selection.getRangeAt(0);
         const inlineTags = ['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'A', 'CODE', 'SPAN', 'SUB', 'SUP'];
-        
+
         let node = range.endContainer;
         let offset = range.endOffset;
         let targetTag = null;
@@ -721,7 +749,7 @@ export default class Editor {
             prevChar = node.textContent[offset - 1];
         }
         const charToInsert = (prevChar === ' ') ? '\u00A0' : ' ';
-        
+
         // Логика выхода из форматирования
         const isAtEnd = (n, off) => {
             if (n.nodeType === Node.TEXT_NODE) return off === n.textContent.length;
@@ -746,13 +774,13 @@ export default class Editor {
             } else {
                 targetTag.parentNode.appendChild(space);
             }
-            
+
             const newRange = document.createRange();
             newRange.setStartAfter(space);
             newRange.collapse(true);
             selection.removeAllRanges();
             selection.addRange(newRange);
-            
+
             this.instance.sync();
             return;
         }
@@ -762,13 +790,13 @@ export default class Editor {
         if (textNode.nodeType === Node.TEXT_NODE) {
             const text = textNode.data;
             textNode.data = text.slice(0, offset) + charToInsert + text.slice(offset);
-            
+
             const newRange = document.createRange();
             newRange.setStart(textNode, offset + 1);
             newRange.collapse(true);
             selection.removeAllRanges();
             selection.addRange(newRange);
-            
+
             this.instance.sync();
         } else {
             const newTextNode = document.createTextNode(charToInsert);

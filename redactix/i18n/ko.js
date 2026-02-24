@@ -5,14 +5,14 @@ export default {
     // General
     chars: '자',
     words: '단어',
-    
+
     // Modal buttons
     save: '저장',
     cancel: '취소',
     remove: '제거',
     close: '닫기',
     delete: '삭제',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: '이미지 삽입',
@@ -31,7 +31,7 @@ export default {
         spoiler: '스포일러',
         link: '링크'
     },
-    
+
     // Image module
     image: {
         title: '이미지 삽입',
@@ -69,7 +69,7 @@ export default {
         closeGallery: '갤러리 닫기',
         deleteConfirm: '삭제'
     },
-    
+
     // Link module
     link: {
         title: '링크 삽입',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (nofollow 제외)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: '표 삽입',
@@ -104,14 +104,14 @@ export default {
         deleteTable: '표 삭제',
         headerPrefix: '헤더'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'YouTube 동영상 링크',
         invalidUrl: '잘못된 YouTube URL'
     },
-    
+
     // Code module
     code: {
         title: '코드 블록 삽입',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: '여기에 코드를 붙여넣으세요...',
         removeCodeBlock: '코드 블록 제거'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: '찾기...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: '다음 (Enter)',
         closeTooltip: '닫기 (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: '변환',
@@ -162,9 +162,12 @@ export default {
         attributes: '속성',
         cellSettings: '셀 설정',
         rowSettings: '행 설정',
-        dragEntireList: '전체 목록 드래그'
+        dragEntireList: '전체 목록 드래그',
+        citePlaceholder: '인용 추가...',
+        addCitation: '인용 추가',
+        removeCitation: '인용 제거'
     },
-    
+
     // Attributes module
     attributes: {
         title: '요소 속성',
@@ -175,7 +178,7 @@ export default {
         classes: '클래스 (공백으로 구분)',
         quickSelect: '빠른 선택'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: '명령을 찾을 수 없습니다',
@@ -204,7 +207,7 @@ export default {
         bulletList: '글머리 기호 목록',
         bulletListDesc: '글머리 기호가 있는 목록'
     },
-    
+
     // Upload errors
     upload: {
         error: '업로드 실패',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: '잘못된 서버 응답',
         remove: '제거'
     },
-    
+
     // Counter
     counter: {
         chars: '자',

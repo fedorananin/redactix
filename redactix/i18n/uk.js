@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'симв.',
     words: 'слів',
-    
+
     // Modal buttons
     save: 'Зберегти',
     cancel: 'Скасувати',
     remove: 'Видалити',
     close: 'Закрити',
     delete: 'Видалити',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Вставити зображення',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'Спойлер',
         link: 'Посилання'
     },
-    
+
     // Image module
     image: {
         title: 'Вставити зображення',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'Закрити галерею',
         deleteConfirm: 'Видалити'
     },
-    
+
     // Link module
     link: {
         title: 'Вставити посилання',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (крім nofollow)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'Вставити таблицю',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'Видалити таблицю',
         headerPrefix: 'Заголовок'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'Посилання на відео YouTube',
         invalidUrl: 'Невірний URL YouTube'
     },
-    
+
     // Code module
     code: {
         title: 'Вставити блок коду',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'Вставте ваш код тут...',
         removeCodeBlock: 'Видалити блок коду'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'Знайти...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'Наступний (Enter)',
         closeTooltip: 'Закрити (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'Перетворити на',
@@ -162,9 +162,12 @@ export default {
         attributes: 'Атрибути',
         cellSettings: 'Налаштування комірки',
         rowSettings: 'Налаштування рядка',
-        dragEntireList: 'Перетягнути весь список'
+        dragEntireList: 'Перетягнути весь список',
+        citePlaceholder: 'Автор цитати...',
+        addCitation: 'Додати автора',
+        removeCitation: 'Прибрати автора'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'Атрибути елемента',
@@ -175,7 +178,7 @@ export default {
         classes: 'Класи (через пробіл)',
         quickSelect: 'Швидкий вибір'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'Команди не знайдено',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'Маркований список',
         bulletListDesc: 'Список з маркерами'
     },
-    
+
     // Upload errors
     upload: {
         error: 'Помилка завантаження',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'Некоректна відповідь сервера',
         remove: 'Видалити'
     },
-    
+
     // Counter
     counter: {
         chars: 'симв.',

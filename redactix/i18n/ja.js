@@ -5,14 +5,14 @@ export default {
     // General
     chars: '文字',
     words: '語',
-    
+
     // Modal buttons
     save: '保存',
     cancel: 'キャンセル',
     remove: '削除',
     close: '閉じる',
     delete: '削除',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: '画像を挿入',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'スポイラー',
         link: 'リンク'
     },
-    
+
     // Image module
     image: {
         title: '画像を挿入',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'ギャラリーを閉じる',
         deleteConfirm: '削除'
     },
-    
+
     // Link module
     link: {
         title: 'リンクを挿入',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel（nofollow以外）',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: '表を挿入',
@@ -104,14 +104,14 @@ export default {
         deleteTable: '表を削除',
         headerPrefix: 'ヘッダー'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'YouTube動画リンク',
         invalidUrl: '無効なYouTube URL'
     },
-    
+
     // Code module
     code: {
         title: 'コードブロックを挿入',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'ここにコードを貼り付け...',
         removeCodeBlock: 'コードブロックを削除'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: '検索...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: '次へ (Enter)',
         closeTooltip: '閉じる (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: '変換',
@@ -162,9 +162,12 @@ export default {
         attributes: '属性',
         cellSettings: 'セル設定',
         rowSettings: '行設定',
-        dragEntireList: 'リスト全体をドラッグ'
+        dragEntireList: 'リスト全体をドラッグ',
+        citePlaceholder: '引用元を追加...',
+        addCitation: '引用元を追加',
+        removeCitation: '引用元を削除'
     },
-    
+
     // Attributes module
     attributes: {
         title: '要素の属性',
@@ -175,7 +178,7 @@ export default {
         classes: 'クラス（スペース区切り）',
         quickSelect: 'クイック選択'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'コマンドが見つかりません',
@@ -204,7 +207,7 @@ export default {
         bulletList: '箇条書きリスト',
         bulletListDesc: '箇条書きのリスト'
     },
-    
+
     // Upload errors
     upload: {
         error: 'アップロード失敗',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: '無効なサーバー応答',
         remove: '削除'
     },
-    
+
     // Counter
     counter: {
         chars: '文字',

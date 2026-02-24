@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'таңба',
     words: 'сөз',
-    
+
     // Modal buttons
     save: 'Сақтау',
     cancel: 'Болдырмау',
     remove: 'Жою',
     close: 'Жабу',
     delete: 'Өшіру',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Сурет қосу',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'Спойлер',
         link: 'Сілтеме'
     },
-    
+
     // Image module
     image: {
         title: 'Сурет қосу',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'Галереяны жабу',
         deleteConfirm: 'Өшіру'
     },
-    
+
     // Link module
     link: {
         title: 'Сілтеме қосу',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (nofollow-дан басқа)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'Кесте қосу',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'Кестені жою',
         headerPrefix: 'Тақырып'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'YouTube бейне сілтемесі',
         invalidUrl: 'Жарамсыз YouTube URL'
     },
-    
+
     // Code module
     code: {
         title: 'Код блогын қосу',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'Кодты осында қойыңыз...',
         removeCodeBlock: 'Код блогын жою'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'Табу...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'Келесі (Enter)',
         closeTooltip: 'Жабу (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'Түрлендіру',
@@ -162,9 +162,12 @@ export default {
         attributes: 'Атрибуттар',
         cellSettings: 'Ұяшық параметрлері',
         rowSettings: 'Жол параметрлері',
-        dragEntireList: 'Бүкіл тізімді сүйреу'
+        dragEntireList: 'Бүкіл тізімді сүйреу',
+        citePlaceholder: 'Дәйексөз қосу...',
+        addCitation: 'Дәйексөз қосу',
+        removeCitation: 'Дәйексөзді өшіру'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'Элемент атрибуттары',
@@ -175,7 +178,7 @@ export default {
         classes: 'Кластар (бос орынмен бөлінген)',
         quickSelect: 'Жылдам таңдау'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'Командалар табылмады',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'Маркерлі тізім',
         bulletListDesc: 'Маркерлі тізім'
     },
-    
+
     // Upload errors
     upload: {
         error: 'Жүктеу сәтсіз',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'Жарамсыз сервер жауабы',
         remove: 'Жою'
     },
-    
+
     // Counter
     counter: {
         chars: 'таңба',

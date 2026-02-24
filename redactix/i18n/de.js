@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'Zeichen',
     words: 'Wörter',
-    
+
     // Modal buttons
     save: 'Speichern',
     cancel: 'Abbrechen',
     remove: 'Entfernen',
     close: 'Schließen',
     delete: 'Löschen',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Bild einfügen',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'Spoiler',
         link: 'Link'
     },
-    
+
     // Image module
     image: {
         title: 'Bild einfügen',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'Galerie schließen',
         deleteConfirm: 'Löschen'
     },
-    
+
     // Link module
     link: {
         title: 'Link einfügen',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (außer nofollow)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'Tabelle einfügen',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'Tabelle löschen',
         headerPrefix: 'Kopfzeile'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'YouTube-Video-Link',
         invalidUrl: 'Ungültige YouTube-URL'
     },
-    
+
     // Code module
     code: {
         title: 'Codeblock einfügen',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'Code hier einfügen...',
         removeCodeBlock: 'Codeblock entfernen'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'Suchen...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'Nächster (Eingabe)',
         closeTooltip: 'Schließen (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'Umwandeln in',
@@ -162,9 +162,12 @@ export default {
         attributes: 'Attribute',
         cellSettings: 'Zelleneinstellungen',
         rowSettings: 'Zeileneinstellungen',
-        dragEntireList: 'Gesamte Liste ziehen'
+        dragEntireList: 'Gesamte Liste ziehen',
+        citePlaceholder: 'Zitat hinzufügen...',
+        addCitation: 'Zitat hinzufügen',
+        removeCitation: 'Zitat entfernen'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'Elementattribute',
@@ -175,7 +178,7 @@ export default {
         classes: 'Klassen (durch Leerzeichen getrennt)',
         quickSelect: 'Schnellauswahl'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'Keine Befehle gefunden',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'Aufzählungsliste',
         bulletListDesc: 'Liste mit Aufzählungszeichen'
     },
-    
+
     // Upload errors
     upload: {
         error: 'Hochladen fehlgeschlagen',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'Ungültige Serverantwort',
         remove: 'Entfernen'
     },
-    
+
     // Counter
     counter: {
         chars: 'Zeichen',

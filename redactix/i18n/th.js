@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'ตัวอักษร',
     words: 'คำ',
-    
+
     // Modal buttons
     save: 'บันทึก',
     cancel: 'ยกเลิก',
     remove: 'ลบ',
     close: 'ปิด',
     delete: 'ลบ',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'แทรกรูปภาพ',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'สปอยเลอร์',
         link: 'ลิงก์'
     },
-    
+
     // Image module
     image: {
         title: 'แทรกรูปภาพ',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'ปิดแกลเลอรี',
         deleteConfirm: 'ลบ'
     },
-    
+
     // Link module
     link: {
         title: 'แทรกลิงก์',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (ยกเว้น nofollow)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'แทรกตาราง',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'ลบตาราง',
         headerPrefix: 'หัวตาราง'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'ลิงก์วิดีโอ YouTube',
         invalidUrl: 'URL YouTube ไม่ถูกต้อง'
     },
-    
+
     // Code module
     code: {
         title: 'แทรกบล็อกโค้ด',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'วางโค้ดของคุณที่นี่...',
         removeCodeBlock: 'ลบบล็อกโค้ด'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'ค้นหา...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'ถัดไป (Enter)',
         closeTooltip: 'ปิด (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'แปลงเป็น',
@@ -162,9 +162,12 @@ export default {
         attributes: 'คุณสมบัติ',
         cellSettings: 'การตั้งค่าเซลล์',
         rowSettings: 'การตั้งค่าแถว',
-        dragEntireList: 'ลากรายการทั้งหมด'
+        dragEntireList: 'ลากรายการทั้งหมด',
+        citePlaceholder: 'เพิ่มการอ้างอิง...',
+        addCitation: 'เพิ่มการอ้างอิง',
+        removeCitation: 'ลบการอ้างอิง'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'คุณสมบัติองค์ประกอบ',
@@ -175,7 +178,7 @@ export default {
         classes: 'คลาส (คั่นด้วยช่องว่าง)',
         quickSelect: 'เลือกด่วน'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'ไม่พบคำสั่ง',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'รายการแบบสัญลักษณ์',
         bulletListDesc: 'รายการที่มีสัญลักษณ์'
     },
-    
+
     // Upload errors
     upload: {
         error: 'อัปโหลดล้มเหลว',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'การตอบกลับเซิร์ฟเวอร์ไม่ถูกต้อง',
         remove: 'ลบ'
     },
-    
+
     // Counter
     counter: {
         chars: 'ตัวอักษร',

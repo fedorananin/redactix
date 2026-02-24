@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'תווים',
     words: 'מילים',
-    
+
     // Modal buttons
     save: 'שמור',
     cancel: 'ביטול',
     remove: 'הסר',
     close: 'סגור',
     delete: 'מחק',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'הוסף תמונה',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'ספוילר',
         link: 'קישור'
     },
-    
+
     // Image module
     image: {
         title: 'הוסף תמונה',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'סגור גלריה',
         deleteConfirm: 'מחק'
     },
-    
+
     // Link module
     link: {
         title: 'הוסף קישור',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (מלבד nofollow)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'הוסף טבלה',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'מחק טבלה',
         headerPrefix: 'כותרת'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'קישור לסרטון YouTube',
         invalidUrl: 'כתובת YouTube לא תקינה'
     },
-    
+
     // Code module
     code: {
         title: 'הוסף בלוק קוד',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'הדבק את הקוד כאן...',
         removeCodeBlock: 'הסר בלוק קוד'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'חיפוש...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'הבא (Enter)',
         closeTooltip: 'סגור (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'המר ל',
@@ -162,9 +162,12 @@ export default {
         attributes: 'מאפיינים',
         cellSettings: 'הגדרות תא',
         rowSettings: 'הגדרות שורה',
-        dragEntireList: 'גרור את כל הרשימה'
+        dragEntireList: 'גרור את כל הרשימה',
+        citePlaceholder: 'הוסף ציטוט...',
+        addCitation: 'הוסף ציטוט',
+        removeCitation: 'הסר ציטוט'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'מאפייני אלמנט',
@@ -175,7 +178,7 @@ export default {
         classes: 'מחלקות (מופרדות ברווח)',
         quickSelect: 'בחירה מהירה'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'לא נמצאו פקודות',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'רשימת תבליטים',
         bulletListDesc: 'רשימה עם תבליטים'
     },
-    
+
     // Upload errors
     upload: {
         error: 'ההעלאה נכשלה',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'תגובת שרת לא תקינה',
         remove: 'הסר'
     },
-    
+
     // Counter
     counter: {
         chars: 'תווים',

@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'caract.',
     words: 'palabras',
-    
+
     // Modal buttons
     save: 'Guardar',
     cancel: 'Cancelar',
     remove: 'Eliminar',
     close: 'Cerrar',
     delete: 'Eliminar',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Insertar imagen',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'Spoiler',
         link: 'Enlace'
     },
-    
+
     // Image module
     image: {
         title: 'Insertar imagen',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'Cerrar galería',
         deleteConfirm: 'Eliminar'
     },
-    
+
     // Link module
     link: {
         title: 'Insertar enlace',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (excepto nofollow)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'Insertar tabla',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'Eliminar tabla',
         headerPrefix: 'Encabezado'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'Enlace de video de YouTube',
         invalidUrl: 'URL de YouTube inválida'
     },
-    
+
     // Code module
     code: {
         title: 'Insertar bloque de código',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'Pega tu código aquí...',
         removeCodeBlock: 'Eliminar bloque de código'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'Buscar...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'Siguiente (Enter)',
         closeTooltip: 'Cerrar (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'Transformar en',
@@ -162,9 +162,12 @@ export default {
         attributes: 'Atributos',
         cellSettings: 'Configuración de celda',
         rowSettings: 'Configuración de fila',
-        dragEntireList: 'Arrastrar lista completa'
+        dragEntireList: 'Arrastrar lista completa',
+        citePlaceholder: 'Añadir cita...',
+        addCitation: 'Añadir cita',
+        removeCitation: 'Eliminar cita'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'Atributos del elemento',
@@ -175,7 +178,7 @@ export default {
         classes: 'Clases (separadas por espacio)',
         quickSelect: 'Selección rápida'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'No se encontraron comandos',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'Lista con viñetas',
         bulletListDesc: 'Lista con viñetas'
     },
-    
+
     // Upload errors
     upload: {
         error: 'Error al subir',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'Respuesta de servidor inválida',
         remove: 'Eliminar'
     },
-    
+
     // Counter
     counter: {
         chars: 'caract.',

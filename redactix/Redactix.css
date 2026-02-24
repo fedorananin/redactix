@@ -302,6 +302,25 @@
     color: var(--redactix-text-muted);
 }
 
+/* Blockquote cite - author attribution */
+.redactix-editor blockquote cite {
+    display: block;
+    margin-top: 0.5em;
+    font-size: 0.875em;
+    font-style: normal;
+    color: var(--redactix-text-muted);
+    opacity: 0.8;
+}
+
+/* Placeholder for empty cite */
+.redactix-editor blockquote cite:empty::before,
+.redactix-editor blockquote cite:has(> br:only-child)::before {
+    content: attr(data-placeholder);
+    color: var(--redactix-text-placeholder);
+    font-style: italic;
+    pointer-events: none;
+}
+
 /* Blockquote presets */
 .redactix-editor blockquote.big {
     font-size: 1.5em;
@@ -313,6 +332,11 @@
     background: transparent;
     color: var(--redactix-text);
     font-style: italic;
+}
+
+.redactix-editor blockquote.big cite {
+    font-size: 0.6em;
+    text-align: center;
 }
 
 /* Callout (aside) - базовый стиль (серый, без класса) */

@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'znakova',
     words: 'reči',
-    
+
     // Modal buttons
     save: 'Sačuvaj',
     cancel: 'Otkaži',
     remove: 'Ukloni',
     close: 'Zatvori',
     delete: 'Obriši',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Ubaci sliku',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'Spojler',
         link: 'Link'
     },
-    
+
     // Image module
     image: {
         title: 'Ubaci sliku',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'Zatvori galeriju',
         deleteConfirm: 'Obriši'
     },
-    
+
     // Link module
     link: {
         title: 'Ubaci link',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (osim nofollow)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'Ubaci tabelu',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'Obriši tabelu',
         headerPrefix: 'Zaglavlje'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'Link YouTube videa',
         invalidUrl: 'Nevažeći YouTube URL'
     },
-    
+
     // Code module
     code: {
         title: 'Ubaci blok koda',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'Nalepi svoj kod ovde...',
         removeCodeBlock: 'Ukloni blok koda'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'Pronađi...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'Sledeći (Enter)',
         closeTooltip: 'Zatvori (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'Pretvori u',
@@ -162,9 +162,12 @@ export default {
         attributes: 'Atributi',
         cellSettings: 'Podešavanja ćelije',
         rowSettings: 'Podešavanja reda',
-        dragEntireList: 'Prevuci celu listu'
+        dragEntireList: 'Prevuci celu listu',
+        citePlaceholder: 'Dodaj citat...',
+        addCitation: 'Dodaj citat',
+        removeCitation: 'Ukloni citat'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'Atributi elementa',
@@ -175,7 +178,7 @@ export default {
         classes: 'Klase (razdvojene razmakom)',
         quickSelect: 'Brzi izbor'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'Komande nisu pronađene',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'Lista sa tačkama',
         bulletListDesc: 'Lista sa tačkama'
     },
-    
+
     // Upload errors
     upload: {
         error: 'Otpremanje nije uspelo',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'Nevažeći odgovor servera',
         remove: 'Ukloni'
     },
-    
+
     // Counter
     counter: {
         chars: 'znakova',

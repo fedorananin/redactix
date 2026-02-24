@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'სიმბ.',
     words: 'სიტყვა',
-    
+
     // Modal buttons
     save: 'შენახვა',
     cancel: 'გაუქმება',
     remove: 'წაშლა',
     close: 'დახურვა',
     delete: 'წაშლა',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'სურათის ჩასმა',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'სპოილერი',
         link: 'ბმული'
     },
-    
+
     // Image module
     image: {
         title: 'სურათის ჩასმა',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'გალერეის დახურვა',
         deleteConfirm: 'წაშლა'
     },
-    
+
     // Link module
     link: {
         title: 'ბმულის ჩასმა',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (nofollow-ს გარდა)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'ცხრილის ჩასმა',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'ცხრილის წაშლა',
         headerPrefix: 'სათაური'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'YouTube ვიდეოს ბმული',
         invalidUrl: 'არასწორი YouTube URL'
     },
-    
+
     // Code module
     code: {
         title: 'კოდის ბლოკის ჩასმა',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'ჩასვით კოდი აქ...',
         removeCodeBlock: 'კოდის ბლოკის წაშლა'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'ძებნა...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'შემდეგი (Enter)',
         closeTooltip: 'დახურვა (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'გარდაქმნა',
@@ -162,9 +162,12 @@ export default {
         attributes: 'ატრიბუტები',
         cellSettings: 'უჯრედის პარამეტრები',
         rowSettings: 'მწკრივის პარამეტრები',
-        dragEntireList: 'მთელი სიის გადატანა'
+        dragEntireList: 'მთელი სიის გადატანა',
+        citePlaceholder: 'ციტატის დამატება...',
+        addCitation: 'ციტატის დამატება',
+        removeCitation: 'ციტატის წაშლა'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'ელემენტის ატრიბუტები',
@@ -175,7 +178,7 @@ export default {
         classes: 'კლასები (გამოყოფილი ინტერვალით)',
         quickSelect: 'სწრაფი არჩევა'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'ბრძანებები ვერ მოიძებნა',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'მარკირებული სია',
         bulletListDesc: 'სია მარკერებით'
     },
-    
+
     // Upload errors
     upload: {
         error: 'ატვირთვა ვერ მოხერხდა',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'არასწორი სერვერის პასუხი',
         remove: 'წაშლა'
     },
-    
+
     // Counter
     counter: {
         chars: 'სიმბ.',

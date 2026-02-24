@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'caract.',
     words: 'mots',
-    
+
     // Modal buttons
     save: 'Enregistrer',
     cancel: 'Annuler',
     remove: 'Supprimer',
     close: 'Fermer',
     delete: 'Supprimer',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Insérer une image',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'Spoiler',
         link: 'Lien'
     },
-    
+
     // Image module
     image: {
         title: 'Insérer une image',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'Fermer la galerie',
         deleteConfirm: 'Supprimer'
     },
-    
+
     // Link module
     link: {
         title: 'Insérer un lien',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (sauf nofollow)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'Insérer un tableau',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'Supprimer le tableau',
         headerPrefix: 'En-tête'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'Lien vidéo YouTube',
         invalidUrl: 'URL YouTube invalide'
     },
-    
+
     // Code module
     code: {
         title: 'Insérer un bloc de code',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'Collez votre code ici...',
         removeCodeBlock: 'Supprimer le bloc de code'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'Rechercher...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'Suivant (Entrée)',
         closeTooltip: 'Fermer (Échap)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'Transformer en',
@@ -162,9 +162,12 @@ export default {
         attributes: 'Attributs',
         cellSettings: 'Paramètres de la cellule',
         rowSettings: 'Paramètres de la ligne',
-        dragEntireList: 'Faire glisser toute la liste'
+        dragEntireList: 'Faire glisser toute la liste',
+        citePlaceholder: 'Ajouter une citation...',
+        addCitation: 'Ajouter une citation',
+        removeCitation: 'Supprimer la citation'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'Attributs de l\'élément',
@@ -175,7 +178,7 @@ export default {
         classes: 'Classes (séparées par des espaces)',
         quickSelect: 'Sélection rapide'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'Aucune commande trouvée',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'Liste à puces',
         bulletListDesc: 'Liste avec puces'
     },
-    
+
     // Upload errors
     upload: {
         error: 'Échec du chargement',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'Réponse serveur invalide',
         remove: 'Supprimer'
     },
-    
+
     // Counter
     counter: {
         chars: 'caract.',

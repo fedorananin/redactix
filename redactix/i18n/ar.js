@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'حرف',
     words: 'كلمة',
-    
+
     // Modal buttons
     save: 'حفظ',
     cancel: 'إلغاء',
     remove: 'إزالة',
     close: 'إغلاق',
     delete: 'حذف',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'إدراج صورة',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'مخفي',
         link: 'رابط'
     },
-    
+
     // Image module
     image: {
         title: 'إدراج صورة',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'إغلاق المعرض',
         deleteConfirm: 'حذف'
     },
-    
+
     // Link module
     link: {
         title: 'إدراج رابط',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (باستثناء nofollow)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'إدراج جدول',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'حذف الجدول',
         headerPrefix: 'العنوان'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'يوتيوب',
         videoLink: 'رابط فيديو يوتيوب',
         invalidUrl: 'رابط يوتيوب غير صالح'
     },
-    
+
     // Code module
     code: {
         title: 'إدراج كتلة برمجية',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'الصق الكود هنا...',
         removeCodeBlock: 'إزالة الكتلة البرمجية'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'بحث...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'التالي (Enter)',
         closeTooltip: 'إغلاق (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'تحويل إلى',
@@ -162,9 +162,12 @@ export default {
         attributes: 'الخصائص',
         cellSettings: 'إعدادات الخلية',
         rowSettings: 'إعدادات الصف',
-        dragEntireList: 'سحب القائمة بأكملها'
+        dragEntireList: 'سحب القائمة بأكملها',
+        citePlaceholder: 'إضافة اقتباس...',
+        addCitation: 'إضافة اقتباس',
+        removeCitation: 'إزالة الاقتباس'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'خصائص العنصر',
@@ -175,7 +178,7 @@ export default {
         classes: 'الفئات (مفصولة بمسافات)',
         quickSelect: 'اختيار سريع'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'لم يتم العثور على أوامر',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'قائمة نقطية',
         bulletListDesc: 'قائمة بنقاط'
     },
-    
+
     // Upload errors
     upload: {
         error: 'فشل الرفع',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'استجابة خادم غير صالحة',
         remove: 'إزالة'
     },
-    
+
     // Counter
     counter: {
         chars: 'حرف',

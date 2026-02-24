@@ -5,14 +5,14 @@ export default {
     // General
     chars: 'herufi',
     words: 'maneno',
-    
+
     // Modal buttons
     save: 'Hifadhi',
     cancel: 'Ghairi',
     remove: 'Ondoa',
     close: 'Funga',
     delete: 'Futa',
-    
+
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Ingiza picha',
@@ -31,7 +31,7 @@ export default {
         spoiler: 'Spoiler',
         link: 'Kiungo'
     },
-    
+
     // Image module
     image: {
         title: 'Ingiza picha',
@@ -69,7 +69,7 @@ export default {
         closeGallery: 'Funga matunzio',
         deleteConfirm: 'Futa'
     },
-    
+
     // Link module
     link: {
         title: 'Ingiza kiungo',
@@ -83,7 +83,7 @@ export default {
         relExceptNofollow: 'Rel (isipokuwa nofollow)',
         relPlaceholder: 'sponsored, ugc, ...'
     },
-    
+
     // Table module
     table: {
         title: 'Ingiza jedwali',
@@ -104,14 +104,14 @@ export default {
         deleteTable: 'Futa jedwali',
         headerPrefix: 'Kichwa'
     },
-    
+
     // YouTube module
     youtube: {
         title: 'YouTube',
         videoLink: 'Kiungo cha video ya YouTube',
         invalidUrl: 'URL ya YouTube si sahihi'
     },
-    
+
     // Code module
     code: {
         title: 'Ingiza kipande cha msimbo',
@@ -121,7 +121,7 @@ export default {
         codePlaceholder: 'Bandika msimbo wako hapa...',
         removeCodeBlock: 'Ondoa kipande cha msimbo'
     },
-    
+
     // Find & Replace module
     findReplace: {
         findPlaceholder: 'Tafuta...',
@@ -134,7 +134,7 @@ export default {
         nextTooltip: 'Unaofuata (Enter)',
         closeTooltip: 'Funga (Esc)'
     },
-    
+
     // Block Control module
     blockControl: {
         transformTo: 'Badilisha kuwa',
@@ -162,9 +162,12 @@ export default {
         attributes: 'Sifa',
         cellSettings: 'Mipangilio ya seli',
         rowSettings: 'Mipangilio ya safu mlalo',
-        dragEntireList: 'Buruta orodha nzima'
+        dragEntireList: 'Buruta orodha nzima',
+        citePlaceholder: 'Ongeza nukuu...',
+        addCitation: 'Ongeza nukuu',
+        removeCitation: 'Ondoa nukuu'
     },
-    
+
     // Attributes module
     attributes: {
         title: 'Sifa za kipengele',
@@ -175,7 +178,7 @@ export default {
         classes: 'Madarasa (yaliyotenganishwa na nafasi)',
         quickSelect: 'Chaguo la haraka'
     },
-    
+
     // Slash Commands
     slashCommands: {
         noCommands: 'Hakuna amri zilizopatikana',
@@ -204,7 +207,7 @@ export default {
         bulletList: 'Orodha yenye vitone',
         bulletListDesc: 'Orodha yenye vitone'
     },
-    
+
     // Upload errors
     upload: {
         error: 'Upakiaji umeshindwa',
@@ -213,7 +216,7 @@ export default {
         invalidResponse: 'Jibu la seva si sahihi',
         remove: 'Ondoa'
     },
-    
+
     // Counter
     counter: {
         chars: 'herufi',
