@@ -32,12 +32,12 @@ export default class Image extends Module {
             this.initDragDrop();
             this.initPasteUpload();
         }
-        
+
         // Обработка base64 изображений после вставки (из Google Docs и т.п.)
         // В lite mode base64 изображения удаляются
         this.initBase64Handler();
     }
-    
+
     /**
      * Обработка base64 изображений после вставки
      */
@@ -59,13 +59,13 @@ export default class Image extends Module {
                 });
             });
         });
-        
+
         observer.observe(this.instance.editorEl, {
             childList: true,
             subtree: true
         });
     }
-    
+
     /**
      * Обработка одного base64 изображения
      */
@@ -82,55 +82,55 @@ export default class Image extends Module {
             console.warn('Redactix: Base64 image removed' + (this.liteMode ? ' (lite mode)' : ' (no uploadUrl configured)'));
             return;
         }
-        
+
         const src = img.getAttribute('src');
         if (!src || !src.startsWith('data:image/')) return;
-        
+
         // Показываем индикатор загрузки
         const figure = img.closest('figure');
         if (figure) {
             figure.classList.add('redactix-uploading');
         }
         img.style.opacity = '0.5';
-        
+
         try {
             // Конвертируем base64 в File
             const file = this.base64ToFile(src);
-            
+
             // Загружаем на сервер
             const formData = new FormData();
             formData.append('image', file);
-            
+
             const response = await fetch(this.uploadUrl, {
                 method: 'POST',
                 body: formData
             });
-            
+
             if (!response.ok && response.status !== 400) {
                 throw new Error(`Server error (${response.status})`);
             }
-            
+
             const result = await response.json();
-            
+
             if (result.success) {
                 // Заменяем src на URL с сервера
                 img.setAttribute('src', result.src);
                 if (result.srcset) img.setAttribute('srcset', result.srcset);
                 if (result.alt) img.setAttribute('alt', result.alt);
                 if (result.title) img.setAttribute('title', result.title);
-                
+
                 img.style.opacity = '';
                 if (figure) {
                     figure.classList.remove('redactix-uploading');
                 }
-                
+
                 this.instance.sync();
             } else {
                 throw new Error(result.error || 'Upload failed');
             }
         } catch (error) {
             console.error('Redactix: Failed to upload base64 image:', error);
-            
+
             // Показываем ошибку и удаляем изображение
             img.style.opacity = '';
             if (figure) {
@@ -142,7 +142,7 @@ export default class Image extends Module {
             this.instance.sync();
         }
     }
-    
+
     /**
      * Конвертация base64 в File
      */
@@ -152,17 +152,17 @@ export default class Image extends Module {
         if (!matches) {
             throw new Error('Invalid data URL');
         }
-        
+
         const mimeType = matches[1];
         const base64Data = matches[2];
-        
+
         // Декодируем base64
         const byteString = atob(base64Data);
         const byteArray = new Uint8Array(byteString.length);
         for (let i = 0; i < byteString.length; i++) {
             byteArray[i] = byteString.charCodeAt(i);
         }
-        
+
         // Определяем расширение
         const extMap = {
             'image/jpeg': 'jpg',
@@ -173,7 +173,7 @@ export default class Image extends Module {
             'image/avif': 'avif'
         };
         const ext = extMap[mimeType] || 'png';
-        
+
         // Создаём File
         const blob = new Blob([byteArray], { type: mimeType });
         return new File([blob], `pasted-image.${ext}`, { type: mimeType });
@@ -242,7 +242,7 @@ export default class Image extends Module {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
-                
+
                 this.uploadFilesAtCursor(imageFiles);
             }
         }, true); // capture: true - перехватываем на фазе погружения
@@ -369,6 +369,7 @@ export default class Image extends Module {
 
         placeholder.replaceWith(figure);
         this.instance.sync();
+        if (this.instance.core) this.instance.core.ensureTrailingParagraph();
     }
 
     /**
@@ -394,7 +395,7 @@ export default class Image extends Module {
         });
     }
 
-getButtons() {
+    getButtons() {
         return [
             {
                 name: 'image',
@@ -412,10 +413,10 @@ getButtons() {
             this.openLiteModal(existingFigure, existingImg);
             return;
         }
-        
+
         this.instance.selection.save();
         this.currentFigure = existingFigure;
-        
+
         // Извлекаем существующие данные
         let existingData = {
             url: 'https://',
@@ -429,12 +430,12 @@ getButtons() {
             isNofollow: false,
             relExtra: '' // Дополнительные значения rel (кроме nofollow)
         };
-        
+
         if (existingFigure) {
             const img = existingFigure.querySelector('img');
             const figcaption = existingFigure.querySelector('figcaption');
             const link = existingFigure.querySelector('a');
-            
+
             if (img) {
                 existingData.url = img.getAttribute('src') || 'https://';
                 existingData.alt = img.getAttribute('alt') || '';
@@ -461,7 +462,7 @@ getButtons() {
             existingData.srcset = existingImg.getAttribute('srcset') || '';
             existingData.title = existingImg.getAttribute('title') || '';
             existingData.loading = existingImg.getAttribute('loading') || '';
-            
+
             const link = existingImg.closest('a');
             if (link) {
                 existingData.linkUrl = link.getAttribute('href') || '';
@@ -470,7 +471,7 @@ getButtons() {
                 existingData.relExtra = (link.rel || '').split(/\s+/).filter(r => r && r !== 'nofollow').join(' ');
             }
         }
-        
+
         const isEditing = existingFigure || existingImg;
 
         const form = document.createElement('div');
@@ -478,7 +479,7 @@ getButtons() {
         // Блок загрузки файла (если есть uploadUrl)
         let fileInput = null;
         let uploadStatus = null;
-        
+
         if (this.uploadUrl) {
             const uploadGroup = document.createElement('div');
             uploadGroup.className = 'redactix-upload-group';
@@ -549,7 +550,7 @@ getButtons() {
         if (this.browseUrl) {
             browseContainer = document.createElement('div');
             browseContainer.style.marginBottom = '16px';
-            
+
             const browseBtn = document.createElement('button');
             browseBtn.type = 'button';
             browseBtn.textContent = this.t('image.chooseFromUploaded');
@@ -562,14 +563,14 @@ getButtons() {
             browseBtn.style.fontSize = '14px';
             browseBtn.style.color = '#374151';
             browseBtn.style.transition = 'background 0.15s';
-            
+
             browseBtn.addEventListener('mouseenter', () => {
                 browseBtn.style.background = '#e5e7eb';
             });
             browseBtn.addEventListener('mouseleave', () => {
                 browseBtn.style.background = '#f3f4f6';
             });
-            
+
             browseBtn.addEventListener('click', () => {
                 this.openBrowsePanel(browseContainer, (imageData) => {
                     // Заполняем поля данными выбранного изображения
@@ -579,11 +580,11 @@ getButtons() {
                     if (titleInput && imageData.title) titleInput.value = imageData.title;
                 });
             });
-            
+
             browseContainer.appendChild(browseBtn);
             form.appendChild(browseContainer);
         }
-        
+
         // Разделитель "или" (если есть upload или browse)
         if (this.uploadUrl || this.browseUrl) {
             const orDivider = document.createElement('div');
@@ -598,11 +599,11 @@ getButtons() {
             `;
             form.appendChild(orDivider);
         }
-        
+
         // Сетка для полей (2 колонки на ПК, 1 на мобильных)
         const grid = document.createElement('div');
         grid.className = 'redactix-modal-grid';
-        
+
         // Основные поля
         const urlGroup = this.createInputGroup(this.t('image.url') + ' *', 'text', existingData.url);
         urlGroup.className = 'redactix-modal-full-width';
@@ -642,14 +643,14 @@ getButtons() {
         linkSection.style.borderTop = '1px solid #e5e7eb';
         linkSection.style.marginTop = '8px';
         linkSection.style.paddingTop = '15px';
-        
+
         const linkTitle = document.createElement('div');
         linkTitle.textContent = this.t('image.linkSection');
         linkTitle.style.fontWeight = '600';
         linkTitle.style.marginBottom = '10px';
         linkTitle.style.fontSize = '14px';
         linkSection.appendChild(linkTitle);
-        
+
         // Сетка для полей ссылки
         const linkGrid = document.createElement('div');
         linkGrid.className = 'redactix-modal-grid';
@@ -658,12 +659,12 @@ getButtons() {
         const linkGroup = this.createInputGroup(this.t('image.linkUrl'), 'text', existingData.linkUrl);
         const linkInput = linkGroup.querySelector('input');
         linkInput.placeholder = this.t('image.linkUrlPlaceholder');
-        
+
         // Rel (дополнительные значения)
         const relGroup = this.createInputGroup(this.t('image.relExceptNofollow'), 'text', existingData.relExtra);
         const relInput = relGroup.querySelector('input');
         relInput.placeholder = this.t('image.relPlaceholder');
-        
+
         linkGrid.append(linkGroup, relGroup);
         linkSection.appendChild(linkGrid);
 
@@ -698,7 +699,7 @@ getButtons() {
 
         checksDiv.append(targetLabel, nofollowLabel);
         linkSection.appendChild(checksDiv);
-        
+
         // Добавляем секцию ссылки в основную сетку
         grid.appendChild(linkSection);
 
@@ -853,13 +854,13 @@ getButtons() {
     openLiteModal(existingFigure = null, existingImg = null) {
         this.instance.selection.save();
         this.currentFigure = existingFigure;
-        
+
         // Извлекаем существующие данные
         let existingData = {
             url: 'https://',
             alt: ''
         };
-        
+
         if (existingFigure) {
             const img = existingFigure.querySelector('img');
             if (img) {
@@ -870,11 +871,11 @@ getButtons() {
             existingData.url = existingImg.getAttribute('src') || 'https://';
             existingData.alt = existingImg.getAttribute('alt') || '';
         }
-        
+
         const isEditing = existingFigure || existingImg;
 
         const form = document.createElement('div');
-        
+
         // Только URL и Alt - простая форма
         const urlGroup = this.createInputGroup(this.t('image.url') + ' *', 'text', existingData.url);
         const urlInput = urlGroup.querySelector('input');
@@ -931,7 +932,7 @@ getButtons() {
      */
     updateImageLite(existingFigure, existingImg, options) {
         const { url, alt } = options;
-        
+
         if (existingFigure) {
             let img = existingFigure.querySelector('img');
             if (!img) {
@@ -949,14 +950,14 @@ getButtons() {
             // Оборачиваем в figure для консистентности
             const figure = document.createElement('figure');
             figure.contentEditable = 'false';
-            
+
             existingImg.setAttribute('src', url);
             if (alt) existingImg.setAttribute('alt', alt); else existingImg.removeAttribute('alt');
             existingImg.setAttribute('loading', 'lazy');
-            
+
             existingImg.parentNode.insertBefore(figure, existingImg);
             figure.appendChild(existingImg);
-            
+
             // Добавляем пустой figcaption
             const figcaption = document.createElement('figcaption');
             figcaption.contentEditable = 'true';
@@ -970,18 +971,18 @@ getButtons() {
      */
     insertImageLite(options) {
         const { url, alt } = options;
-        
+
         // Создаём figure для консистентности с полной версией
         const figure = document.createElement('figure');
         figure.contentEditable = 'false';
-        
+
         const img = document.createElement('img');
         img.setAttribute('src', url);
         img.setAttribute('loading', 'lazy'); // По умолчанию lazy в lite mode
         if (alt) img.setAttribute('alt', alt);
-        
+
         figure.appendChild(img);
-        
+
         // Добавляем пустой figcaption для возможности ввода подписи
         const figcaption = document.createElement('figcaption');
         figcaption.contentEditable = 'true';
@@ -989,6 +990,7 @@ getButtons() {
         figure.appendChild(figcaption);
 
         this.instance.selection.insertNode(figure);
+        if (this.instance.core) this.instance.core.ensureTrailingParagraph();
     }
 
     /**
@@ -1006,10 +1008,10 @@ getButtons() {
                 <div style="margin-top: 8px;">${this.t('image.loadingImages')}</div>
             </div>
         `;
-        
+
         const browseFormData = new FormData();
         browseFormData.append('action', 'browse');
-        
+
         fetch(this.browseUrl, {
             method: 'POST',
             body: browseFormData
@@ -1020,12 +1022,12 @@ getButtons() {
                     container.innerHTML = `<div style="color: #dc2626; padding: 10px;">Error: ${data.error || 'Failed to load images'}</div>`;
                     return;
                 }
-                
+
                 if (data.images.length === 0) {
                     container.innerHTML = `<div style="color: #6b7280; padding: 20px; text-align: center;">${this.t('image.noImages')}</div>`;
                     return;
                 }
-                
+
                 this.renderBrowseGrid(container, data.images, data.allowDelete, onSelect);
             })
             .catch(error => {
@@ -1038,7 +1040,7 @@ getButtons() {
      */
     renderBrowseGrid(container, images, allowDelete, onSelect) {
         container.innerHTML = '';
-        
+
         const grid = document.createElement('div');
         grid.style.display = 'grid';
         grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(100px, 1fr))';
@@ -1049,7 +1051,7 @@ getButtons() {
         grid.style.background = '#f9fafb';
         grid.style.borderRadius = '8px';
         grid.style.border = '1px solid #e5e7eb';
-        
+
         images.forEach(img => {
             const item = document.createElement('div');
             item.style.position = 'relative';
@@ -1060,7 +1062,7 @@ getButtons() {
             item.style.border = '2px solid transparent';
             item.style.transition = 'border-color 0.15s, transform 0.15s';
             item.style.background = '#fff';
-            
+
             // Превью изображения
             const preview = document.createElement('img');
             preview.src = img.src;
@@ -1068,10 +1070,10 @@ getButtons() {
             preview.style.height = '100%';
             preview.style.objectFit = 'cover';
             preview.alt = img.filename;
-            
+
             // Tooltip с информацией
             item.title = `${img.filename}\n${img.size}`;
-            
+
             // Hover эффект
             item.addEventListener('mouseenter', () => {
                 item.style.borderColor = '#3b82f6';
@@ -1081,7 +1083,7 @@ getButtons() {
                 item.style.borderColor = 'transparent';
                 item.style.transform = 'scale(1)';
             });
-            
+
             // Клик для выбора
             item.addEventListener('click', () => {
                 onSelect(img);
@@ -1092,9 +1094,9 @@ getButtons() {
                     this.restoreBrowseButton(container, onSelect);
                 }, 1500);
             });
-            
+
             item.appendChild(preview);
-            
+
             // Кнопка удаления (если разрешено)
             if (allowDelete) {
                 const deleteBtn = document.createElement('button');
@@ -1115,24 +1117,24 @@ getButtons() {
                 deleteBtn.style.lineHeight = '1';
                 deleteBtn.style.display = 'none';
                 deleteBtn.title = 'Delete image';
-                
+
                 item.addEventListener('mouseenter', () => {
                     deleteBtn.style.display = 'block';
                 });
                 item.addEventListener('mouseleave', () => {
                     deleteBtn.style.display = 'none';
                 });
-                
+
                 deleteBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (confirm(`Delete ${img.filename}?`)) {
                         this.deleteImage(img.filename, container, onSelect);
                     }
                 });
-                
+
                 item.appendChild(deleteBtn);
             }
-            
+
             // Информация о файле
             const info = document.createElement('div');
             info.style.position = 'absolute';
@@ -1147,13 +1149,13 @@ getButtons() {
             info.style.overflow = 'hidden';
             info.style.textOverflow = 'ellipsis';
             info.textContent = img.size;
-            
+
             item.appendChild(info);
             grid.appendChild(item);
         });
-        
+
         container.appendChild(grid);
-        
+
         // Кнопка "Закрыть"
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';
@@ -1167,11 +1169,11 @@ getButtons() {
         closeBtn.style.cursor = 'pointer';
         closeBtn.style.fontSize = '13px';
         closeBtn.style.color = '#374151';
-        
+
         closeBtn.addEventListener('click', () => {
             this.restoreBrowseButton(container, onSelect);
         });
-        
+
         container.appendChild(closeBtn);
     }
 
@@ -1180,7 +1182,7 @@ getButtons() {
      */
     restoreBrowseButton(container, onSelect) {
         container.innerHTML = '';
-        
+
         const browseBtn = document.createElement('button');
         browseBtn.type = 'button';
         browseBtn.textContent = this.t('image.chooseFromUploaded');
@@ -1193,18 +1195,18 @@ getButtons() {
         browseBtn.style.fontSize = '14px';
         browseBtn.style.color = '#374151';
         browseBtn.style.transition = 'background 0.15s';
-        
+
         browseBtn.addEventListener('mouseenter', () => {
             browseBtn.style.background = '#e5e7eb';
         });
         browseBtn.addEventListener('mouseleave', () => {
             browseBtn.style.background = '#f3f4f6';
         });
-        
+
         browseBtn.addEventListener('click', () => {
             this.openBrowsePanel(container, onSelect);
         });
-        
+
         container.appendChild(browseBtn);
     }
 
@@ -1215,7 +1217,7 @@ getButtons() {
         const formData = new FormData();
         formData.append('action', 'delete');
         formData.append('file', filename);
-        
+
         fetch(this.browseUrl, {
             method: 'POST',
             body: formData
@@ -1276,7 +1278,7 @@ getButtons() {
         select.style.border = '1px solid #e5e7eb';
         select.style.borderRadius = '6px';
         select.style.fontSize = '14px';
-        
+
         options.forEach(opt => {
             const option = document.createElement('option');
             option.value = opt.value;
@@ -1286,21 +1288,21 @@ getButtons() {
             }
             select.appendChild(option);
         });
-        
+
         div.append(label, select);
         return div;
     }
 
     updateImage(existingFigure, existingImg, options) {
         const { url, alt, title, srcset, loading, caption, linkUrl, isBlank, isNofollow, relExtra } = options;
-        
+
         if (existingFigure) {
             // Обновляем figure
             existingFigure.contentEditable = 'false';
             let img = existingFigure.querySelector('img');
             let link = existingFigure.querySelector('a');
             let figcaption = existingFigure.querySelector('figcaption');
-            
+
             // Обновляем или создаём img
             if (!img) {
                 img = document.createElement('img');
@@ -1310,7 +1312,7 @@ getButtons() {
             if (title) img.setAttribute('title', title); else img.removeAttribute('title');
             if (srcset) img.setAttribute('srcset', srcset); else img.removeAttribute('srcset');
             if (loading) img.setAttribute('loading', loading); else img.removeAttribute('loading');
-            
+
             // Обрабатываем ссылку
             if (linkUrl) {
                 if (!link) {
@@ -1335,12 +1337,12 @@ getButtons() {
                 link.parentNode.insertBefore(img, link);
                 link.remove();
             }
-            
+
             // Убеждаемся что img/link в figure
             if (!link && img.parentNode !== existingFigure) {
                 existingFigure.insertBefore(img, existingFigure.firstChild);
             }
-            
+
             // Всегда есть figcaption
             if (!figcaption) {
                 figcaption = document.createElement('figcaption');
@@ -1352,16 +1354,16 @@ getButtons() {
             // Обновляем отдельный img (без figure) - превращаем в figure
             const figure = document.createElement('figure');
             figure.contentEditable = 'false';
-            
+
             existingImg.setAttribute('src', url);
             if (alt) existingImg.setAttribute('alt', alt); else existingImg.removeAttribute('alt');
             if (title) existingImg.setAttribute('title', title); else existingImg.removeAttribute('title');
             if (srcset) existingImg.setAttribute('srcset', srcset); else existingImg.removeAttribute('srcset');
             if (loading) existingImg.setAttribute('loading', loading); else existingImg.removeAttribute('loading');
-            
+
             let imgOrLink = existingImg;
             const oldLink = existingImg.closest('a');
-            
+
             if (linkUrl) {
                 const link = oldLink || document.createElement('a');
                 link.href = linkUrl;
@@ -1381,12 +1383,12 @@ getButtons() {
                 oldLink.remove();
                 imgOrLink = existingImg;
             }
-            
+
             // Заменяем img/link на figure
             const parent = imgOrLink.parentNode;
             parent.insertBefore(figure, imgOrLink);
             figure.appendChild(imgOrLink);
-            
+
             // Всегда добавляем figcaption
             const figcaption = document.createElement('figcaption');
             figcaption.contentEditable = 'true';
@@ -1397,7 +1399,7 @@ getButtons() {
 
     insertImage(options) {
         const { url, alt, srcset, caption, linkUrl, isBlank, isNofollow, relExtra, title, loading } = options;
-        
+
         // Создаем изображение
         const img = document.createElement('img');
         img.setAttribute('src', url);
@@ -1426,7 +1428,7 @@ getButtons() {
         const figure = document.createElement('figure');
         figure.contentEditable = 'false';
         figure.appendChild(imgOrLink);
-        
+
         // Если есть caption - добавляем figcaption
         const figcaption = document.createElement('figcaption');
         figcaption.contentEditable = 'true';
@@ -1434,5 +1436,6 @@ getButtons() {
         figure.appendChild(figcaption);
 
         this.instance.selection.insertNode(figure);
+        if (this.instance.core) this.instance.core.ensureTrailingParagraph();
     }
 }

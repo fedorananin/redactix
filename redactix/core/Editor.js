@@ -76,6 +76,16 @@ export default class Editor {
         // Это может произойти после удаления всего и начала ввода
         const firstChild = this.el.firstChild;
         if (firstChild && firstChild.nodeType === Node.TEXT_NODE && firstChild.textContent.trim()) {
+            // Save cursor position before wrapping
+            const sel = window.getSelection();
+            let savedOffset = 0;
+            let savedNode = null;
+            if (sel.rangeCount) {
+                const range = sel.getRangeAt(0);
+                savedNode = range.startContainer;
+                savedOffset = range.startOffset;
+            }
+
             // Оборачиваем в параграф
             const p = document.createElement('p');
 
@@ -88,10 +98,30 @@ export default class Editor {
             }
 
             this.el.insertBefore(p, this.el.firstChild);
-        }
 
-        // Убедиться, что в самом конце редактора есть пустой параграф, 
-        // если последний элемент — нетекстовый блок (чтобы можно было кликнуть ниже)
+            // Restore cursor position after wrapping
+            if (savedNode && p.contains(savedNode)) {
+                try {
+                    const newRange = document.createRange();
+                    newRange.setStart(savedNode, savedOffset);
+                    newRange.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } catch (e) {
+                    // Fallback: place cursor at end of p
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(p);
+                    newRange.collapse(false);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                }
+            }
+        }
+    }
+
+    // Ensure there is an empty paragraph at the end of the editor
+    // if the last element is an uneditable block (figure, table, hr, etc.)
+    ensureTrailingParagraph() {
         const lastChild = this.el.lastElementChild;
         if (lastChild && (
             ['FIGURE', 'TABLE', 'HR', 'PRE'].includes(lastChild.tagName) ||
@@ -106,10 +136,6 @@ export default class Editor {
     bindEvents() {
         // Observer для любых изменений DOM (самый надежный способ синхронизации)
         this.observer = new MutationObserver((mutations) => {
-            // Проверяем структуру (добавит пустой параграф в конец если нужно)
-            this.ensureEditorStructure();
-
-            // Синхронизируем изменения контента
             this.instance.sync();
             this.updatePlaceholder();
         });
@@ -125,6 +151,12 @@ export default class Editor {
             this.ensureEditorStructure();
             this.instance.sync();
             this.updatePlaceholder();
+        });
+
+        // Ensure trailing paragraph after programmatic DOM changes settle
+        // Uses click on editor area to check if last element needs a trailing p
+        this.el.addEventListener('click', (e) => {
+            this.ensureTrailingParagraph();
         });
 
         // Обработка paste
@@ -167,7 +199,21 @@ export default class Editor {
         if (html) {
             // Санитизация HTML
             html = this.sanitizeHtml(html);
-            document.execCommand('insertHTML', false, html);
+
+            // Parse into temp element to check structure
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+
+            const blockSelector = 'p, h1, h2, h3, h4, h5, h6, blockquote, aside, figure, pre, table, ul, ol, hr, div';
+            const hasBlocks = !!temp.querySelector(blockSelector);
+
+            if (!hasBlocks) {
+                // Inline-only content — insertHTML works fine for this
+                document.execCommand('insertHTML', false, html);
+            } else {
+                // Block content — manual DOM insertion to avoid browser quirks
+                this.insertBlockContent(temp);
+            }
 
             // Настраиваем вставленные figure
             if (this.instance.setupFigures) {
@@ -178,14 +224,6 @@ export default class Editor {
             if (this.instance.setupBlockquotes) {
                 this.instance.setupBlockquotes();
             }
-
-            // Убираем пустые параграфы после вставки
-            this.el.querySelectorAll('p, div').forEach(el => {
-                const inner = el.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-                if (!inner && !el.querySelector('img, iframe, hr, table, figure')) {
-                    el.remove();
-                }
-            });
         } else if (text) {
             // Если только текст - вставляем с сохранением переносов строк
             const lines = text.split('\n');
@@ -202,6 +240,80 @@ export default class Editor {
 
         this.instance.sync();
         this.updatePlaceholder();
+        this.ensureTrailingParagraph();
+    }
+
+    /**
+     * Insert block-level content from a parsed container using DOM API.
+     * Avoids insertHTML quirks with block elements inside blocks.
+     */
+    insertBlockContent(container) {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+
+        // Find the top-level block the cursor is in
+        let currentBlock = range.startContainer;
+        while (currentBlock && currentBlock !== this.el && currentBlock.parentNode !== this.el) {
+            currentBlock = currentBlock.parentNode;
+        }
+
+        // If we couldn't find a block or we're at editor root level
+        if (!currentBlock || currentBlock === this.el) {
+            // Just insert all children at cursor position
+            const frag = document.createDocumentFragment();
+            while (container.firstChild) {
+                frag.appendChild(container.firstChild);
+            }
+            range.insertNode(frag);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return;
+        }
+
+        // Check if current block is empty (only <br> or whitespace)
+        const currentContent = currentBlock.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
+        const isCurrentEmpty = !currentContent;
+
+        // Collect all nodes to insert
+        const nodesToInsert = [];
+        while (container.firstChild) {
+            nodesToInsert.push(container.firstChild);
+            container.removeChild(container.firstChild);
+        }
+
+        if (nodesToInsert.length === 0) return;
+
+        // Insert each node after the current block
+        let insertionRef = currentBlock.nextSibling;
+        for (const node of nodesToInsert) {
+            this.el.insertBefore(node, insertionRef);
+        }
+
+        // If current block was empty, remove it (pasted content replaces it)
+        if (isCurrentEmpty) {
+            currentBlock.remove();
+        }
+
+        // Place cursor at the end of the last inserted node
+        const lastInserted = insertionRef
+            ? insertionRef.previousSibling
+            : this.el.lastChild;
+        if (lastInserted) {
+            const newRange = document.createRange();
+            if (lastInserted.nodeType === Node.ELEMENT_NODE) {
+                newRange.selectNodeContents(lastInserted);
+                newRange.collapse(false);
+            } else {
+                newRange.setStartAfter(lastInserted);
+                newRange.collapse(true);
+            }
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+        }
     }
 
     sanitizeHtml(html) {
@@ -468,7 +580,7 @@ export default class Editor {
         html = html.replace(/<o:p>[\s\S]*?<\/o:p>/gi, '');
         html = html.replace(/class="Mso[^"]*"/gi, '');
 
-        return html;
+        return html.trim();
     }
 
     escapeHtml(text) {

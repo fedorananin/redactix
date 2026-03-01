@@ -185,7 +185,8 @@ class RedactixInstance {
             .replace(/>\s+</g, '><') // Убираем пробелы между тегами
             .trim();
 
-        this.editorEl.innerHTML = cleanHtml;
+        // If textarea is empty, create initial paragraph structure
+        this.editorEl.innerHTML = cleanHtml || '<p><br></p>';
 
         // Post-processing: wrap hr, setup figure, code blocks, blockquote cites
         this.wrapSeparators();
