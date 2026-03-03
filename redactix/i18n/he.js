@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'גרור את כל הרשימה',
         citePlaceholder: 'הוסף ציטוט...',
         addCitation: 'הוסף ציטוט',
-        removeCitation: 'הסר ציטוט'
+        removeCitation: 'הסר ציטוט',
+        addEmoji: 'הוסף אמוג\'י',
+        changeEmoji: 'שנה אמוג\'י',
+        removeEmoji: 'הסר אמוג\'י',
+        emojiOnly: 'אמוג\'י בלבד'
     },
 
     // Attributes module

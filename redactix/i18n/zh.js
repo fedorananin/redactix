@@ -165,7 +165,11 @@ export default {
         dragEntireList: '拖动整个列表',
         citePlaceholder: '添加引用...',
         addCitation: '添加引用',
-        removeCitation: '删除引用'
+        removeCitation: '删除引用',
+        addEmoji: '添加表情',
+        changeEmoji: '更改表情',
+        removeEmoji: '删除表情',
+        emojiOnly: '仅限表情'
     },
 
     // Attributes module

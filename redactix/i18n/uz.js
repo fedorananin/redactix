@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'Butun ro\'yxatni sudrab boring',
         citePlaceholder: 'Iqtibos qo\'shish...',
         addCitation: 'Iqtibos qo\'shish',
-        removeCitation: 'Iqtibosni olib tashlash'
+        removeCitation: 'Iqtibosni olib tashlash',
+        addEmoji: 'Emoji qo\'shish',
+        changeEmoji: 'Emojini o\'zgartirish',
+        removeEmoji: 'Emojini olib tashlash',
+        emojiOnly: 'Faqat emoji'
     },
 
     // Attributes module

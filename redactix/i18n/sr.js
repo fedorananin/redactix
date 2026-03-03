@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'Prevuci celu listu',
         citePlaceholder: 'Dodaj citat...',
         addCitation: 'Dodaj citat',
-        removeCitation: 'Ukloni citat'
+        removeCitation: 'Ukloni citat',
+        addEmoji: 'Dodaj emoji',
+        changeEmoji: 'Promeni emoji',
+        removeEmoji: 'Ukloni emoji',
+        emojiOnly: 'Samo emoji'
     },
 
     // Attributes module

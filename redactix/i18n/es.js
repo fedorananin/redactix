@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'Arrastrar lista completa',
         citePlaceholder: 'Añadir cita...',
         addCitation: 'Añadir cita',
-        removeCitation: 'Eliminar cita'
+        removeCitation: 'Eliminar cita',
+        addEmoji: 'Añadir emoji',
+        changeEmoji: 'Cambiar emoji',
+        removeEmoji: 'Eliminar emoji',
+        emojiOnly: 'Solo emoji'
     },
 
     // Attributes module

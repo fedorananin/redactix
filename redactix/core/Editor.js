@@ -401,7 +401,11 @@ export default class Editor {
 
             attrs.forEach(attr => {
                 if (!allowedAttributes.includes(attr.name.toLowerCase())) {
-                    // Для class — фильтруем, оставляя только разрешённые
+                    // Allow data-emoji on aside elements
+                    if (attr.name.toLowerCase() === 'data-emoji' && el.tagName === 'ASIDE') {
+                        return;
+                    }
+                    // For class — filter, keeping only allowed ones
                     if (attr.name.toLowerCase() === 'class') {
                         const classes = attr.value.split(/\s+/).filter(c => allowedClasses.includes(c));
                         if (classes.length > 0) {

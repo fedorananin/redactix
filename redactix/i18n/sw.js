@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'Buruta orodha nzima',
         citePlaceholder: 'Ongeza nukuu...',
         addCitation: 'Ongeza nukuu',
-        removeCitation: 'Ondoa nukuu'
+        removeCitation: 'Ondoa nukuu',
+        addEmoji: 'Ongeza emoji',
+        changeEmoji: 'Badilisha emoji',
+        removeEmoji: 'Ondoa emoji',
+        emojiOnly: 'Emoji pekee'
     },
 
     // Attributes module

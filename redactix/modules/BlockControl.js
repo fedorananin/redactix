@@ -14,6 +14,7 @@ export default class BlockControl extends Module {
         this.dragGhost = null;
         this.activeHandle = null;  // Какая ручка активна
         this.liteMode = instance.config.liteMode || false; // Lite mode
+        this.emojiInput = null;    // Emoji input popup for callouts
 
         // Пресеты для callout (aside)
         this.calloutPresets = [
@@ -54,6 +55,21 @@ export default class BlockControl extends Module {
             }
             if (this.currentList && this.listHandle.style.display !== 'none') {
                 this.showListHandle(this.currentList);
+            }
+        });
+
+        // Click on callout emoji area to edit
+        this.instance.editorEl.addEventListener('click', (e) => {
+            const aside = e.target.closest ? e.target.closest('aside[data-emoji]') : null;
+            if (aside && this.instance.editorEl.contains(aside)) {
+                const asideRect = aside.getBoundingClientRect();
+                const emojiAreaWidth = parseFloat(window.getComputedStyle(aside).paddingLeft);
+                if (e.clientX - asideRect.left < emojiAreaWidth) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.currentBlock = aside;
+                    this.showEmojiInput();
+                }
             }
         });
 
@@ -243,6 +259,27 @@ export default class BlockControl extends Module {
                 presetGroup.appendChild(item);
             });
             this.menu.appendChild(presetGroup);
+            this.menu.appendChild(this.createMenuDivider());
+
+            // Emoji for callout
+            const hasEmoji = this.currentBlock.hasAttribute('data-emoji');
+            const emojiLabel = hasEmoji
+                ? this.t('blockControl.changeEmoji')
+                : this.t('blockControl.addEmoji');
+            const emojiIcon = hasEmoji ? '✎' : '😀';
+
+            const emojiItem = this.createMenuItem(emojiIcon, emojiLabel, () => {
+                this.showEmojiInput();
+            });
+            this.menu.appendChild(emojiItem);
+
+            if (hasEmoji) {
+                const removeItem = this.createMenuItem('✕', this.t('blockControl.removeEmoji'), () => {
+                    this.removeCalloutEmoji();
+                });
+                this.menu.appendChild(removeItem);
+            }
+
             this.menu.appendChild(this.createMenuDivider());
         }
 
@@ -807,6 +844,150 @@ export default class BlockControl extends Module {
             }
         }
         return null;
+    }
+
+    // --- Callout Emoji ---
+
+    showEmojiInput() {
+        if (!this.currentBlock || this.currentBlock.tagName !== 'ASIDE') return;
+
+        // Remove existing emoji input if any
+        this.hideEmojiInput();
+
+        const aside = this.currentBlock;
+        const currentEmoji = aside.getAttribute('data-emoji') || '';
+
+        // Create the input popup
+        this.emojiInput = document.createElement('div');
+        this.emojiInput.className = 'redactix-emoji-input';
+        this.emojiInput.contentEditable = 'false';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentEmoji;
+        input.maxLength = 10;
+
+        // Detect OS for emoji picker shortcut hint
+        const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const shortcut = isMac ? '⌘ + ⌃ + Space' : 'Win + .';
+
+        const hint = document.createElement('div');
+        hint.className = 'redactix-emoji-hint';
+        hint.innerHTML = `${this.t('blockControl.emojiOnly')} &middot; <kbd>${shortcut}</kbd>`;
+
+        this.emojiInput.appendChild(input);
+        this.emojiInput.appendChild(hint);
+
+        // Position near the aside
+        const asideRect = aside.getBoundingClientRect();
+        const wrapperRect = this.instance.wrapper.getBoundingClientRect();
+
+        let top = asideRect.top - wrapperRect.top - 44;
+        let left = asideRect.left - wrapperRect.left;
+
+        // If above would go off-screen, show below
+        if (top < 0) {
+            top = asideRect.bottom - wrapperRect.top + 5;
+        }
+        if (left < 5) left = 5;
+
+        this.emojiInput.style.top = `${top}px`;
+        this.emojiInput.style.left = `${left}px`;
+
+        this.instance.wrapper.appendChild(this.emojiInput);
+
+        input.focus();
+        input.select();
+
+        this._emojiHistoryStarted = false;
+
+        // Save handler
+        const save = () => {
+            const value = input.value.trim();
+            if (!value) {
+                // Empty = remove emoji
+                if (aside.hasAttribute('data-emoji')) {
+                    if (!this._emojiHistoryStarted) {
+                        this.beginHistoryBatch();
+                        this._emojiHistoryStarted = true;
+                    }
+                    aside.removeAttribute('data-emoji');
+                }
+                this.hideEmojiInput();
+                if (this._emojiHistoryStarted) {
+                    this.instance.sync();
+                    this.endHistoryBatch();
+                }
+            } else if (this.isValidEmoji(value)) {
+                if (!this._emojiHistoryStarted) {
+                    this.beginHistoryBatch();
+                    this._emojiHistoryStarted = true;
+                }
+                aside.setAttribute('data-emoji', value);
+                this.hideEmojiInput();
+                this.instance.sync();
+                this.endHistoryBatch();
+            } else {
+                // Show error
+                hint.classList.add('is-error');
+                input.classList.add('invalid');
+            }
+        };
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                save();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                this.hideEmojiInput();
+            }
+        });
+
+        input.addEventListener('input', () => {
+            // Reset error on new input
+            hint.classList.remove('is-error');
+            input.classList.remove('invalid');
+        });
+
+        input.addEventListener('blur', () => {
+            // Small delay to allow Enter keydown to fire first
+            setTimeout(() => {
+                if (this.emojiInput) {
+                    save();
+                }
+            }, 150);
+        });
+
+        // Prevent clicks inside from propagating
+        this.emojiInput.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+        });
+    }
+
+    hideEmojiInput() {
+        if (this.emojiInput) {
+            this.emojiInput.remove();
+            this.emojiInput = null;
+        }
+    }
+
+    removeCalloutEmoji() {
+        if (!this.currentBlock || this.currentBlock.tagName !== 'ASIDE') return;
+
+        this.beginHistoryBatch();
+        this.currentBlock.removeAttribute('data-emoji');
+        this.instance.sync();
+        this.endHistoryBatch();
+    }
+
+    isValidEmoji(str) {
+        const trimmed = str.trim();
+        if (!trimmed) return false;
+
+        // Remove all valid emoji characters, modifiers, ZWJ, variation selectors
+        const withoutEmoji = trimmed.replace(/[\p{Extended_Pictographic}\p{Emoji_Component}\u200D\uFE0F\uFE0E]/gu, '');
+        return withoutEmoji.length === 0;
     }
 
     setPresetClass(newClass, presets) {

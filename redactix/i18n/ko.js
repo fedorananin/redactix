@@ -165,7 +165,11 @@ export default {
         dragEntireList: '전체 목록 드래그',
         citePlaceholder: '인용 추가...',
         addCitation: '인용 추가',
-        removeCitation: '인용 제거'
+        removeCitation: '인용 제거',
+        addEmoji: '이모지 추가',
+        changeEmoji: '이모지 변경',
+        removeEmoji: '이모지 제거',
+        emojiOnly: '이모지만'
     },
 
     // Attributes module

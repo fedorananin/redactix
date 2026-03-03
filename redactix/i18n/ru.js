@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'Перетащить весь список',
         citePlaceholder: 'Автор цитаты...',
         addCitation: 'Добавить автора',
-        removeCitation: 'Убрать автора'
+        removeCitation: 'Убрать автора',
+        addEmoji: 'Добавить эмодзи',
+        changeEmoji: 'Изменить эмодзи',
+        removeEmoji: 'Убрать эмодзи',
+        emojiOnly: 'Только эмодзи'
     },
 
     // Attributes module

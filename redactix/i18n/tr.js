@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'Tüm listeyi sürükle',
         citePlaceholder: 'Alıntı ekle...',
         addCitation: 'Alıntı ekle',
-        removeCitation: 'Alıntıyı kaldır'
+        removeCitation: 'Alıntıyı kaldır',
+        addEmoji: 'Emoji ekle',
+        changeEmoji: 'Emoji değiştir',
+        removeEmoji: 'Emoji kaldır',
+        emojiOnly: 'Sadece emoji'
     },
 
     // Attributes module

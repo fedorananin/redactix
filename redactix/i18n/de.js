@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'Gesamte Liste ziehen',
         citePlaceholder: 'Zitat hinzufügen...',
         addCitation: 'Zitat hinzufügen',
-        removeCitation: 'Zitat entfernen'
+        removeCitation: 'Zitat entfernen',
+        addEmoji: 'Emoji hinzufügen',
+        changeEmoji: 'Emoji ändern',
+        removeEmoji: 'Emoji entfernen',
+        emojiOnly: 'Nur Emoji'
     },
 
     // Attributes module

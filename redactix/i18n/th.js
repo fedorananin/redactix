@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'ลากรายการทั้งหมด',
         citePlaceholder: 'เพิ่มการอ้างอิง...',
         addCitation: 'เพิ่มการอ้างอิง',
-        removeCitation: 'ลบการอ้างอิง'
+        removeCitation: 'ลบการอ้างอิง',
+        addEmoji: 'เพิ่มอิโมจิ',
+        changeEmoji: 'เปลี่ยนอิโมจิ',
+        removeEmoji: 'ลบอิโมจิ',
+        emojiOnly: 'อิโมจิเท่านั้น'
     },
 
     // Attributes module

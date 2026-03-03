@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'მთელი სიის გადატანა',
         citePlaceholder: 'ციტატის დამატება...',
         addCitation: 'ციტატის დამატება',
-        removeCitation: 'ციტატის წაშლა'
+        removeCitation: 'ციტატის წაშლა',
+        addEmoji: 'ემოჯის დამატება',
+        changeEmoji: 'ემოჯის შეცვლა',
+        removeEmoji: 'ემოჯის წაშლა',
+        emojiOnly: 'მხოლოდ ემოჯი'
     },
 
     // Attributes module

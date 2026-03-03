@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'Бүкіл тізімді сүйреу',
         citePlaceholder: 'Дәйексөз қосу...',
         addCitation: 'Дәйексөз қосу',
-        removeCitation: 'Дәйексөзді өшіру'
+        removeCitation: 'Дәйексөзді өшіру',
+        addEmoji: 'Эмодзи қосу',
+        changeEmoji: 'Эмодзи өзгерту',
+        removeEmoji: 'Эмодзи өшіру',
+        emojiOnly: 'Тек эмодзи'
     },
 
     // Attributes module

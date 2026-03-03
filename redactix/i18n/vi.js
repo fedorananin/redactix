@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'Kéo toàn bộ danh sách',
         citePlaceholder: 'Thêm trích dẫn...',
         addCitation: 'Thêm trích dẫn',
-        removeCitation: 'Xóa trích dẫn'
+        removeCitation: 'Xóa trích dẫn',
+        addEmoji: 'Thêm emoji',
+        changeEmoji: 'Đổi emoji',
+        removeEmoji: 'Xóa emoji',
+        emojiOnly: 'Chỉ emoji'
     },
 
     // Attributes module

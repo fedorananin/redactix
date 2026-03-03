@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'リスト全体をドラッグ',
         citePlaceholder: '引用元を追加...',
         addCitation: '引用元を追加',
-        removeCitation: '引用元を削除'
+        removeCitation: '引用元を削除',
+        addEmoji: '絵文字を追加',
+        changeEmoji: '絵文字を変更',
+        removeEmoji: '絵文字を削除',
+        emojiOnly: '絵文字のみ'
     },
 
     // Attributes module

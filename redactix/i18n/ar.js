@@ -165,7 +165,11 @@ export default {
         dragEntireList: 'سحب القائمة بأكملها',
         citePlaceholder: 'إضافة اقتباس...',
         addCitation: 'إضافة اقتباس',
-        removeCitation: 'إزالة الاقتباس'
+        removeCitation: 'إزالة الاقتباس',
+        addEmoji: 'إضافة رمز تعبيري',
+        changeEmoji: 'تغيير الرمز التعبيري',
+        removeEmoji: 'إزالة الرمز التعبيري',
+        emojiOnly: 'رموز تعبيرية فقط'
     },
 
     // Attributes module
