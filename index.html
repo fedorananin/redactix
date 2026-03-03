@@ -747,7 +747,8 @@
                 <div class="feature-card">
                     <div class="feature-icon">&#128161;</div>
                     <h3>Callouts & Quotes</h3>
-                    <p>Styled callout boxes (info, warning, danger, success) and quote presets for visual variety.</p>
+                    <p>Styled callout boxes (info, warning, danger, success) with optional emoji, and quote presets for
+                        visual variety.</p>
                 </div>
 
                 <div class="feature-card">
@@ -878,7 +879,7 @@
                 </div>
                 <div class="demo-content">
                     <textarea
-                        class="redactix-full"><h1>Welcome to Redactix!</h1><p>This is a <b>modern</b> WYSIWYG editor with Notion-like experience. Select text to see the <i>floating toolbar</i> with formatting options including <code>inline code</code>, <span class="spoiler">spoilers</span> and <mark>text highlighting</mark>.</p><h2>Text Formatting</h2><p>The editor supports <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s> text. Also <code>inline code</code> for technical terms, <span class="spoiler">spoilers for hidden content</span> and <mark>highlighting important fragments</mark>.</p><p>Links can have <a href="https://example.com" title="Example link" target="_blank" rel="nofollow">title and rel attributes</a>.</p><h2>Lists</h2><ul><li>Unordered list item</li><li>Drag items to reorder</li><li>Click the handle for menu options</li></ul><ol><li>Ordered list item</li><li>Convert via context menu</li><li>Or type <code>1. </code> at line start</li></ol><h2>Blockquotes</h2><blockquote>Standard quote created via block menu or by typing <code>> </code> at the start of a line. Click the handle on the left to choose a quote style.</blockquote><blockquote class="big">Large quote — perfect for highlighting key thoughts or article epigraphs.</blockquote><h2>Callout Blocks</h2><p>Callout is a block for important information with different styles. Click the handle on the left to select a preset:</p><aside>Standard callout without a class — gray, neutral.</aside><aside class="information">Information block — for helpful tips and additional info.</aside><aside class="warning">Warning — for important notices that need attention.</aside><aside class="danger">Danger — for critical warnings and errors.</aside><aside class="success">Success — for positive results and confirmations.</aside><h2>Images</h2><p>Click on an image to edit its settings:</p><figure><img src="/uploads/cat.jpg" alt="Demo image"><figcaption>Image caption — click to edit</figcaption></figure><h2>Code Blocks</h2><p>For technical articles and tutorials:</p><pre><code class="language-javascript">// JavaScript example
+                        class="redactix-full"><h1>Welcome to Redactix!</h1><p>This is a <b>modern</b> WYSIWYG editor with Notion-like experience. Select text to see the <i>floating toolbar</i> with formatting options including <code>inline code</code>, <span class="spoiler">spoilers</span> and <mark>text highlighting</mark>.</p><h2>Text Formatting</h2><p>The editor supports <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s> text. Also <code>inline code</code> for technical terms, <span class="spoiler">spoilers for hidden content</span> and <mark>highlighting important fragments</mark>.</p><p>Links can have <a href="https://example.com" title="Example link" target="_blank" rel="nofollow">title and rel attributes</a>.</p><h2>Lists</h2><ul><li>Unordered list item</li><li>Drag items to reorder</li><li>Click the handle for menu options</li></ul><ol><li>Ordered list item</li><li>Convert via context menu</li><li>Or type <code>1. </code> at line start</li></ol><h2>Blockquotes</h2><blockquote>Standard quote created via block menu or by typing <code>> </code> at the start of a line. Click the handle on the left to choose a quote style.</blockquote><blockquote class="big">Large quote — perfect for highlighting key thoughts or article epigraphs.</blockquote><h2>Callout Blocks</h2><p>Callout is a block for important information with different styles. Click the handle on the left to select a preset or add an emoji:</p><aside>Standard callout without a class — gray, neutral.</aside><aside data-emoji="💡" class="information">Information block — for helpful tips and additional info. This one has an emoji! Click on it to change.</aside><aside class="warning">Warning — for important notices that need attention.</aside><aside data-emoji="🔥" class="danger">Danger — for critical warnings and errors.</aside><aside class="success">Success — for positive results and confirmations.</aside><h2>Images</h2><p>Click on an image to edit its settings:</p><figure><img src="/uploads/cat.jpg" alt="Demo image"><figcaption>Image caption — click to edit</figcaption></figure><h2>Code Blocks</h2><p>For technical articles and tutorials:</p><pre><code class="language-javascript">// JavaScript example
 function greet(name) {
     console.log(`Hello, ${name}!`);
     return true;
@@ -1038,7 +1039,8 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
             <h3 style="margin-top: 50px; margin-bottom: 15px;">Dark Theme</h3>
             <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Built-in dark theme with full CSS variable
                 support. All UI elements are themed including <b>modal dialogs</b>, menus, and buttons. Use
-                <code>theme: 'dark'</code> or <code>theme: 'auto'</code> (follows system preference).</p>
+                <code>theme: 'dark'</code> or <code>theme: 'auto'</code> (follows system preference).
+            </p>
 
             <div class="demo-wrapper" style="background: #111827;">
                 <div class="demo-header" style="background: #1f2937; border-color: #374151;">
@@ -1126,12 +1128,14 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                 <div class="config-item">
                     <h4><code>uploadUrl</code></h4>
                     <p>URL endpoint for image uploads. Enables drag & drop, paste, and file picker. Default:
-                        <code>null</code></p>
+                        <code>null</code>
+                    </p>
                 </div>
                 <div class="config-item">
                     <h4><code>browseUrl</code></h4>
                     <p>URL endpoint for browsing uploaded images. Shows "Choose from uploaded" button. Default:
-                        <code>null</code></p>
+                        <code>null</code>
+                    </p>
                 </div>
                 <div class="config-item">
                     <h4><code>allowImageDelete</code></h4>
@@ -1167,7 +1171,8 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                         <code>'de'</code>, <code>'fr'</code>, <code>'es'</code>, <code>'pt'</code>, <code>'sr'</code>,
                         <code>'ka'</code>, <code>'vi'</code>, <code>'th'</code>, <code>'sw'</code>, <code>'tr'</code>,
                         <code>'ar'</code>, <code>'he'</code>, <code>'ja'</code>, <code>'ko'</code>, <code>'zh'</code>,
-                        <code>'kk'</code>, <code>'uz'</code>. RTL languages (ar, he) auto-detect.</p>
+                        <code>'kk'</code>, <code>'uz'</code>. RTL languages (ar, he) auto-detect.
+                    </p>
                 </div>
             </div>
 
@@ -1208,7 +1213,8 @@ target.<span class="property">redactix</span>.setContent(source.<span class="pro
             <h3 style="margin-top: 60px; margin-bottom: 20px; text-align: center;">Theming with CSS Variables</h3>
             <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 30px;">All colors use CSS
                 custom properties — editor, toolbar, modals, menus, buttons. Override them without
-                <code>!important</code>.</p>
+                <code>!important</code>.
+            </p>
 
             <div class="code-block" style="max-width: 800px; margin: 0 auto;">
                 <code><span class="comment">/* Light theme customization */</span>
@@ -1226,29 +1232,34 @@ target.<span class="property">redactix</span>.setContent(source.<span class="pro
 
             <p style="text-align: center; color: var(--landing-text-muted); margin-top: 20px; font-size: 0.9em;">
                 <b>Note:</b> When customizing dark theme, use <code>.redactix-wrapper.redactix-dark</code> selector for
-                proper specificity.</p>
+                proper specificity.
+            </p>
 
             <div class="config-grid" style="margin-top: 30px;">
                 <div class="config-item">
                     <h4>Primary Colors</h4>
                     <p><code>--redactix-primary</code>, <code>--redactix-primary-hover</code>,
-                        <code>--redactix-primary-light</code> — accent color for buttons, links, focus states.</p>
+                        <code>--redactix-primary-light</code> — accent color for buttons, links, focus states.
+                    </p>
                 </div>
                 <div class="config-item">
                     <h4>Base Colors</h4>
                     <p><code>--redactix-bg</code>, <code>--redactix-bg-secondary</code>,
-                        <code>--redactix-bg-hover</code>, <code>--redactix-border</code> — backgrounds and borders.</p>
+                        <code>--redactix-bg-hover</code>, <code>--redactix-border</code> — backgrounds and borders.
+                    </p>
                 </div>
                 <div class="config-item">
                     <h4>Text Colors</h4>
                     <p><code>--redactix-text</code>, <code>--redactix-text-muted</code>,
-                        <code>--redactix-text-placeholder</code> — main text, secondary text, placeholders.</p>
+                        <code>--redactix-text-placeholder</code> — main text, secondary text, placeholders.
+                    </p>
                 </div>
                 <div class="config-item">
                     <h4>Content Elements</h4>
                     <p><code>--redactix-code-bg</code>, <code>--redactix-code-color</code>,
                         <code>--redactix-mark-bg</code>, <code>--redactix-blockquote-bg</code> — inline and block
-                        styles.</p>
+                        styles.
+                    </p>
                 </div>
             </div>
 
@@ -1364,7 +1375,8 @@ chmod 755 uploads</code>
                 <div class="config-item">
                     <h4><code>POST</code> Upload</h4>
                     <p>Send form data with <code>image</code> file. Returns JSON with <code>src</code>,
-                        <code>srcset</code>, <code>alt</code>, <code>title</code>, <code>caption</code>.</p>
+                        <code>srcset</code>, <code>alt</code>, <code>title</code>, <code>caption</code>.
+                    </p>
                 </div>
                 <div class="config-item">
                     <h4><code>GET ?action=browse</code></h4>
@@ -1439,14 +1451,16 @@ chmod 755 uploads</code>
                     <h3><span>&#127919;</span> The Goal</h3>
                     <p>I wanted something functional on the level of Notion, but under the hood — just a simple
                         <code>&lt;textarea&gt;</code>. 100% compatibility with any CMS. No third-party components. No
-                        complex state management. Just paste the files, initialize, and it works.</p>
+                        complex state management. Just paste the files, initialize, and it works.
+                    </p>
                 </div>
 
                 <div class="why-block">
                     <h3><span>&#128196;</span> Why HTML, Not Markdown?</h3>
                     <p>Markdown is great for developers, but try configuring <code>srcset</code>,
                         <code>loading="lazy"</code>, or custom attributes for an image. How do you add
-                        <code>rel="nofollow"</code> to a link? What about tables with <code>colspan</code>?</p>
+                        <code>rel="nofollow"</code> to a link? What about tables with <code>colspan</code>?
+                    </p>
                     <p>Clean semantic HTML gives you full control over formatting. And if you really need Markdown —
                         there are plenty of html-to-md converters out there.</p>
                 </div>
@@ -1455,7 +1469,8 @@ chmod 755 uploads</code>
                     <h3><span>&#128166;</span> Clean Output</h3>
                     <p>No <code>style="font-family: Arial; font-size: 14px; color: rgb(0,0,0);"</code> garbage. No
                         <code>&lt;span&gt;</code> wrappers for every word. No Microsoft Office artifacts. Just pure,
-                        semantic HTML that your CMS will love.</p>
+                        semantic HTML that your CMS will love.
+                    </p>
                 </div>
 
                 <div class="vibe-banner">

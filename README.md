@@ -2,7 +2,7 @@
 
 Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero dependencies. Vanilla JS.
 
-![Redactix Editor](https://img.shields.io/badge/version-1.7.0-blue.svg)
+![Redactix Editor](https://img.shields.io/badge/version-1.8.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-js-yellow.svg)
 
@@ -21,7 +21,7 @@ Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero depen
 - 🎯 **Block Controls** — Drag handle on hover, context menu for transformations
 - 🖼️ **Images** — Upload, browse gallery, drag & drop, paste from clipboard, auto-upload base64
 - 📊 **Tables** — Full-featured tables with row/column manipulation
-- 💬 **Quotes & Callouts** — Blockquotes with styles, aside blocks with presets (info, warning, danger, success)
+- 💬 **Quotes & Callouts** — Blockquotes with styles, aside blocks with presets (info, warning, danger, success) and optional emoji
 - 🎬 **YouTube Embeds** — Automatic responsive video wrapper
 - 📱 **Touch Support** — Full mobile support with touch events for drag & drop
 - ⌨️ **Markdown Shortcuts** — `#`, `##`, `###`, `*`, `-`, `1.`, `>`, `!`, `---` for quick formatting
@@ -391,6 +391,7 @@ Hover over any block to see the drag handle on the left:
 Right-click or click the handle to:
 - Transform block type (H1, H2, H3, P, Quote, Callout)
 - Change callout/quote style
+- Add or change callout emoji
 - Convert list type (bulleted ↔ numbered)
 - Insert block below
 - Duplicate block
@@ -484,6 +485,7 @@ Redactix produces clean, semantic HTML:
 <blockquote class="big">Large quote</blockquote>
 
 <aside class="warning">Warning callout</aside>
+<aside data-emoji="💡" class="information">Callout with emoji</aside>
 
 <figure>
     <img src="/uploads/image.jpg" alt="Description">
