@@ -167,6 +167,13 @@ export default class Editor {
 
         // Обработка нажатий клавиш
         this.el.addEventListener('keydown', (e) => {
+            // Shift+Enter inside aside/blockquote — insert <br> explicitly
+            if (e.key === 'Enter' && e.shiftKey) {
+                if (this.handleShiftEnter(e)) {
+                    return;
+                }
+            }
+
             // Enter в пустых блоках для выхода из списков/цитат
             if (e.key === 'Enter' && !e.shiftKey) {
                 if (this.handleEnterKey(e)) {
@@ -593,6 +600,66 @@ export default class Editor {
         return div.innerHTML;
     }
 
+    /**
+     * Insert a <br> element at the current cursor position via DOM API.
+     * We avoid document.execCommand('insertLineBreak') because with
+     * white-space:pre-wrap it inserts a \n text node instead of a <br> tag.
+     */
+    insertBrAtCursor() {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+
+        const br = document.createElement('br');
+        range.insertNode(br);
+
+        // If <br> is at the very end of its parent (no meaningful content after),
+        // browsers won't render a visible new line. Add a second <br> so the
+        // cursor has a line to land on.
+        const next = br.nextSibling;
+        const needsExtra = !next ||
+            (next.nodeType === Node.TEXT_NODE && next.textContent === '');
+        if (needsExtra) {
+            const extraBr = document.createElement('br');
+            br.parentNode.insertBefore(extraBr, br.nextSibling);
+        }
+
+        // Place cursor after the first <br>
+        const newRange = document.createRange();
+        newRange.setStartAfter(br);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+    }
+
+    /**
+     * Handle Shift+Enter inside aside and blockquote elements.
+     * Insert a real <br> tag instead of relying on browser default.
+     */
+    handleShiftEnter(e) {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return false;
+
+        const range = selection.getRangeAt(0);
+        let node = range.startContainer;
+
+        // Walk up to find if we are inside an aside or blockquote
+        while (node && node !== this.el) {
+            if (node.nodeType === Node.ELEMENT_NODE &&
+                (node.tagName === 'ASIDE' || node.tagName === 'BLOCKQUOTE')) {
+                e.preventDefault();
+                this.insertBrAtCursor();
+                this.instance.sync();
+                return true;
+            }
+            node = node.parentNode;
+        }
+
+        return false;
+    }
+
     handleEnterKey(e) {
         const selection = window.getSelection();
         if (!selection.rangeCount) return false;
@@ -606,7 +673,7 @@ export default class Editor {
             if (inlineEditable.nodeType === Node.ELEMENT_NODE &&
                 (inlineEditable.tagName === 'FIGCAPTION' || inlineEditable.tagName === 'CITE')) {
                 e.preventDefault();
-                document.execCommand('insertLineBreak');
+                this.insertBrAtCursor();
                 this.instance.sync();
                 return true;
             }
@@ -617,7 +684,7 @@ export default class Editor {
         while (block && block !== this.el) {
             if (block.nodeType === Node.ELEMENT_NODE) {
                 const tag = block.tagName;
-                if (['LI', 'BLOCKQUOTE', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(tag)) {
+                if (['LI', 'BLOCKQUOTE', 'ASIDE', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(tag)) {
                     break;
                 }
             }
@@ -777,6 +844,40 @@ export default class Editor {
                 this.instance.sync();
                 return true;
             }
+        }
+
+        // Exit aside on empty content
+        if (block.tagName === 'ASIDE') {
+            const asideText = block.textContent.trim();
+            const asideHasMedia = block.querySelector('img, iframe');
+            const asideIsEmpty = !asideText && !asideHasMedia;
+
+            if (asideIsEmpty) {
+                e.preventDefault();
+
+                const p = document.createElement('p');
+                p.innerHTML = '<br>';
+
+                block.parentNode.insertBefore(p, block.nextSibling);
+                block.remove();
+
+                const newRange = document.createRange();
+                newRange.setStart(p, 0);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+
+                this.instance.sync();
+                return true;
+            }
+        }
+
+        // Non-empty aside or blockquote: insert <br> instead of creating nested blocks
+        if (block.tagName === 'ASIDE' || block.tagName === 'BLOCKQUOTE') {
+            e.preventDefault();
+            this.insertBrAtCursor();
+            this.instance.sync();
+            return true;
         }
 
         return false;
