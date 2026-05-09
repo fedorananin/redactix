@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Налаштування комірки',
         rowSettings: 'Налаштування рядка',
         dragEntireList: 'Перетягнути весь список',
-        citePlaceholder: 'Автор цитати...',
-        addCitation: 'Додати автора',
-        removeCitation: 'Прибрати автора',
         addEmoji: 'Додати емодзі',
         changeEmoji: 'Змінити емодзі',
         removeEmoji: 'Прибрати емодзі',
         emojiOnly: 'Тільки емодзі'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Підпис',
+        menuPhoto: 'Фото автора',
+        addCaption: 'Додати підпис',
+        removeCaption: 'Прибрати підпис',
+        addAuthor: 'Додати автора',
+        editAuthor: 'Редагувати автора',
+        removePhoto: 'Прибрати фото',
+        removeAll: 'Прибрати підпис',
+        photoSection: 'Фото автора',
+        photoUrl: 'URL фото',
+        photoAlt: 'Alt-текст фото',
+        authorSection: 'Автор',
+        authorName: 'Ім\'я',
+        authorNamePlaceholder: 'наприклад, — Іван Петренко'    },
 
     // Attributes module
     attributes: {

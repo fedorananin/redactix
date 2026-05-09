@@ -163,14 +163,28 @@ export default {
         cellSettings: 'การตั้งค่าเซลล์',
         rowSettings: 'การตั้งค่าแถว',
         dragEntireList: 'ลากรายการทั้งหมด',
-        citePlaceholder: 'เพิ่มการอ้างอิง...',
-        addCitation: 'เพิ่มการอ้างอิง',
-        removeCitation: 'ลบการอ้างอิง',
         addEmoji: 'เพิ่มอิโมจิ',
         changeEmoji: 'เปลี่ยนอิโมจิ',
         removeEmoji: 'ลบอิโมจิ',
         emojiOnly: 'อิโมจิเท่านั้น'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'คำบรรยาย',
+        menuPhoto: 'รูปผู้เขียน',
+        addCaption: 'เพิ่มคำบรรยาย',
+        removeCaption: 'ลบคำบรรยาย',
+        addAuthor: 'เพิ่มผู้เขียน',
+        editAuthor: 'แก้ไขผู้เขียน',
+        removePhoto: 'ลบรูป',
+        removeAll: 'ลบคำบรรยาย',
+        photoSection: 'รูปผู้เขียน',
+        photoUrl: 'URL รูป',
+        photoAlt: 'ข้อความ alt รูป',
+        authorSection: 'ผู้เขียน',
+        authorName: 'ชื่อ',
+        authorNamePlaceholder: 'เช่น — สมชาย ใจดี'    },
 
     // Attributes module
     attributes: {

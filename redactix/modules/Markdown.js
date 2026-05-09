@@ -20,17 +20,31 @@ export default class Markdown extends Module {
 
         const text = node.textContent.replace(/\u00A0/g, ' ');
 
+        // Inside a quote-card we disable the wrappers: >, !, ---.
+        // Inside a callout we disable nested wrappers: > (quote) and ! (callout),
+        // but --- (hr) is allowed because hr can live inside <aside>.
+        // Inline ones (#, *, -, 1.) keep working \u2014 they transform the inner block.
+        const insideQuoteCard = this.isInsideQuoteCard(node);
+        const insideCallout = !insideQuoteCard && this.isInsideCallout(node);
+
         const rules = [
             { regex: /^#\s/, command: 'formatBlock', value: '<h1>' },
             { regex: /^##\s/, command: 'formatBlock', value: '<h2>' },
             { regex: /^###\s$/, command: 'formatBlock', value: '<h3>' },
             { regex: /^\*\s$/, command: 'insertUnorderedList', value: null },
             { regex: /^-\s$/, command: 'insertUnorderedList', value: null },
-            { regex: /^1\.\s$/, command: 'insertOrderedList', value: null },
-            { regex: /^>\s$/, command: 'formatBlock', value: '<blockquote>' },
-            { regex: /^!\s$/, command: 'formatBlock', value: '<aside>' },
-            { regex: /^---\s$/, command: 'insertSeparator', value: null }
+            { regex: /^1\.\s$/, command: 'insertOrderedList', value: null }
         ];
+
+        if (!insideQuoteCard && !insideCallout) {
+            rules.push(
+                { regex: /^>\s$/, command: 'wrapQuoteCard', value: null },
+                { regex: /^!\s$/, command: 'formatBlock', value: '<aside>' }
+            );
+        }
+        if (!insideQuoteCard) {
+            rules.push({ regex: /^---\s$/, command: 'insertSeparator', value: null });
+        }
 
         for (const rule of rules) {
             if (rule.regex.test(text)) {
@@ -104,6 +118,45 @@ export default class Markdown extends Module {
                         p.appendChild(candidate);
                     }
                     block = p;
+                }
+
+                // 2a. Wrap current block in figure.quote-card (the > shortcut)
+                if (rule.command === 'wrapQuoteCard') {
+                    // Strip the "> " from text
+                    if (node.textContent.length >= matchLength) {
+                        node.textContent = node.textContent.substring(matchLength);
+                    }
+
+                    const figure = document.createElement('figure');
+                    figure.className = 'quote-card';
+                    const bq = document.createElement('blockquote');
+
+                    // Move current block (now without "> ") into blockquote.
+                    // Ensure block is a P; if it's something else, repackage.
+                    let inner = block;
+                    if (block.tagName !== 'P') {
+                        inner = document.createElement('p');
+                        while (block.firstChild) inner.appendChild(block.firstChild);
+                    }
+                    bq.appendChild(inner);
+                    figure.appendChild(bq);
+
+                    block.parentNode.replaceChild(figure, block);
+
+                    const quoteCardModule = this.instance.modules.find(m => m.constructor.name === 'QuoteCard');
+                    if (quoteCardModule) quoteCardModule.setupCards(this.editor.el);
+
+                    // Place cursor in the inner paragraph at the moved text position
+                    const newRange = document.createRange();
+                    newRange.setStart(node, 0);
+                    newRange.collapse(true);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+
+                    this.instance.sync();
+                    e.preventDefault();
+                    return;
                 }
 
                 // 2. FormatBlock Specifics
@@ -239,5 +292,15 @@ export default class Markdown extends Module {
                 }
             }
         }
+    }
+
+    isInsideQuoteCard(node) {
+        const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+        return !!(el && el.closest && el.closest('figure.quote-card'));
+    }
+
+    isInsideCallout(node) {
+        const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+        return !!(el && el.closest && el.closest('aside'));
     }
 }

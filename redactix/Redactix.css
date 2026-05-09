@@ -250,11 +250,15 @@
 /* ================================
    Editor
    ================================ */
+.redactix-editor,
+.redactix-editor [contenteditable="true"] {
+    outline: none;
+}
+
 .redactix-editor {
     padding: 20px;
     padding-left: 40px;
     min-height: 300px;
-    outline: none;
     overflow-y: auto;
     line-height: 1.7;
     font-size: 16px;
@@ -301,60 +305,156 @@
     font-size: 1.25em;
 }
 
-/* Blockquote - базовый стиль (стандартная) */
-.redactix-editor blockquote {
+/* Quote-card: outer figure owns the border, background and padding so that
+   blockquote and figcaption share a single visual container.
+   Левый padding шире, чтобы внутри помещался drag-handle inner-блоков. */
+.redactix-editor figure.quote-card {
     margin: 1em 0;
-    padding: 0.5em 1em;
+    padding: 0.6em 1em 0.6em 2.5em;
     border-left: 4px solid var(--redactix-primary);
     background: var(--redactix-blockquote-bg);
     color: var(--redactix-text-muted);
+    text-align: left;
 }
 
-/* Blockquote cite - author attribution */
-.redactix-editor blockquote cite {
-    display: block;
+/* Inner blockquote is a transparent container — the figure draws the box. */
+.redactix-editor figure.quote-card > blockquote {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+}
+
+/* Inner blocks of a quote-card: collapse the default top/bottom margin of
+   the first and last child so the figure's padding owns the spacing. */
+.redactix-editor figure.quote-card > blockquote > * {
     margin-top: 0.5em;
-    font-size: 0.875em;
-    font-style: normal;
-    color: var(--redactix-text-muted);
-    opacity: 0.8;
+    margin-bottom: 0.5em;
+}
+.redactix-editor figure.quote-card > blockquote > *:first-child {
+    margin-top: 0;
+}
+.redactix-editor figure.quote-card > blockquote > *:last-child {
+    margin-bottom: 0;
 }
 
-/* Placeholder for empty cite */
-.redactix-editor blockquote cite:empty::before,
-.redactix-editor blockquote cite:has(> br:only-child)::before {
+/* Headings inside a quote keep their size but lose the default huge margins */
+.redactix-editor figure.quote-card > blockquote > h1,
+.redactix-editor figure.quote-card > blockquote > h2,
+.redactix-editor figure.quote-card > blockquote > h3 {
+    font-weight: 600;
+}
+
+/* Author caption: photo on the left, text on the right. All optional.
+   A thin top border separates the caption from the quote text but keeps
+   them inside the same card. */
+.redactix-editor figure.quote-card > figcaption {
+    margin-top: 0.6em;
+    padding-top: 0.6em;
+    border-top: 1px solid var(--redactix-border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.875em;
+    color: var(--redactix-text-muted);
+    text-align: left;
+}
+
+.redactix-editor figure.quote-card > figcaption > img {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+.redactix-editor figure.quote-card > figcaption > span {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.redactix-editor figure.quote-card > figcaption > span:empty::before,
+.redactix-editor figure.quote-card > figcaption > span:has(> br:only-child)::before {
     content: attr(data-placeholder);
     color: var(--redactix-text-placeholder);
     font-style: italic;
     pointer-events: none;
 }
 
-/* Blockquote presets */
-.redactix-editor blockquote.big {
-    font-size: 1.5em;
-    text-align: center;
+/* Big preset — borders move to the figure so the caption stays in the box. */
+.redactix-editor figure.quote-card.big {
     border-left: none;
     border-top: 3px solid var(--redactix-primary);
     border-bottom: 3px solid var(--redactix-primary);
-    padding: 1em;
     background: transparent;
     color: var(--redactix-text);
-    font-style: italic;
-}
-
-.redactix-editor blockquote.big cite {
-    font-size: 0.6em;
+    padding: 1em 1em 1.1em 2.5em;
     text-align: center;
 }
 
-/* Callout (aside) - базовый стиль (серый, без класса) */
+.redactix-editor figure.quote-card.big > blockquote {
+    font-size: 1.5em;
+    text-align: center;
+    font-style: italic;
+}
+
+.redactix-editor figure.quote-card.big > figcaption {
+    justify-content: center;
+    text-align: center;
+    border-top: none;
+    margin-top: 0.8em;
+    padding-top: 0;
+    font-size: 0.7em;
+    font-style: normal;
+}
+
+/* In big preset photo and text sit together, both centered as a pair. */
+.redactix-editor figure.quote-card.big > figcaption > span {
+    flex: 0 1 auto;
+}
+
+/* Callout (aside) - базовый стиль (серый, без класса).
+   Левый padding шире остальных, чтобы внутри помещался drag-handle
+   inner-блоков, не залезая на контент. */
 .redactix-editor aside {
     margin: 1em 0;
-    padding: 1em;
+    padding: 1em 1em 1em 2.5em;
     border-radius: var(--redactix-radius);
     background: var(--redactix-callout-bg);
     border: 1px solid var(--redactix-callout-border);
     color: var(--redactix-callout-text);
+}
+
+/* Inner blocks of a callout: collapse top/bottom margin of the
+   first / last child so the aside's padding owns the spacing. */
+.redactix-editor aside > * {
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+.redactix-editor aside > *:first-child {
+    margin-top: 0;
+}
+.redactix-editor aside > *:last-child {
+    margin-bottom: 0;
+}
+
+.redactix-editor aside > h1,
+.redactix-editor aside > h2,
+.redactix-editor aside > h3 {
+    font-weight: 600;
+}
+
+/* HR inside a callout: use currentColor so it's visible against the
+   callout's tinted background. */
+.redactix-editor aside .redactix-separator {
+    margin: 0.5em 0;
+    padding: 6px 0;
+}
+.redactix-editor aside hr {
+    border-top-color: currentColor;
+    opacity: 0.25;
 }
 
 /* Callout presets */
@@ -382,16 +482,18 @@
     color: #166534;
 }
 
-/* Callout emoji */
+/* Callout emoji.
+   padding-left делаем шире обычного, чтобы между эмодзи и текстом
+   осталось место для drag-handle inner-блоков. */
 .redactix-editor aside[data-emoji] {
-    padding-left: 3em;
+    padding-left: 4em;
     position: relative;
 }
 
 .redactix-editor aside[data-emoji]::before {
     content: attr(data-emoji);
     position: absolute;
-    left: 0.75em;
+    left: 0.5em;
     top: 0.75em;
     font-size: 1.25em;
     line-height: 1;
@@ -581,7 +683,7 @@
     text-align: center;
 }
 
-.redactix-editor figcaption,
+.redactix-editor figure:not(.quote-card) > figcaption,
 .redactix-figure figcaption {
     margin-top: 8px;
     font-size: 14px;
@@ -589,9 +691,9 @@
     text-align: center;
 }
 
-/* Плейсхолдер для пустого figcaption */
-.redactix-editor figcaption:empty::before,
-.redactix-editor figcaption:has(> br:only-child)::before {
+/* Плейсхолдер для пустого figcaption (только обычные изображения) */
+.redactix-editor figure:not(.quote-card) > figcaption:empty::before,
+.redactix-editor figure:not(.quote-card) > figcaption:has(> br:only-child)::before {
     content: 'Add caption...';
     color: var(--redactix-text-placeholder);
     font-style: italic;
@@ -940,6 +1042,19 @@ textarea.redactix[style*="display: none"] {
 .redactix-list-handle:hover {
     background: #fde68a;
     color: #92400e;
+}
+
+/* Ручка для callout / quote-card целиком — выделяем primary-цветом, чтобы
+   отличить от ручки внутреннего блока. */
+.redactix-container-handle {
+    background: var(--redactix-primary-light);
+    border: 1px dashed var(--redactix-primary);
+    color: var(--redactix-primary);
+}
+
+.redactix-container-handle:hover {
+    background: var(--redactix-primary);
+    color: #fff;
 }
 
 .redactix-block-dragging {
@@ -1584,13 +1699,17 @@ body.redactix-fullscreen-active {
 }
 
 /* Цитаты в RTL */
-.redactix-wrapper.redactix-rtl .redactix-editor blockquote {
+.redactix-wrapper.redactix-rtl .redactix-editor figure.quote-card > blockquote {
     border-left: none;
     border-right: 4px solid var(--redactix-primary);
 }
 
-.redactix-wrapper.redactix-rtl .redactix-editor blockquote.big {
+.redactix-wrapper.redactix-rtl .redactix-editor figure.quote-card.big > blockquote {
     border-right: none;
+}
+
+.redactix-wrapper.redactix-rtl .redactix-editor figure.quote-card > figcaption {
+    text-align: right;
 }
 
 /* Счётчик в RTL */

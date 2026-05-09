@@ -190,6 +190,12 @@ export default class History extends Module {
         if (this.instance.setupCodeBlocks) {
             this.instance.setupCodeBlocks();
         }
+        if (this.instance.runQuoteCardSetup) {
+            this.instance.runQuoteCardSetup();
+        }
+        if (this.instance.runCalloutSetup) {
+            this.instance.runCalloutSetup();
+        }
         
         // Восстанавливаем позицию курсора
         this.restoreSelection(state.selection);

@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Cài đặt ô',
         rowSettings: 'Cài đặt hàng',
         dragEntireList: 'Kéo toàn bộ danh sách',
-        citePlaceholder: 'Thêm trích dẫn...',
-        addCitation: 'Thêm trích dẫn',
-        removeCitation: 'Xóa trích dẫn',
         addEmoji: 'Thêm emoji',
         changeEmoji: 'Đổi emoji',
         removeEmoji: 'Xóa emoji',
         emojiOnly: 'Chỉ emoji'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Chú thích',
+        menuPhoto: 'Ảnh tác giả',
+        addCaption: 'Thêm chú thích',
+        removeCaption: 'Xóa chú thích',
+        addAuthor: 'Thêm tác giả',
+        editAuthor: 'Sửa tác giả',
+        removePhoto: 'Xóa ảnh',
+        removeAll: 'Xóa chú thích',
+        photoSection: 'Ảnh tác giả',
+        photoUrl: 'URL ảnh',
+        photoAlt: 'Văn bản alt của ảnh',
+        authorSection: 'Tác giả',
+        authorName: 'Tên',
+        authorNamePlaceholder: 'ví dụ — Nguyễn Văn A'    },
 
     // Attributes module
     attributes: {

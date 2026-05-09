@@ -21,7 +21,7 @@ Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero depen
 - 🎯 **Block Controls** — Drag handle on hover, context menu for transformations
 - 🖼️ **Images** — Upload, browse gallery, drag & drop, paste from clipboard, auto-upload base64
 - 📊 **Tables** — Full-featured tables with row/column manipulation
-- 💬 **Quotes & Callouts** — Blockquotes with styles, aside blocks with presets (info, warning, danger, success) and optional emoji
+- 💬 **Quote cards** — `<figure class="quote-card">` with multi-paragraph blockquote, headings and lists inside, plus optional author photo, name and link in `<figcaption>`. Aside (callout) blocks have presets (info, warning, danger, success) and optional emoji
 - 🎬 **YouTube Embeds** — Automatic responsive video wrapper
 - 📱 **Touch Support** — Full mobile support with touch events for drag & drop
 - ⌨️ **Markdown Shortcuts** — `#`, `##`, `###`, `*`, `-`, `1.`, `>`, `!`, `---` for quick formatting
@@ -279,6 +279,7 @@ new Redactix({
 - Advanced link settings (title, rel) — all links are automatically `nofollow` and open in new tab
 - Element attributes editing (ID, classes)
 - Word/character counter
+- **Author photo** for quote cards — only text caption + optional link (forced to `rel="author nofollow noopener"` and `target="_blank"`)
 
 **What's simplified:**
 - Image dialog: only URL and alt text, images get `loading="lazy"` by default
@@ -308,7 +309,8 @@ new Redactix({
         { name: 'tip', label: 'Pro Tip', class: 'my-tip' }
     ],
     
-    // Custom blockquote styles
+    // Custom quote-card styles. The class is applied to the outer
+    // <figure class="quote-card">, NOT to the inner <blockquote>.
     quotePresets: [
         { name: 'pull', label: 'Pull Quote', class: 'pull-quote' },
         { name: 'testimonial', label: 'Testimonial', class: 'testimonial' }
@@ -425,6 +427,7 @@ redactix/
 │   ├── Link.js           # Link insertion
 │   ├── List.js           # Lists (UL/OL)
 │   ├── Markdown.js       # Markdown shortcuts
+│   ├── QuoteCard.js      # Quote cards with optional author photo + link
 │   ├── Separator.js      # Horizontal rules
 │   ├── SlashCommands.js  # "/" command menu (Notion-like)
 │   ├── Table.js          # Table management
@@ -481,8 +484,21 @@ Redactix produces clean, semantic HTML:
     <li>Another item</li>
 </ul>
 
-<blockquote>Standard quote</blockquote>
-<blockquote class="big">Large quote</blockquote>
+<figure class="quote-card">
+    <blockquote>
+        <p>Standard quote — can contain multiple paragraphs, headings, lists.</p>
+    </blockquote>
+</figure>
+
+<figure class="quote-card big">
+    <blockquote>
+        <p>Large quote with author photo and link.</p>
+    </blockquote>
+    <figcaption>
+        <img src="/uploads/author.jpg" alt="Portrait of the author">
+        <span>— <a href="https://author.example" rel="author">Author Name</a></span>
+    </figcaption>
+</figure>
 
 <aside class="warning">Warning callout</aside>
 <aside data-emoji="💡" class="information">Callout with emoji</aside>

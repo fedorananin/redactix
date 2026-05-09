@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Ұяшық параметрлері',
         rowSettings: 'Жол параметрлері',
         dragEntireList: 'Бүкіл тізімді сүйреу',
-        citePlaceholder: 'Дәйексөз қосу...',
-        addCitation: 'Дәйексөз қосу',
-        removeCitation: 'Дәйексөзді өшіру',
         addEmoji: 'Эмодзи қосу',
         changeEmoji: 'Эмодзи өзгерту',
         removeEmoji: 'Эмодзи өшіру',
         emojiOnly: 'Тек эмодзи'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Жазба',
+        menuPhoto: 'Автор фотосы',
+        addCaption: 'Жазба қосу',
+        removeCaption: 'Жазбаны өшіру',
+        addAuthor: 'Авторды қосу',
+        editAuthor: 'Авторды өңдеу',
+        removePhoto: 'Фотоны өшіру',
+        removeAll: 'Жазбаны өшіру',
+        photoSection: 'Автор фотосы',
+        photoUrl: 'Фото URL',
+        photoAlt: 'Фото alt мәтіні',
+        authorSection: 'Автор',
+        authorName: 'Аты',
+        authorNamePlaceholder: 'мысалы — Айдар Жұмабаев'    },
 
     // Attributes module
     attributes: {

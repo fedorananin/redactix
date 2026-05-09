@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Mipangilio ya seli',
         rowSettings: 'Mipangilio ya safu mlalo',
         dragEntireList: 'Buruta orodha nzima',
-        citePlaceholder: 'Ongeza nukuu...',
-        addCitation: 'Ongeza nukuu',
-        removeCitation: 'Ondoa nukuu',
         addEmoji: 'Ongeza emoji',
         changeEmoji: 'Badilisha emoji',
         removeEmoji: 'Ondoa emoji',
         emojiOnly: 'Emoji pekee'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Maelezo',
+        menuPhoto: 'Picha ya mwandishi',
+        addCaption: 'Ongeza maelezo',
+        removeCaption: 'Ondoa maelezo',
+        addAuthor: 'Ongeza mwandishi',
+        editAuthor: 'Hariri mwandishi',
+        removePhoto: 'Ondoa picha',
+        removeAll: 'Ondoa maelezo',
+        photoSection: 'Picha ya mwandishi',
+        photoUrl: 'URL ya picha',
+        photoAlt: 'Maandishi alt ya picha',
+        authorSection: 'Mwandishi',
+        authorName: 'Jina',
+        authorNamePlaceholder: 'mfano — Juma Hassan'    },
 
     // Attributes module
     attributes: {

@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Configurações da célula',
         rowSettings: 'Configurações da linha',
         dragEntireList: 'Arrastar lista inteira',
-        citePlaceholder: 'Adicionar citação...',
-        addCitation: 'Adicionar citação',
-        removeCitation: 'Remover citação',
         addEmoji: 'Adicionar emoji',
         changeEmoji: 'Alterar emoji',
         removeEmoji: 'Remover emoji',
         emojiOnly: 'Apenas emoji'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Legenda',
+        menuPhoto: 'Foto do autor',
+        addCaption: 'Adicionar legenda',
+        removeCaption: 'Remover legenda',
+        addAuthor: 'Adicionar autor',
+        editAuthor: 'Editar autor',
+        removePhoto: 'Remover foto',
+        removeAll: 'Remover legenda',
+        photoSection: 'Foto do autor',
+        photoUrl: 'URL da foto',
+        photoAlt: 'Texto alt da foto',
+        authorSection: 'Autor',
+        authorName: 'Nome',
+        authorNamePlaceholder: 'ex.: — João Silva'    },
 
     // Attributes module
     attributes: {

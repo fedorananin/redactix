@@ -43,6 +43,7 @@ export default class BlockControl extends Module {
     init() {
         this.createHandle();
         this.createListHandle();
+        this.createContainerHandle();
         this.createMenu();
 
         // Слушаем движения мыши по редактору для отображения ручки
@@ -55,6 +56,9 @@ export default class BlockControl extends Module {
             }
             if (this.currentList && this.listHandle.style.display !== 'none') {
                 this.showListHandle(this.currentList);
+            }
+            if (this.currentContainer && this.containerHandle.style.display !== 'none') {
+                this.showContainerHandle(this.currentContainer);
             }
         });
 
@@ -77,7 +81,8 @@ export default class BlockControl extends Module {
         document.addEventListener('click', (e) => {
             if (this.menu && !this.menu.contains(e.target) &&
                 !this.handle.contains(e.target) &&
-                !this.listHandle.contains(e.target)) {
+                !this.listHandle.contains(e.target) &&
+                !this.containerHandle.contains(e.target)) {
                 this.hideMenu();
             }
         });
@@ -89,6 +94,7 @@ export default class BlockControl extends Module {
             if (relatedTarget && (
                 this.handle.contains(relatedTarget) ||
                 this.listHandle.contains(relatedTarget) ||
+                this.containerHandle.contains(relatedTarget) ||
                 (this.menu && this.menu.contains(relatedTarget))
             )) {
                 return;
@@ -97,6 +103,7 @@ export default class BlockControl extends Module {
             if (!this.isDragging && (!this.menu || this.menu.style.display === 'none')) {
                 this.hideHandle();
                 this.hideListHandle();
+                this.hideContainerHandle();
             }
         });
 
@@ -107,6 +114,10 @@ export default class BlockControl extends Module {
 
         this.listHandle.addEventListener('mouseenter', () => {
             this.listHandle.style.display = 'flex';
+        });
+
+        this.containerHandle.addEventListener('mouseenter', () => {
+            this.containerHandle.style.display = 'flex';
         });
 
         // Когда мышь уходит с ручки - проверяем куда
@@ -135,6 +146,19 @@ export default class BlockControl extends Module {
             }
             if (!this.menu || this.menu.style.display === 'none') {
                 this.hideListHandle();
+            }
+        });
+
+        this.containerHandle.addEventListener('mouseleave', (e) => {
+            const relatedTarget = e.relatedTarget;
+            if (relatedTarget && (
+                this.instance.editorEl.contains(relatedTarget) ||
+                (this.menu && this.menu.contains(relatedTarget))
+            )) {
+                return;
+            }
+            if (!this.menu || this.menu.style.display === 'none') {
+                this.hideContainerHandle();
             }
         });
     }
@@ -202,6 +226,44 @@ export default class BlockControl extends Module {
         this.instance.wrapper.appendChild(this.listHandle);
     }
 
+    /**
+     * Container handle — shown for the outermost callout / quote-card while
+     * the cursor is anywhere inside one. Sits in the editor's left padding,
+     * outside the container itself, so it never collides with inner-block
+     * handles (which live in the container's own left padding).
+     */
+    createContainerHandle() {
+        this.containerHandle = document.createElement('div');
+        this.containerHandle.className = 'redactix-block-handle redactix-container-handle';
+        this.containerHandle.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <circle cx="9" cy="6" r="1.5"/>
+            <circle cx="15" cy="6" r="1.5"/>
+            <circle cx="9" cy="12" r="1.5"/>
+            <circle cx="15" cy="12" r="1.5"/>
+            <circle cx="9" cy="18" r="1.5"/>
+            <circle cx="15" cy="18" r="1.5"/>
+        </svg>`;
+        this.containerHandle.contentEditable = false;
+
+        this.containerHandle.addEventListener('mousedown', (e) => {
+            this.activeHandle = 'container';
+            this.currentBlock = this.currentContainer;
+            this.onDragStart(e);
+        });
+        this.containerHandle.addEventListener('click', (e) => {
+            this.activeHandle = 'container';
+            this.currentBlock = this.currentContainer;
+            this.onHandleClick(e);
+        });
+        this.containerHandle.addEventListener('touchstart', (e) => {
+            this.activeHandle = 'container';
+            this.currentBlock = this.currentContainer;
+            this.onTouchStart(e);
+        }, { passive: false });
+
+        this.instance.wrapper.appendChild(this.containerHandle);
+    }
+
     createMenu() {
         this.menu = document.createElement('div');
         this.menu.className = 'redactix-block-menu';
@@ -216,18 +278,33 @@ export default class BlockControl extends Module {
 
         const tag = this.currentBlock.tagName;
         const parentTag = this.currentBlock.parentElement?.tagName;
+        const isQuoteCard = tag === 'FIGURE' &&
+            this.currentBlock.classList.contains('quote-card');
+        const isCallout = tag === 'ASIDE';
 
-        // Группа: Преобразование блока
-        if (['P', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'ASIDE'].includes(tag)) {
+        // True if currentBlock is a child block inside a callout or quote-card.
+        // The container itself (aside / figure.quote-card) is excluded.
+        const ancestorAside = !isCallout && this.currentBlock.closest
+            ? this.currentBlock.parentElement && this.currentBlock.parentElement.closest('aside')
+            : null;
+        const ancestorCard = !isQuoteCard && this.currentBlock.closest
+            ? this.currentBlock.parentElement && this.currentBlock.parentElement.closest('figure.quote-card')
+            : null;
+        const isInnerBlock = !!(ancestorAside || ancestorCard);
+
+        // Группа: Преобразование блока (только текстовые типы, не для callout/quote-card)
+        if (['P', 'H1', 'H2', 'H3', 'ASIDE'].includes(tag)) {
             const transformGroup = this.createMenuGroup(this.t('blockControl.transformTo'));
             const transforms = [
                 { label: this.t('blockControl.paragraph'), tag: 'P', icon: '¶' },
                 { label: this.t('blockControl.heading1'), tag: 'H1', icon: 'H1' },
                 { label: this.t('blockControl.heading2'), tag: 'H2', icon: 'H2' },
-                { label: this.t('blockControl.heading3'), tag: 'H3', icon: 'H3' },
-                { label: this.t('blockControl.quote'), tag: 'BLOCKQUOTE', icon: '❝' },
-                { label: this.t('blockControl.callout'), tag: 'ASIDE', icon: '💡' }
+                { label: this.t('blockControl.heading3'), tag: 'H3', icon: 'H3' }
             ];
+            // ASIDE option only for top-level blocks (no nested callouts)
+            if (!isInnerBlock) {
+                transforms.push({ label: this.t('blockControl.callout'), tag: 'ASIDE', icon: '💡' });
+            }
 
             transforms.forEach(t => {
                 if (t.tag !== tag) {
@@ -283,8 +360,12 @@ export default class BlockControl extends Module {
             this.menu.appendChild(this.createMenuDivider());
         }
 
-        // Группа: Пресеты для цитат (blockquote)
-        if (tag === 'BLOCKQUOTE') {
+        // Группа: настройки цитаты-карточки (figure.quote-card)
+        if (isQuoteCard) {
+            const quoteCardModule = this.instance.modules.find(m => m.constructor.name === 'QuoteCard');
+            const card = this.currentBlock;
+
+            // Стили цитаты — пресеты применяются к figure
             const presetGroup = this.createMenuGroup(this.t('blockControl.quoteStyle'));
             const currentClass = this.getCurrentPresetClass(this.quotePresets);
 
@@ -301,19 +382,41 @@ export default class BlockControl extends Module {
                 presetGroup.appendChild(item);
             });
             this.menu.appendChild(presetGroup);
-
-            // Citation toggle: add or remove cite element
-            const hasCite = !!this.currentBlock.querySelector('cite');
-            const citeIcon = hasCite ? '✕' : '✎';
-            const citeLabel = hasCite
-                ? this.t('blockControl.removeCitation')
-                : this.t('blockControl.addCitation');
-            const citeItem = this.createMenuItem(citeIcon, citeLabel, () => {
-                this.toggleCitation();
-            });
-            this.menu.appendChild(citeItem);
-
             this.menu.appendChild(this.createMenuDivider());
+
+            // Caption (текстовая подпись)
+            if (quoteCardModule) {
+                const captionGroup = this.createMenuGroup(this.t('quoteCard.menuCaption'));
+                const hasText = quoteCardModule.hasCaptionText(card);
+                const captionLabel = hasText
+                    ? this.t('quoteCard.removeCaption')
+                    : this.t('quoteCard.addCaption');
+                const captionIcon = hasText ? '✕' : '✎';
+                captionGroup.appendChild(this.createMenuItem(captionIcon, captionLabel, () => {
+                    if (hasText) quoteCardModule.removeCaption(card);
+                    else quoteCardModule.addCaption(card);
+                }));
+                this.menu.appendChild(captionGroup);
+
+                // Author photo (только не в lite mode)
+                if (!this.liteMode) {
+                    const photoGroup = this.createMenuGroup(this.t('quoteCard.menuPhoto'));
+                    const hasPhoto = quoteCardModule.hasAuthorPhoto(card);
+                    const editLabel = hasPhoto
+                        ? this.t('quoteCard.editAuthor')
+                        : this.t('quoteCard.addAuthor');
+                    photoGroup.appendChild(this.createMenuItem('🖼', editLabel, () => {
+                        quoteCardModule.openAuthorModal(card);
+                    }));
+                    if (hasPhoto) {
+                        photoGroup.appendChild(this.createMenuItem('✕', this.t('quoteCard.removePhoto'), () => {
+                            quoteCardModule.removeAuthorPhoto(card);
+                        }));
+                    }
+                    this.menu.appendChild(photoGroup);
+                }
+                this.menu.appendChild(this.createMenuDivider());
+            }
         }
 
         // Группа: Преобразование списка
@@ -405,7 +508,7 @@ export default class BlockControl extends Module {
 
         let target = e.target;
 
-        // Если курсор над редактором (например в паддинге слева), 
+        // Если курсор над редактором (например в паддинге слева),
         // пробуем найти элемент чуть правее курсора (по оси Y того же уровня)
         if (target === this.instance.editorEl) {
             const editorRect = this.instance.editorEl.getBoundingClientRect();
@@ -418,8 +521,75 @@ export default class BlockControl extends Module {
             }
         }
 
-        // Поднимаемся вверх до блочного элемента
+        // Whenever the cursor sits anywhere inside an aside or
+        // figure.quote-card, show the container-level handle. It lives in
+        // the editor's left padding so it never collides with inner-block
+        // handles (which sit in the container's own left padding).
+        const containerAncestor = target && target.closest
+            ? target.closest('aside, figure.quote-card')
+            : null;
+        if (containerAncestor && this.instance.editorEl.contains(containerAncestor)) {
+            this.currentContainer = containerAncestor;
+            this.showContainerHandle(containerAncestor);
+        } else {
+            this.hideContainerHandle();
+            this.currentContainer = null;
+        }
+
+        // If we are inside a callout or quote-card, decide what the main
+        // handle should track based on the element under the cursor —
+        // independently of where the block-level walk-up below would land.
+        if (containerAncestor) {
+            // Author photo / name area — suppress the main handle entirely;
+            // only the container handle remains.
+            const inFigcaption = e.target && e.target.closest &&
+                e.target.closest('figure.quote-card > figcaption');
+            if (inFigcaption) {
+                this.hideHandle();
+                this.hideListHandle();
+                this.currentBlock = null;
+                this.currentList = null;
+                return;
+            }
+
+            // Try to attach the main handle to the inner block at this Y.
+            const inner = this.findInnerBlockAtY(containerAncestor, e.clientY);
+            if (inner) {
+                if (inner.tagName === 'LI') {
+                    this.currentBlock = inner;
+                    this.showHandle(inner);
+                    const parentList = inner.parentElement;
+                    if (parentList && (parentList.tagName === 'UL' || parentList.tagName === 'OL')) {
+                        this.currentList = parentList;
+                        this.showListHandle(parentList);
+                    }
+                    return;
+                }
+                this.currentBlock = inner;
+                this.showHandle(inner);
+                this.hideListHandle();
+                this.currentList = null;
+                return;
+            }
+
+            // Nothing on this Y → cursor is in pure padding above/below the
+            // content. Anchor the main handle to the container too; the
+            // container handle is already visible above.
+            this.currentBlock = containerAncestor;
+            this.showHandle(containerAncestor);
+            this.hideListHandle();
+            this.currentList = null;
+            return;
+        }
+
+        // Поднимаемся вверх до блочного элемента.
+        // figcaption is part of its <figure> — never treat it as a separate
+        // draggable block.
         while (target && target !== this.instance.editorEl) {
+            if (target.tagName === 'FIGCAPTION') {
+                target = target.parentNode;
+                continue;
+            }
             const display = window.getComputedStyle(target).display;
             if (display === 'block' || display === 'list-item' || display === 'table' || target.tagName === 'LI' || target.tagName === 'HR') {
                 break;
@@ -483,9 +653,27 @@ export default class BlockControl extends Module {
 
         let offset = 0;
 
-        // Рассчитываем позицию слева динамически на основе отступа блока
-        // Смещаем влево на ширину ручки (24px) + небольшой отступ
-        let leftPos = (rect.left - wrapperRect.left) - 30;
+        // For inner blocks of a callout / quote-card, place the handle
+        // INSIDE the container's left padding (which we widened in CSS for
+        // exactly this purpose). For top-level blocks the handle sits in
+        // the editor's left padding, outside the block.
+        const container = this.getInnerContainer(block);
+        let leftPos;
+        if (container) {
+            const leftRefEl = container.tagName === 'BLOCKQUOTE'
+                ? container.parentElement // figure.quote-card
+                : container; // aside
+            const leftRefRect = leftRefEl.getBoundingClientRect();
+            // Past the emoji on aside[data-emoji], otherwise just past the
+            // border / inner edge.
+            const innerOffset = (leftRefEl.tagName === 'ASIDE' &&
+                leftRefEl.hasAttribute('data-emoji'))
+                ? 32
+                : 6;
+            leftPos = (leftRefRect.left - wrapperRect.left) + innerOffset;
+        } else {
+            leftPos = (rect.left - wrapperRect.left) - 30;
+        }
 
         // Ограничиваем минимальную позицию, чтобы не уезжало за край
         if (leftPos < 2) leftPos = 2;
@@ -544,8 +732,23 @@ export default class BlockControl extends Module {
         const wrapperRect = this.instance.wrapper.getBoundingClientRect();
         const editorRect = this.instance.editorEl.getBoundingClientRect();
 
-        // Рассчитываем leftPos так же, как и для обычных блоков - чуть левее самого элемента
-        let leftPos = (rect.left - wrapperRect.left) - 30;
+        // Lists nested inside a callout / quote-card: handle goes INSIDE
+        // the container's left padding (mirrors showHandle).
+        const container = this.getInnerContainer(list);
+        let leftPos;
+        if (container) {
+            const leftRefEl = container.tagName === 'BLOCKQUOTE'
+                ? container.parentElement
+                : container;
+            const leftRefRect = leftRefEl.getBoundingClientRect();
+            const innerOffset = (leftRefEl.tagName === 'ASIDE' &&
+                leftRefEl.hasAttribute('data-emoji'))
+                ? 32
+                : 6;
+            leftPos = (leftRefRect.left - wrapperRect.left) + innerOffset;
+        } else {
+            leftPos = (rect.left - wrapperRect.left) - 30;
+        }
 
         // Ограничиваем минимум
         if (leftPos < 2) leftPos = 2;
@@ -567,6 +770,36 @@ export default class BlockControl extends Module {
 
     hideListHandle() {
         this.listHandle.style.display = 'none';
+    }
+
+    /**
+     * Show the container-level handle for an aside / figure.quote-card.
+     * It sits in the editor's left padding (outside the container) and is
+     * vertically anchored to the top of the container.
+     */
+    showContainerHandle(container) {
+        const rect = container.getBoundingClientRect();
+        const wrapperRect = this.instance.wrapper.getBoundingClientRect();
+        const editorRect = this.instance.editorEl.getBoundingClientRect();
+
+        // Anchor a few pixels above the container's top edge so it doesn't
+        // overlap with the first inner block's handle.
+        let leftPos = (rect.left - wrapperRect.left) - 30;
+        if (leftPos < 2) leftPos = 2;
+        const top = (rect.top - wrapperRect.top) + 4;
+
+        const isVisible = rect.bottom > editorRect.top && rect.top < editorRect.bottom;
+        if (isVisible) {
+            this.containerHandle.style.display = 'flex';
+            this.containerHandle.style.top = `${top}px`;
+            this.containerHandle.style.left = `${leftPos}px`;
+        } else {
+            this.containerHandle.style.display = 'none';
+        }
+    }
+
+    hideContainerHandle() {
+        this.containerHandle.style.display = 'none';
     }
 
     onHandleClick(e) {
@@ -694,51 +927,14 @@ export default class BlockControl extends Module {
         }
     }
 
-    toggleCitation() {
-        if (!this.currentBlock || this.currentBlock.tagName !== 'BLOCKQUOTE') return;
-
-        this.beginHistoryBatch();
-
-        const existingCite = this.currentBlock.querySelector('cite');
-        if (existingCite) {
-            // Remove citation
-            existingCite.remove();
-        } else {
-            // Add citation
-            const cite = document.createElement('cite');
-            cite.innerHTML = '<br>';
-            this.currentBlock.appendChild(cite);
-            this.instance.setupBlockquotes();
-
-            // Focus the new cite element
-            const range = document.createRange();
-            range.setStart(cite, 0);
-            range.collapse(true);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-        }
-
-        this.instance.sync();
-        this.endHistoryBatch();
-    }
-
     transformBlock(newTag) {
         if (!this.currentBlock) return;
 
         this.beginHistoryBatch();
 
-        const oldTag = this.currentBlock.tagName;
         const newEl = document.createElement(newTag);
 
-        // Copy children, skip cite when leaving blockquote
         while (this.currentBlock.firstChild) {
-            if (oldTag === 'BLOCKQUOTE' && newTag !== 'BLOCKQUOTE' &&
-                this.currentBlock.firstChild.nodeType === Node.ELEMENT_NODE &&
-                this.currentBlock.firstChild.tagName === 'CITE') {
-                this.currentBlock.firstChild.remove();
-                continue;
-            }
             newEl.appendChild(this.currentBlock.firstChild);
         }
 
@@ -833,6 +1029,72 @@ export default class BlockControl extends Module {
         this.currentBlock = null;
         this.hideHandle();
         this.instance.sync();
+    }
+
+    /**
+     * Find the inner child of an aside or figure.quote-card whose vertical
+     * range contains the given client Y. If the container is a figure, we
+     * actually look inside its <blockquote>. Returns the LI when the inner
+     * child is a list and there's a matching item, otherwise the inner
+     * block itself. Returns null if Y falls in pure padding / margin.
+     */
+    findInnerBlockAtY(container, clientY) {
+        let host = container;
+        if (container.tagName === 'FIGURE' && container.classList.contains('quote-card')) {
+            host = container.querySelector(':scope > blockquote');
+        }
+        if (!host) return null;
+
+        const inRange = (el) => {
+            const r = el.getBoundingClientRect();
+            return clientY >= r.top && clientY <= r.bottom;
+        };
+
+        const inner = Array.from(host.children).find(inRange);
+        if (!inner) return null;
+
+        // Drill into a list to pick the actual LI under the cursor
+        if (inner.tagName === 'UL' || inner.tagName === 'OL') {
+            const items = Array.from(inner.children).filter(c => c.tagName === 'LI');
+            const li = items.find(inRange);
+            if (li) return li;
+        }
+        return inner;
+    }
+
+    /**
+     * Walk up to the nearest <aside> or <figure class="quote-card"> ancestor.
+     * Returns null if `block` is at the top level of the editor.
+     * Used by drag handlers to forbid drops that would mix containers.
+     */
+    getContainerAncestor(block) {
+        let current = block && block.parentElement;
+        while (current && current !== this.instance.editorEl) {
+            if (current.tagName === 'ASIDE') return current;
+            if (current.tagName === 'FIGURE' && current.classList.contains('quote-card')) {
+                return current;
+            }
+            current = current.parentElement;
+        }
+        return null;
+    }
+
+    /**
+     * If `block` lives directly inside an <aside> or inside a quote-card's
+     * <blockquote>, return the container element; otherwise null.
+     * Used to constrain drag scope so inner blocks never escape their card.
+     */
+    getInnerContainer(block) {
+        if (!block || !block.parentElement) return null;
+        const parent = block.parentElement;
+        if (parent.tagName === 'ASIDE') return parent;
+        if (parent.tagName === 'BLOCKQUOTE') {
+            const figure = parent.parentElement;
+            if (figure && figure.tagName === 'FIGURE' && figure.classList.contains('quote-card')) {
+                return parent;
+            }
+        }
+        return null;
     }
 
     getCurrentPresetClass(presets) {
@@ -1069,9 +1331,18 @@ export default class BlockControl extends Module {
         // Prevent dragging outside the editor
         if (!this.instance.editorEl.contains(elementBelow) && elementBelow !== this.instance.editorEl) return;
 
-        // Ищем целевой блок
+        // Hard-refuse drops aimed at a quote-card figcaption — that area
+        // can only contain <img> and <span>, never a draggable block.
+        if (elementBelow.closest && elementBelow.closest('figure.quote-card > figcaption')) return;
+
+        // Ищем целевой блок. figcaption is transparent for drop targeting —
+        // we never want to insert siblings between figure and its figcaption.
         let targetBlock = elementBelow;
         while (targetBlock && targetBlock !== this.instance.editorEl) {
+            if (targetBlock.tagName === 'FIGCAPTION') {
+                targetBlock = targetBlock.parentNode;
+                continue;
+            }
             const display = window.getComputedStyle(targetBlock).display;
             if (display === 'block' || display === 'list-item') {
                 break;
@@ -1081,7 +1352,30 @@ export default class BlockControl extends Module {
 
         if (targetBlock && targetBlock !== this.instance.editorEl && targetBlock !== this.currentBlock) {
             const currentTag = this.currentBlock.tagName;
-            const targetTag = targetBlock.tagName;
+            let targetTag = targetBlock.tagName;
+
+            // If target landed on a quote-card's blockquote (the wrapper),
+            // re-pick the inner block at this Y. Otherwise insertion would
+            // happen at blockquote.parentNode = figure, putting the drop
+            // between blockquote and figcaption.
+            if (targetTag === 'BLOCKQUOTE') {
+                const card = targetBlock.closest('figure.quote-card');
+                if (card) {
+                    const inner = this.findInnerBlockAtY(card, e.clientY);
+                    if (!inner) return;
+                    targetBlock = inner;
+                    targetTag = targetBlock.tagName;
+                }
+            }
+
+            // Container constraint: drops can only happen INSIDE the same
+            // callout / quote-card the source belongs to (or outside any
+            // such container if the source is top-level). This blocks both
+            // "escape" (inner block out) and "intrude" (top-level block in,
+            // even between blockquote and figcaption of a quote-card).
+            const sourceCard = this.getContainerAncestor(this.currentBlock);
+            const targetCard = this.getContainerAncestor(targetBlock);
+            if (sourceCard !== targetCard) return;
 
             // Правила перемещения:
             if (currentTag === 'LI') {
@@ -1352,9 +1646,17 @@ export default class BlockControl extends Module {
         // Prevent dragging outside the editor
         if (!this.instance.editorEl.contains(elementBelow) && elementBelow !== this.instance.editorEl) return;
 
-        // Ищем целевой блок
+        // Hard-refuse drops aimed at a quote-card figcaption.
+        if (elementBelow.closest && elementBelow.closest('figure.quote-card > figcaption')) return;
+
+        // Ищем целевой блок. figcaption is transparent for drop targeting —
+        // we never want to insert siblings between figure and its figcaption.
         let targetBlock = elementBelow;
         while (targetBlock && targetBlock !== this.instance.editorEl) {
+            if (targetBlock.tagName === 'FIGCAPTION') {
+                targetBlock = targetBlock.parentNode;
+                continue;
+            }
             const display = window.getComputedStyle(targetBlock).display;
             if (display === 'block' || display === 'list-item') {
                 break;
@@ -1364,7 +1666,24 @@ export default class BlockControl extends Module {
 
         if (targetBlock && targetBlock !== this.instance.editorEl && targetBlock !== this.currentBlock) {
             const currentTag = this.currentBlock.tagName;
-            const targetTag = targetBlock.tagName;
+            let targetTag = targetBlock.tagName;
+
+            // If target landed on a quote-card's blockquote, drill into the
+            // inner block at this Y — see onDragMove for rationale.
+            if (targetTag === 'BLOCKQUOTE') {
+                const card = targetBlock.closest('figure.quote-card');
+                if (card) {
+                    const inner = this.findInnerBlockAtY(card, touch.clientY);
+                    if (!inner) return;
+                    targetBlock = inner;
+                    targetTag = targetBlock.tagName;
+                }
+            }
+
+            // Same container-ancestor equality check as the mouse path.
+            const sourceCard = this.getContainerAncestor(this.currentBlock);
+            const targetCard = this.getContainerAncestor(targetBlock);
+            if (sourceCard !== targetCard) return;
 
             // Применяем те же правила что и для мыши
             if (currentTag === 'LI' && targetTag !== 'LI') return;

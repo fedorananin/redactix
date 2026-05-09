@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Podešavanja ćelije',
         rowSettings: 'Podešavanja reda',
         dragEntireList: 'Prevuci celu listu',
-        citePlaceholder: 'Dodaj citat...',
-        addCitation: 'Dodaj citat',
-        removeCitation: 'Ukloni citat',
         addEmoji: 'Dodaj emoji',
         changeEmoji: 'Promeni emoji',
         removeEmoji: 'Ukloni emoji',
         emojiOnly: 'Samo emoji'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Natpis',
+        menuPhoto: 'Fotografija autora',
+        addCaption: 'Dodaj natpis',
+        removeCaption: 'Ukloni natpis',
+        addAuthor: 'Dodaj autora',
+        editAuthor: 'Izmeni autora',
+        removePhoto: 'Ukloni fotografiju',
+        removeAll: 'Ukloni natpis',
+        photoSection: 'Fotografija autora',
+        photoUrl: 'URL fotografije',
+        photoAlt: 'Alt tekst fotografije',
+        authorSection: 'Autor',
+        authorName: 'Ime',
+        authorNamePlaceholder: 'npr. — Petar Petrović'    },
 
     // Attributes module
     attributes: {

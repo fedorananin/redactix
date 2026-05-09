@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Hücre Ayarları',
         rowSettings: 'Satır Ayarları',
         dragEntireList: 'Tüm listeyi sürükle',
-        citePlaceholder: 'Alıntı ekle...',
-        addCitation: 'Alıntı ekle',
-        removeCitation: 'Alıntıyı kaldır',
         addEmoji: 'Emoji ekle',
         changeEmoji: 'Emoji değiştir',
         removeEmoji: 'Emoji kaldır',
         emojiOnly: 'Sadece emoji'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Altyazı',
+        menuPhoto: 'Yazar fotoğrafı',
+        addCaption: 'Altyazı ekle',
+        removeCaption: 'Altyazıyı kaldır',
+        addAuthor: 'Yazar ekle',
+        editAuthor: 'Yazarı düzenle',
+        removePhoto: 'Fotoğrafı kaldır',
+        removeAll: 'Altyazıyı kaldır',
+        photoSection: 'Yazar fotoğrafı',
+        photoUrl: 'Fotoğraf URL\'si',
+        photoAlt: 'Fotoğraf alt metni',
+        authorSection: 'Yazar',
+        authorName: 'İsim',
+        authorNamePlaceholder: 'ör. — Ali Yılmaz'    },
 
     // Attributes module
     attributes: {

@@ -163,14 +163,28 @@ export default {
         cellSettings: 'إعدادات الخلية',
         rowSettings: 'إعدادات الصف',
         dragEntireList: 'سحب القائمة بأكملها',
-        citePlaceholder: 'إضافة اقتباس...',
-        addCitation: 'إضافة اقتباس',
-        removeCitation: 'إزالة الاقتباس',
         addEmoji: 'إضافة رمز تعبيري',
         changeEmoji: 'تغيير الرمز التعبيري',
         removeEmoji: 'إزالة الرمز التعبيري',
         emojiOnly: 'رموز تعبيرية فقط'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'تسمية',
+        menuPhoto: 'صورة المؤلف',
+        addCaption: 'إضافة تسمية',
+        removeCaption: 'إزالة التسمية',
+        addAuthor: 'إضافة مؤلف',
+        editAuthor: 'تعديل المؤلف',
+        removePhoto: 'إزالة الصورة',
+        removeAll: 'إزالة التسمية',
+        photoSection: 'صورة المؤلف',
+        photoUrl: 'رابط الصورة',
+        photoAlt: 'نص بديل للصورة',
+        authorSection: 'المؤلف',
+        authorName: 'الاسم',
+        authorNamePlaceholder: 'مثل — أحمد محمد'    },
 
     // Attributes module
     attributes: {

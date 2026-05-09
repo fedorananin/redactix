@@ -55,7 +55,7 @@ export default class SlashCommands extends Module {
                 description: this.t('slashCommands.quoteDesc'),
                 icon: Icons.blockquote,
                 keywords: ['quote', 'blockquote', 'citation', 'цитата'],
-                action: () => this.formatBlock('blockquote')
+                action: () => this.insertQuoteCard()
             },
             {
                 id: 'callout',
@@ -232,7 +232,19 @@ export default class SlashCommands extends Module {
      * Filter commands based on search text
      */
     filterCommands(searchText) {
-        const commands = this.getCommands();
+        let commands = this.getCommands();
+
+        // Inside a quote-card, only allow text-level blocks: H1-H3 + UL/OL.
+        // No nested cards, callouts, images, tables, code, hr, or videos.
+        // Inside a callout we also allow hr.
+        if (this.isCursorInsideQuoteCard()) {
+            const allowed = ['h1', 'h2', 'h3', 'ol', 'ul'];
+            commands = commands.filter(cmd => allowed.includes(cmd.id));
+        } else if (this.isCursorInsideCallout()) {
+            const allowed = ['h1', 'h2', 'h3', 'ol', 'ul', 'hr'];
+            commands = commands.filter(cmd => allowed.includes(cmd.id));
+        }
+
         const search = searchText.toLowerCase().trim();
 
         if (!search) {
@@ -247,6 +259,38 @@ export default class SlashCommands extends Module {
 
         this.selectedIndex = 0;
         this.renderMenu();
+    }
+
+    /**
+     * True if the current selection is inside a quote-card figure.
+     */
+    isCursorInsideQuoteCard() {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return false;
+        const node = sel.getRangeAt(0).startContainer;
+        const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+        return !!(el && el.closest && el.closest('figure.quote-card'));
+    }
+
+    /**
+     * True if the current selection is inside an <aside> callout.
+     */
+    isCursorInsideCallout() {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return false;
+        const node = sel.getRangeAt(0).startContainer;
+        const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+        return !!(el && el.closest && el.closest('aside'));
+    }
+
+    /**
+     * Insert a new empty quote-card via QuoteCard module.
+     */
+    insertQuoteCard() {
+        const quoteCardModule = this.instance.modules.find(m => m.constructor.name === 'QuoteCard');
+        if (quoteCardModule) {
+            quoteCardModule.insertEmpty();
+        }
     }
 
     /**

@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Zelleneinstellungen',
         rowSettings: 'Zeileneinstellungen',
         dragEntireList: 'Gesamte Liste ziehen',
-        citePlaceholder: 'Zitat hinzufügen...',
-        addCitation: 'Zitat hinzufügen',
-        removeCitation: 'Zitat entfernen',
         addEmoji: 'Emoji hinzufügen',
         changeEmoji: 'Emoji ändern',
         removeEmoji: 'Emoji entfernen',
         emojiOnly: 'Nur Emoji'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Bildunterschrift',
+        menuPhoto: 'Autorenfoto',
+        addCaption: 'Bildunterschrift hinzufügen',
+        removeCaption: 'Bildunterschrift entfernen',
+        addAuthor: 'Autor hinzufügen',
+        editAuthor: 'Autor bearbeiten',
+        removePhoto: 'Foto entfernen',
+        removeAll: 'Bildunterschrift entfernen',
+        photoSection: 'Autorenfoto',
+        photoUrl: 'Foto-URL',
+        photoAlt: 'Foto Alt-Text',
+        authorSection: 'Autor',
+        authorName: 'Name',
+        authorNamePlaceholder: 'z. B. — Max Müller'    },
 
     // Attributes module
     attributes: {

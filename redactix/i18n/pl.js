@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Ustawienia komórki',
         rowSettings: 'Ustawienia wiersza',
         dragEntireList: 'Przeciągnij całą listę',
-        citePlaceholder: 'Dodaj cytat...',
-        addCitation: 'Dodaj cytat',
-        removeCitation: 'Usuń cytat',
         addEmoji: 'Dodaj emoji',
         changeEmoji: 'Zmień emoji',
         removeEmoji: 'Usuń emoji',
         emojiOnly: 'Tylko emoji'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Podpis',
+        menuPhoto: 'Zdjęcie autora',
+        addCaption: 'Dodaj podpis',
+        removeCaption: 'Usuń podpis',
+        addAuthor: 'Dodaj autora',
+        editAuthor: 'Edytuj autora',
+        removePhoto: 'Usuń zdjęcie',
+        removeAll: 'Usuń podpis',
+        photoSection: 'Zdjęcie autora',
+        photoUrl: 'URL zdjęcia',
+        photoAlt: 'Tekst alt zdjęcia',
+        authorSection: 'Autor',
+        authorName: 'Imię',
+        authorNamePlaceholder: 'np. — Jan Kowalski'    },
 
     // Attributes module
     attributes: {

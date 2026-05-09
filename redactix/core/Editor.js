@@ -46,16 +46,9 @@ export default class Editor {
         // Это случается когда пользователь выделяет всё и удаляет
         if (this.el.children.length === 1) {
             const child = this.el.children[0];
-            // For blockquote, exclude cite when checking if empty
-            let checkContent = child.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-            if (child.tagName === 'BLOCKQUOTE') {
-                const clone = child.cloneNode(true);
-                const cite = clone.querySelector('cite');
-                if (cite) cite.remove();
-                checkContent = clone.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-            }
+            const checkContent = child.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
 
-            if (!checkContent && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'ASIDE'].includes(child.tagName)) {
+            if (!checkContent && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'ASIDE'].includes(child.tagName)) {
                 // Заменяем пустой заголовок/цитату на параграф
                 const p = document.createElement('p');
                 p.innerHTML = '<br>';
@@ -227,9 +220,12 @@ export default class Editor {
                 this.instance.setupFigures();
             }
 
-            // Setup cite elements for pasted blockquotes
-            if (this.instance.setupBlockquotes) {
-                this.instance.setupBlockquotes();
+            // Migrate any pasted legacy blockquotes and wire up quote-cards
+            if (this.instance.runQuoteCardSetup) {
+                this.instance.runQuoteCardSetup();
+            }
+            if (this.instance.runCalloutSetup) {
+                this.instance.runCalloutSetup();
             }
         } else if (text) {
             // Если только текст - вставляем с сохранением переносов строк
@@ -399,7 +395,7 @@ export default class Editor {
         // Удаляем все атрибуты, кроме разрешённых
         const allowedAttributes = ['href', 'src', 'alt', 'title', 'colspan', 'rowspan'];
         // Разрешённые классы (наши внутренние)
-        const allowedClasses = ['spoiler', 'warning', 'danger', 'information', 'success', 'big'];
+        const allowedClasses = ['spoiler', 'warning', 'danger', 'information', 'success', 'big', 'quote-card'];
         const allElements = temp.getElementsByTagName('*');
 
         for (let i = 0; i < allElements.length; i++) {
@@ -667,11 +663,17 @@ export default class Editor {
         const range = selection.getRangeAt(0);
         let block = range.startContainer;
 
-        // Check if we are inside a figcaption or cite — insert <br> instead of splitting
+        // Check if we are inside a figcaption — special-case quote-card (block
+        // Enter entirely; single-line author field) vs. plain figure (insert <br>).
         let inlineEditable = block;
         while (inlineEditable && inlineEditable !== this.el) {
             if (inlineEditable.nodeType === Node.ELEMENT_NODE &&
-                (inlineEditable.tagName === 'FIGCAPTION' || inlineEditable.tagName === 'CITE')) {
+                inlineEditable.tagName === 'FIGCAPTION') {
+                const card = inlineEditable.parentElement;
+                if (card && card.tagName === 'FIGURE' && card.classList.contains('quote-card')) {
+                    e.preventDefault();
+                    return true;
+                }
                 e.preventDefault();
                 this.insertBrAtCursor();
                 this.instance.sync();
@@ -692,6 +694,68 @@ export default class Editor {
         }
 
         if (!block || block === this.el) return false;
+
+        // Quote-card: Enter on the empty last block exits the card.
+        const card = block.closest && block.closest('figure.quote-card');
+        if (card && block.tagName !== 'LI') {
+            const bq = card.querySelector(':scope > blockquote');
+            if (bq && block.parentNode === bq) {
+                const isLast = block === bq.lastElementChild;
+                const isEmpty = !block.textContent.trim() &&
+                    !block.querySelector('img, iframe');
+                if (isLast && isEmpty) {
+                    e.preventDefault();
+                    block.remove();
+                    if (bq.children.length === 0) {
+                        const filler = document.createElement('p');
+                        filler.innerHTML = '<br>';
+                        bq.appendChild(filler);
+                    }
+                    const exitP = document.createElement('p');
+                    exitP.innerHTML = '<br>';
+                    card.parentNode.insertBefore(exitP, card.nextSibling);
+                    const newRange = document.createRange();
+                    newRange.setStart(exitP, 0);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                    this.instance.sync();
+                    return true;
+                }
+                // Otherwise let the browser create a sibling block inside the blockquote.
+                return false;
+            }
+        }
+
+        // Callout: Enter on the empty last block exits the aside.
+        // Mirrors the quote-card behavior.
+        const aside = block.closest && block.closest('aside');
+        if (aside && block.tagName !== 'LI' && block.parentNode === aside) {
+            const isLast = block === aside.lastElementChild;
+            const isEmpty = !block.textContent.trim() &&
+                !block.querySelector('img, iframe, hr');
+            if (isLast && isEmpty) {
+                e.preventDefault();
+                block.remove();
+                if (aside.children.length === 0) {
+                    const filler = document.createElement('p');
+                    filler.innerHTML = '<br>';
+                    aside.appendChild(filler);
+                }
+                const exitP = document.createElement('p');
+                exitP.innerHTML = '<br>';
+                aside.parentNode.insertBefore(exitP, aside.nextSibling);
+                const newRange = document.createRange();
+                newRange.setStart(exitP, 0);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+                this.instance.sync();
+                return true;
+            }
+            // Otherwise let the browser create a sibling block inside the aside.
+            return false;
+        }
 
         // Проверяем что блок пустой
         const isEmpty = !block.textContent.trim() && !block.querySelector('img, iframe');
@@ -816,70 +880,6 @@ export default class Editor {
             return true;
         }
 
-        // Exit blockquote on empty content (excluding cite element)
-        if (block.tagName === 'BLOCKQUOTE') {
-            // Check if blockquote is empty, ignoring cite
-            const bqClone = block.cloneNode(true);
-            const bqCite = bqClone.querySelector('cite');
-            if (bqCite) bqCite.remove();
-            const bqText = bqClone.textContent.trim();
-            const bqHasMedia = bqClone.querySelector('img, iframe');
-            const bqIsEmpty = !bqText && !bqHasMedia;
-
-            if (bqIsEmpty) {
-                e.preventDefault();
-
-                const p = document.createElement('p');
-                p.innerHTML = '<br>';
-
-                block.parentNode.insertBefore(p, block.nextSibling);
-                block.remove();
-
-                const newRange = document.createRange();
-                newRange.setStart(p, 0);
-                newRange.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(newRange);
-
-                this.instance.sync();
-                return true;
-            }
-        }
-
-        // Exit aside on empty content
-        if (block.tagName === 'ASIDE') {
-            const asideText = block.textContent.trim();
-            const asideHasMedia = block.querySelector('img, iframe');
-            const asideIsEmpty = !asideText && !asideHasMedia;
-
-            if (asideIsEmpty) {
-                e.preventDefault();
-
-                const p = document.createElement('p');
-                p.innerHTML = '<br>';
-
-                block.parentNode.insertBefore(p, block.nextSibling);
-                block.remove();
-
-                const newRange = document.createRange();
-                newRange.setStart(p, 0);
-                newRange.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(newRange);
-
-                this.instance.sync();
-                return true;
-            }
-        }
-
-        // Non-empty aside or blockquote: insert <br> instead of creating nested blocks
-        if (block.tagName === 'ASIDE' || block.tagName === 'BLOCKQUOTE') {
-            e.preventDefault();
-            this.insertBrAtCursor();
-            this.instance.sync();
-            return true;
-        }
-
         return false;
     }
 
@@ -896,7 +896,8 @@ export default class Editor {
         while (block && block !== this.el) {
             if (block.nodeType === Node.ELEMENT_NODE) {
                 const tag = block.tagName;
-                if (['LI', 'BLOCKQUOTE', 'ASIDE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(tag)) {
+                // P is included so we can detect blocks inside quote-card
+                if (['LI', 'BLOCKQUOTE', 'ASIDE', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(tag)) {
                     break;
                 }
             }
@@ -911,6 +912,89 @@ export default class Editor {
             if (node.previousSibling) return false;
             node = node.parentNode;
         }
+
+        // Quote-card: don't let backspace escape the card
+        const card = block.closest && block.closest('figure.quote-card');
+        if (card && block.tagName !== 'LI') {
+            const bq = card.querySelector(':scope > blockquote');
+            if (bq && block.parentNode === bq) {
+                const isFirst = block === bq.firstElementChild;
+                if (!isFirst) {
+                    // Let the browser merge with the previous block inside blockquote
+                    return false;
+                }
+                const isEmpty = !block.textContent.trim() &&
+                    !block.querySelector('img, iframe');
+                if (!isEmpty) {
+                    // Don't merge with content outside the card
+                    e.preventDefault();
+                    return true;
+                }
+                e.preventDefault();
+                block.remove();
+                if (bq.children.length === 0) {
+                    // Card became empty — replace whole card with a paragraph
+                    const replacement = document.createElement('p');
+                    replacement.innerHTML = '<br>';
+                    card.parentNode.replaceChild(replacement, card);
+                    const r = document.createRange();
+                    r.setStart(replacement, 0);
+                    r.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(r);
+                } else {
+                    const newFirst = bq.firstElementChild;
+                    const r = document.createRange();
+                    r.setStart(newFirst, 0);
+                    r.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(r);
+                }
+                this.instance.sync();
+                return true;
+            }
+        }
+
+        // Callout: same idea — don't let backspace escape the aside.
+        const aside = block.closest && block.closest('aside');
+        if (aside && block.tagName !== 'LI' && block.parentNode === aside) {
+            const isFirst = block === aside.firstElementChild;
+            if (!isFirst) {
+                // Let the browser merge with the previous block inside aside
+                return false;
+            }
+            const isEmpty = !block.textContent.trim() &&
+                !block.querySelector('img, iframe, hr');
+            if (!isEmpty) {
+                e.preventDefault();
+                return true;
+            }
+            e.preventDefault();
+            block.remove();
+            if (aside.children.length === 0) {
+                // Aside became empty — replace whole aside with a paragraph
+                const replacement = document.createElement('p');
+                replacement.innerHTML = '<br>';
+                aside.parentNode.replaceChild(replacement, aside);
+                const r = document.createRange();
+                r.setStart(replacement, 0);
+                r.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(r);
+            } else {
+                const newFirst = aside.firstElementChild;
+                const r = document.createRange();
+                r.setStart(newFirst, 0);
+                r.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(r);
+            }
+            this.instance.sync();
+            return true;
+        }
+
+        // Standalone P at top level — let the browser handle it (default merge)
+        if (block.tagName === 'P') return false;
 
         // Преобразуем заголовок в параграф
         if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(block.tagName)) {
@@ -934,17 +1018,13 @@ export default class Editor {
             return true;
         }
 
-        // Convert blockquote or aside to paragraph
-        if (block.tagName === 'BLOCKQUOTE' || block.tagName === 'ASIDE') {
+        // Defensive fallback: top-level <aside> with no inner block (shouldn't
+        // happen after migration, but kept just in case) — convert to paragraph.
+        if (block.tagName === 'ASIDE') {
             e.preventDefault();
 
             const p = document.createElement('p');
             while (block.firstChild) {
-                // Skip cite element when converting blockquote to paragraph
-                if (block.firstChild.nodeType === Node.ELEMENT_NODE && block.firstChild.tagName === 'CITE') {
-                    block.firstChild.remove();
-                    continue;
-                }
                 p.appendChild(block.firstChild);
             }
             if (!p.innerHTML.trim()) p.innerHTML = '<br>';

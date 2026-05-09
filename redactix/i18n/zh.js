@@ -163,14 +163,28 @@ export default {
         cellSettings: '单元格设置',
         rowSettings: '行设置',
         dragEntireList: '拖动整个列表',
-        citePlaceholder: '添加引用...',
-        addCitation: '添加引用',
-        removeCitation: '删除引用',
         addEmoji: '添加表情',
         changeEmoji: '更改表情',
         removeEmoji: '删除表情',
         emojiOnly: '仅限表情'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: '标题',
+        menuPhoto: '作者照片',
+        addCaption: '添加标题',
+        removeCaption: '删除标题',
+        addAuthor: '添加作者',
+        editAuthor: '编辑作者',
+        removePhoto: '删除照片',
+        removeAll: '删除标题',
+        photoSection: '作者照片',
+        photoUrl: '照片URL',
+        photoAlt: '照片alt文本',
+        authorSection: '作者',
+        authorName: '姓名',
+        authorNamePlaceholder: '例如 — 张三'    },
 
     // Attributes module
     attributes: {

@@ -163,14 +163,28 @@ export default {
         cellSettings: 'הגדרות תא',
         rowSettings: 'הגדרות שורה',
         dragEntireList: 'גרור את כל הרשימה',
-        citePlaceholder: 'הוסף ציטוט...',
-        addCitation: 'הוסף ציטוט',
-        removeCitation: 'הסר ציטוט',
         addEmoji: 'הוסף אמוג\'י',
         changeEmoji: 'שנה אמוג\'י',
         removeEmoji: 'הסר אמוג\'י',
         emojiOnly: 'אמוג\'י בלבד'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'כיתוב',
+        menuPhoto: 'תמונת מחבר',
+        addCaption: 'הוסף כיתוב',
+        removeCaption: 'הסר כיתוב',
+        addAuthor: 'הוסף מחבר',
+        editAuthor: 'ערוך מחבר',
+        removePhoto: 'הסר תמונה',
+        removeAll: 'הסר כיתוב',
+        photoSection: 'תמונת מחבר',
+        photoUrl: 'כתובת תמונה',
+        photoAlt: 'טקסט חלופי לתמונה',
+        authorSection: 'מחבר',
+        authorName: 'שם',
+        authorNamePlaceholder: 'לדוגמה — דוד כהן'    },
 
     // Attributes module
     attributes: {

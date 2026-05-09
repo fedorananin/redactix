@@ -163,14 +163,28 @@ export default {
         cellSettings: 'უჯრედის პარამეტრები',
         rowSettings: 'მწკრივის პარამეტრები',
         dragEntireList: 'მთელი სიის გადატანა',
-        citePlaceholder: 'ციტატის დამატება...',
-        addCitation: 'ციტატის დამატება',
-        removeCitation: 'ციტატის წაშლა',
         addEmoji: 'ემოჯის დამატება',
         changeEmoji: 'ემოჯის შეცვლა',
         removeEmoji: 'ემოჯის წაშლა',
         emojiOnly: 'მხოლოდ ემოჯი'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'წარწერა',
+        menuPhoto: 'ავტორის ფოტო',
+        addCaption: 'წარწერის დამატება',
+        removeCaption: 'წარწერის წაშლა',
+        addAuthor: 'ავტორის დამატება',
+        editAuthor: 'ავტორის რედაქტირება',
+        removePhoto: 'ფოტოს წაშლა',
+        removeAll: 'წარწერის წაშლა',
+        photoSection: 'ავტორის ფოტო',
+        photoUrl: 'ფოტოს URL',
+        photoAlt: 'ფოტოს alt ტექსტი',
+        authorSection: 'ავტორი',
+        authorName: 'სახელი',
+        authorNamePlaceholder: 'მაგ.: — გიორგი მამულაშვილი'    },
 
     // Attributes module
     attributes: {

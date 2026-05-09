@@ -163,14 +163,28 @@ export default {
         cellSettings: 'セル設定',
         rowSettings: '行設定',
         dragEntireList: 'リスト全体をドラッグ',
-        citePlaceholder: '引用元を追加...',
-        addCitation: '引用元を追加',
-        removeCitation: '引用元を削除',
         addEmoji: '絵文字を追加',
         changeEmoji: '絵文字を変更',
         removeEmoji: '絵文字を削除',
         emojiOnly: '絵文字のみ'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'キャプション',
+        menuPhoto: '著者の写真',
+        addCaption: 'キャプションを追加',
+        removeCaption: 'キャプションを削除',
+        addAuthor: '著者を追加',
+        editAuthor: '著者を編集',
+        removePhoto: '写真を削除',
+        removeAll: 'キャプションを削除',
+        photoSection: '著者の写真',
+        photoUrl: '写真のURL',
+        photoAlt: '写真のalt属性',
+        authorSection: '著者',
+        authorName: '名前',
+        authorNamePlaceholder: '例: — 山田太郎'    },
 
     // Attributes module
     attributes: {

@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Configuración de celda',
         rowSettings: 'Configuración de fila',
         dragEntireList: 'Arrastrar lista completa',
-        citePlaceholder: 'Añadir cita...',
-        addCitation: 'Añadir cita',
-        removeCitation: 'Eliminar cita',
         addEmoji: 'Añadir emoji',
         changeEmoji: 'Cambiar emoji',
         removeEmoji: 'Eliminar emoji',
         emojiOnly: 'Solo emoji'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Pie de página',
+        menuPhoto: 'Foto del autor',
+        addCaption: 'Añadir pie de página',
+        removeCaption: 'Eliminar pie de página',
+        addAuthor: 'Añadir autor',
+        editAuthor: 'Editar autor',
+        removePhoto: 'Eliminar foto',
+        removeAll: 'Eliminar pie de página',
+        photoSection: 'Foto del autor',
+        photoUrl: 'URL de la foto',
+        photoAlt: 'Texto alt de la foto',
+        authorSection: 'Autor',
+        authorName: 'Nombre',
+        authorNamePlaceholder: 'p. ej. — Juan Pérez'    },
 
     // Attributes module
     attributes: {

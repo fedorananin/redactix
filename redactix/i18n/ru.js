@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Настройки ячейки',
         rowSettings: 'Настройки строки',
         dragEntireList: 'Перетащить весь список',
-        citePlaceholder: 'Автор цитаты...',
-        addCitation: 'Добавить автора',
-        removeCitation: 'Убрать автора',
         addEmoji: 'Добавить эмодзи',
         changeEmoji: 'Изменить эмодзи',
         removeEmoji: 'Убрать эмодзи',
         emojiOnly: 'Только эмодзи'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Подпись',
+        menuPhoto: 'Фото автора',
+        addCaption: 'Добавить подпись',
+        removeCaption: 'Убрать подпись',
+        addAuthor: 'Добавить автора',
+        editAuthor: 'Изменить автора',
+        removePhoto: 'Убрать фото',
+        removeAll: 'Удалить подпись',
+        photoSection: 'Фото автора',
+        photoUrl: 'URL фотографии',
+        photoAlt: 'Alt текст фото',
+        authorSection: 'Автор',
+        authorName: 'Имя',
+        authorNamePlaceholder: 'например, — Иван Иванов'    },
 
     // Attributes module
     attributes: {

@@ -163,14 +163,28 @@ export default {
         cellSettings: '셀 설정',
         rowSettings: '행 설정',
         dragEntireList: '전체 목록 드래그',
-        citePlaceholder: '인용 추가...',
-        addCitation: '인용 추가',
-        removeCitation: '인용 제거',
         addEmoji: '이모지 추가',
         changeEmoji: '이모지 변경',
         removeEmoji: '이모지 제거',
         emojiOnly: '이모지만'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: '캡션',
+        menuPhoto: '저자 사진',
+        addCaption: '캡션 추가',
+        removeCaption: '캡션 제거',
+        addAuthor: '저자 추가',
+        editAuthor: '저자 편집',
+        removePhoto: '사진 제거',
+        removeAll: '캡션 제거',
+        photoSection: '저자 사진',
+        photoUrl: '사진 URL',
+        photoAlt: '사진 대체 텍스트',
+        authorSection: '저자',
+        authorName: '이름',
+        authorNamePlaceholder: '예: — 홍길동'    },
 
     // Attributes module
     attributes: {

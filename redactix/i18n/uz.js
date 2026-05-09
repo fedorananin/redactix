@@ -163,14 +163,28 @@ export default {
         cellSettings: 'Katak sozlamalari',
         rowSettings: 'Qator sozlamalari',
         dragEntireList: 'Butun ro\'yxatni sudrab boring',
-        citePlaceholder: 'Iqtibos qo\'shish...',
-        addCitation: 'Iqtibos qo\'shish',
-        removeCitation: 'Iqtibosni olib tashlash',
         addEmoji: 'Emoji qo\'shish',
         changeEmoji: 'Emojini o\'zgartirish',
         removeEmoji: 'Emojini olib tashlash',
         emojiOnly: 'Faqat emoji'
     },
+
+    // QuoteCard module
+    quoteCard: {
+        menuCaption: 'Izoh',
+        menuPhoto: 'Muallif surati',
+        addCaption: 'Izoh qoʻshish',
+        removeCaption: 'Izohni olib tashlash',
+        addAuthor: 'Muallifni qoʻshish',
+        editAuthor: 'Muallifni tahrirlash',
+        removePhoto: 'Suratni olib tashlash',
+        removeAll: 'Izohni olib tashlash',
+        photoSection: 'Muallif surati',
+        photoUrl: 'Surat URL manzili',
+        photoAlt: 'Surat alt matni',
+        authorSection: 'Muallif',
+        authorName: 'Ism',
+        authorNamePlaceholder: 'masalan — Akmal Karimov'    },
 
     // Attributes module
     attributes: {

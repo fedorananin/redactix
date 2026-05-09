@@ -23,6 +23,8 @@ import BlockControl from './modules/BlockControl.js';
 import FloatingToolbar from './modules/FloatingToolbar.js';
 import History from './modules/History.js';
 import SlashCommands from './modules/SlashCommands.js';
+import QuoteCard from './modules/QuoteCard.js';
+import Callout from './modules/Callout.js';
 
 export default class Redactix {
     constructor(options = {}) {
@@ -66,7 +68,7 @@ export default class Redactix {
         this.elements = document.querySelectorAll(this.selector);
         this.instances = [];
         // Список классов модулей для подключения
-        this.modulesConfig = [History, BaseStyles, BlockStyles, List, Link, Image, Table, Youtube, Separator, Code, Markdown, FindReplace, HtmlMode, Fullscreen, Attributes, BlockControl, FloatingToolbar, SlashCommands];
+        this.modulesConfig = [History, BaseStyles, BlockStyles, List, Link, Image, QuoteCard, Callout, Table, Youtube, Separator, Code, Markdown, FindReplace, HtmlMode, Fullscreen, Attributes, BlockControl, FloatingToolbar, SlashCommands];
 
         this.init();
     }
@@ -188,11 +190,10 @@ class RedactixInstance {
         // If textarea is empty, create initial paragraph structure
         this.editorEl.innerHTML = cleanHtml || '<p><br></p>';
 
-        // Post-processing: wrap hr, setup figure, code blocks, blockquote cites
+        // Post-processing: wrap hr, setup figure, code blocks
         this.wrapSeparators();
         this.setupFigures();
         this.setupCodeBlocks();
-        this.setupBlockquotes();
 
         this.wrapper.appendChild(this.editorEl);
 
@@ -212,10 +213,37 @@ class RedactixInstance {
         // 8. Инициализируем модули
         this.initModules();
 
-        // 9. Обновляем счётчик (не в lite mode)
+        // 9. Миграция legacy <blockquote> → <figure class="quote-card">
+        // и <aside>plain text</aside> → <aside><p>...</p></aside>.
+        // Делается после initModules(), потому что нужны экземпляры модулей.
+        this.runQuoteCardSetup();
+        this.runCalloutSetup();
+
+        // 10. Обновляем счётчик (не в lite mode)
         if (!this.config.liteMode) {
             this.updateCounter();
         }
+    }
+
+    /**
+     * Migrate legacy blockquotes and wire up contenteditable on every
+     * figure.quote-card. Safe to call multiple times.
+     */
+    runQuoteCardSetup() {
+        const m = this.modules.find(mod => mod.constructor.name === 'QuoteCard');
+        if (!m) return;
+        m.migrate(this.editorEl);
+        m.setupCards(this.editorEl);
+    }
+
+    /**
+     * Migrate legacy flat <aside> bodies into <aside><p>...</p></aside>.
+     * Safe to call multiple times.
+     */
+    runCalloutSetup() {
+        const m = this.modules.find(mod => mod.constructor.name === 'Callout');
+        if (!m) return;
+        m.migrate(this.editorEl);
     }
 
     createCounter() {
@@ -276,7 +304,8 @@ class RedactixInstance {
         this.wrapSeparators();
         this.setupFigures();
         this.setupCodeBlocks();
-        this.setupBlockquotes();
+        this.runQuoteCardSetup();
+        this.runCalloutSetup();
 
         // Синхронизируем с textarea
         this.sync();
@@ -306,9 +335,23 @@ class RedactixInstance {
             }
         });
 
-        // Clean up figure and figcaption
+        // Quote-card specific cleanup: width/height on author photo, empty
+        // figcaption / spans, trailing empty paragraphs in blockquote.
+        const quoteCardModule = this.modules.find(m => m.constructor.name === 'QuoteCard');
+        if (quoteCardModule) {
+            quoteCardModule.cleanCardsForSync(clone);
+        }
+
+        // Callout cleanup: trailing empty paragraphs inside <aside>.
+        const calloutModule = this.modules.find(m => m.constructor.name === 'Callout');
+        if (calloutModule) {
+            calloutModule.cleanCalloutsForSync(clone);
+        }
+
+        // Clean up figure and figcaption (skip quote-cards — already handled).
         clone.querySelectorAll('figure').forEach(figure => {
             figure.removeAttribute('contenteditable');
+            if (figure.classList.contains('quote-card')) return;
             const figcaption = figure.querySelector('figcaption');
             if (figcaption) {
                 figcaption.removeAttribute('contenteditable');
@@ -316,20 +359,6 @@ class RedactixInstance {
                 const innerHtml = figcaption.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
                 if (!innerHtml && !figcaption.querySelector('img, iframe')) {
                     figcaption.remove();
-                }
-            }
-        });
-
-        // Clean up blockquote cite: remove empty cites and service attributes
-        clone.querySelectorAll('blockquote').forEach(bq => {
-            const cite = bq.querySelector('cite');
-            if (cite) {
-                cite.removeAttribute('contenteditable');
-                cite.removeAttribute('data-placeholder');
-                // Remove empty cite (only <br> or empty)
-                const citeHtml = cite.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-                if (!citeHtml) {
-                    cite.remove();
                 }
             }
         });
@@ -404,8 +433,9 @@ class RedactixInstance {
     setupFigures() {
         // Настраиваем contenteditable для figure и figcaption
         this.editorEl.querySelectorAll('figure').forEach(figure => {
-            // Пропускаем video wrapper
+            // Пропускаем video wrapper и quote-card (последний управляется QuoteCard модулем)
             if (figure.classList.contains('redactix-video-wrapper')) return;
+            if (figure.classList.contains('quote-card')) return;
 
             figure.contentEditable = 'false';
 
@@ -424,17 +454,6 @@ class RedactixInstance {
         // Setup contenteditable for code blocks
         this.editorEl.querySelectorAll('pre').forEach(pre => {
             pre.contentEditable = 'false';
-        });
-    }
-
-    setupBlockquotes() {
-        // Configure existing cite elements inside blockquotes (make editable, set placeholder)
-        this.editorEl.querySelectorAll('blockquote').forEach(bq => {
-            const cite = bq.querySelector('cite');
-            if (cite) {
-                cite.contentEditable = 'true';
-                cite.setAttribute('data-placeholder', this.t('blockControl.citePlaceholder'));
-            }
         });
     }
 }
