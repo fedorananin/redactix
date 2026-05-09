@@ -573,11 +573,11 @@ export default class BlockControl extends Module {
             }
 
             // Nothing on this Y → cursor is in pure padding above/below the
-            // content. Anchor the main handle to the container too; the
-            // container handle is already visible above.
-            this.currentBlock = containerAncestor;
-            this.showHandle(containerAncestor);
+            // content. Only the container handle should be visible — hide
+            // the main handle so the two don't stack on top of each other.
+            this.hideHandle();
             this.hideListHandle();
+            this.currentBlock = null;
             this.currentList = null;
             return;
         }
