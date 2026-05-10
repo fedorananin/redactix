@@ -1,17 +1,20 @@
 <?php
 /**
- * Redactix Image Handler - DEMO VERSION
- * 
- * This is a demo version that doesn't actually upload images.
- * Instead, it always returns the default image (uploads/default.jpg).
- * 
+ * Redactix Media Handler - DEMO VERSION
+ *
+ * This is a demo version that doesn't actually upload files.
+ * Instead it always returns the default image (uploads/default.jpg)
+ * for image uploads, and the default video (uploads/default.mp4) for
+ * video uploads.
+ *
  * Perfect for testing and demonstrations without cluttering your uploads folder.
  * Browse and delete functions work with real files in the uploads directory.
- * 
+ *
  * Actions:
  * - POST with 'image' file: Returns default.jpg (no real upload)
- * - GET with action=browse: Lists all images in upload directory
- * - POST with action=delete&file=filename: Delete image (if enabled)
+ * - POST with 'video' file: Returns default.mp4 (no real upload)
+ * - POST with action=browse[&type=image|video]: Lists files of that type
+ * - POST with action=delete&file=...[&type=image|video]: Delete file (if enabled)
  */
 
 // ============================================
@@ -27,8 +30,16 @@ $uploadUrlPrefix = '/uploads/';
 // Default image to return on "upload"
 $defaultImage = 'default.jpg';
 
-// Enable delete functionality (set to true to allow deleting images)
+// Default video to return on "upload" (videos disabled unless $allowVideoUpload = true)
+$defaultVideo = 'default.mp4';
+
+// Enable delete functionality (set to true to allow deleting images / videos)
 $allowDelete = false;
+
+// Enable video uploads in the demo. Turned on so the /video command on
+// the demo page (index.html) works end-to-end — real uploads are still
+// mocked, every upload returns uploads/default.mp4.
+$allowVideoUpload = true;
 
 // ============================================
 // HEADERS
@@ -81,6 +92,14 @@ function isImageExtension($extension) {
 }
 
 /**
+ * Check if file is a video based on extension
+ */
+function isVideoExtension($extension) {
+    $allowedVideoExtensions = ['mp4', 'webm', 'ogg', 'ogv', 'mov'];
+    return in_array(strtolower($extension), $allowedVideoExtensions);
+}
+
+/**
  * Get file extension from filename
  */
 function getExtension($filename) {
@@ -92,20 +111,35 @@ function getExtension($filename) {
 // ============================================
 
 $action = $_GET['action'] ?? ($_POST['action'] ?? null);
+$type = $_GET['type'] ?? ($_POST['type'] ?? 'image');
 
 // Handle browse request
 if ($action === 'browse') {
-    handleBrowse();
+    if ($type === 'video') {
+        handleVideoBrowse();
+    } else {
+        handleBrowse();
+    }
 }
 
 // Handle delete request
 if ($action === 'delete') {
-    handleDelete();
+    if ($type === 'video') {
+        handleVideoDelete();
+    } else {
+        handleDelete();
+    }
 }
 
-// Handle upload (POST without specific action, or with action=upload)
+// Handle upload (POST without specific action, or with action=upload).
+// Video upload is detected by the 'video' file field; image upload by
+// the 'image' field.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($action === null || $action === 'upload')) {
-    handleUpload();
+    if (isset($_FILES['video'])) {
+        handleVideoUpload();
+    } else {
+        handleUpload();
+    }
 }
 
 // If nothing matched
@@ -270,6 +304,114 @@ function handleUpload() {
         'srcset'  => '',
         'alt'     => '',
         'title'   => '',
+        'caption' => ''
+    ]);
+}
+
+// ============================================
+// VIDEO BROWSE HANDLER (DEMO)
+// ============================================
+function handleVideoBrowse() {
+    global $uploadDir, $uploadUrlPrefix, $allowVideoUpload, $allowDelete;
+
+    if (!$allowVideoUpload) {
+        sendResponse(true, ['videos' => [], 'allowDelete' => false]);
+    }
+
+    if (!is_dir($uploadDir)) {
+        sendResponse(true, ['videos' => [], 'allowDelete' => $allowDelete]);
+    }
+
+    $videos = [];
+    foreach (scandir($uploadDir, SCANDIR_SORT_DESCENDING) as $file) {
+        if ($file === '.' || $file === '..') continue;
+        $filepath = $uploadDir . $file;
+        if (is_dir($filepath)) continue;
+        if (!isVideoExtension(getExtension($file))) continue;
+
+        $videos[] = [
+            'src'       => $uploadUrlPrefix . $file,
+            'filename'  => $file,
+            'size'      => formatFileSize(filesize($filepath)),
+            'sizeBytes' => filesize($filepath),
+            'modified'  => filemtime($filepath)
+        ];
+    }
+
+    usort($videos, function ($a, $b) {
+        return $b['modified'] - $a['modified'];
+    });
+
+    sendResponse(true, [
+        'videos'      => $videos,
+        'allowDelete' => $allowDelete
+    ]);
+}
+
+// ============================================
+// VIDEO DELETE HANDLER (DEMO)
+// ============================================
+function handleVideoDelete() {
+    global $uploadDir, $allowDelete, $defaultVideo, $allowVideoUpload;
+
+    if (!$allowVideoUpload) sendError('Video upload is disabled');
+    if (!$allowDelete) sendError('Delete functionality is disabled');
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') sendError('Method not allowed');
+
+    $file = $_POST['file'] ?? $_GET['file'] ?? null;
+    if (!$file) sendError('No file specified');
+    $file = basename($file);
+
+    if ($file === $defaultVideo) sendError('Cannot delete default video');
+    if (!isVideoExtension(getExtension($file))) sendError('Invalid file type');
+
+    $filepath = $uploadDir . $file;
+    if (!file_exists($filepath)) sendError('File not found');
+    if (!@unlink($filepath)) sendError('Failed to delete file');
+
+    sendResponse(true, ['message' => 'File deleted successfully']);
+}
+
+// ============================================
+// VIDEO UPLOAD HANDLER (DEMO)
+// ============================================
+function handleVideoUpload() {
+    global $uploadDir, $uploadUrlPrefix, $defaultVideo, $allowVideoUpload;
+
+    if (!$allowVideoUpload) {
+        sendError('Video upload is disabled in this demo (set $allowVideoUpload = true)');
+    }
+
+    if (!isset($_FILES['video']) || $_FILES['video']['error'] === UPLOAD_ERR_NO_FILE) {
+        sendError('No file uploaded');
+    }
+
+    $file = $_FILES['video'];
+
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $errors = [
+            UPLOAD_ERR_INI_SIZE   => 'File exceeds server upload limit (php.ini)',
+            UPLOAD_ERR_FORM_SIZE  => 'File exceeds form size limit',
+            UPLOAD_ERR_PARTIAL    => 'File was only partially uploaded',
+            UPLOAD_ERR_NO_TMP_DIR => 'Server error: missing temp folder',
+            UPLOAD_ERR_CANT_WRITE => 'Server error: cannot write to disk',
+            UPLOAD_ERR_EXTENSION  => 'Upload blocked by server extension'
+        ];
+        sendError($errors[$file['error']] ?? 'Upload failed (error code: ' . $file['error'] . ')');
+    }
+
+    if ($file['size'] === 0) sendError('File is empty');
+
+    $defaultPath = $uploadDir . $defaultVideo;
+    if (!file_exists($defaultPath)) {
+        sendError('Default video not found. Please create uploads/default.mp4');
+    }
+
+    // Pretend to upload
+    usleep(300000);
+
+    sendResponse(true, [
+        'src'     => $uploadUrlPrefix . $defaultVideo,
         'caption' => ''
     ]);
 }

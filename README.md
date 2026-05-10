@@ -21,6 +21,8 @@ Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero depen
 - 🎯 **Block Controls** — Drag handle on hover, context menu for transformations
 - ➕ **Block Gap Insert** — Notion-style "+" handle that appears between blocks on hover. Click to insert a paragraph exactly there. Disable with `gapInsertHandle: false`
 - 🖼️ **Images** — Upload, browse gallery, drag & drop, paste from clipboard, auto-upload base64
+- 🖼️🖼️ **Photo galleries** — Multiple images grouped under a single shared caption. Drag-to-reorder in the modal, per-image alt + optional link. Uses the same image upload / browse pipeline
+- 🎞️ **Native videos** (opt-in) — Upload an MP4 / WebM / OGG / MOV file or paste a direct URL; renders as a real `<figure><video controls>` with a chosen aspect ratio. Off by default — enable with `videoUpload: true`
 - 📊 **Tables** — Full-featured tables with row/column manipulation
 - 💬 **Quote cards** — `<figure class="quote-card">` with multi-paragraph blockquote, headings and lists inside, plus optional author photo, name and link in `<figcaption>`. Aside (callout) blocks have presets (info, warning, danger, success) and optional emoji
 - 🔗 **Embeds** — Universal embed for any iframe-able service: YouTube, Vimeo, Spotify, Apple Music, SoundCloud, Twitch, CodePen, X/Twitter, Instagram, TikTok, Reddit, Bluesky, Loom, Google Maps, etc. Plus a Custom HTML mode that accepts pasted iframe code from anywhere (LinkedIn, Facebook, niche services). Wrapped in `<figure>` with optional caption
@@ -173,6 +175,74 @@ Response:
 
 ---
 
+## 🎞️ Native Video Upload (opt-in)
+
+Redactix supports inline `<video>` for self-hosted MP4 / WebM / OGG / MOV files. The feature is **off by default** — flip `videoUpload: true` in the constructor and the `/video` slash command (plus a toolbar button) appears. The same `redactix_images.php` script handles video upload, browse and delete; flip `$allowVideoUpload = true` in the PHP config too.
+
+```javascript
+new Redactix({
+    selector: '.redactix',
+    videoUpload: true,
+    videoUploadUrl: '/redactix_images.php',
+    videoBrowseUrl: '/redactix_images.php', // optional
+    allowVideoDelete: false                  // optional
+});
+```
+
+```php
+// redactix_images.php
+$allowVideoUpload = true;
+$maxVideoSize = 50 * 1024 * 1024;  // 50MB by default
+```
+
+**Output shape** (clean, semantic, no inline layout you don't want):
+
+```html
+<figure class="redactix-video" data-aspect="16:9">
+    <video src="/uploads/clip.mp4" controls preload="metadata"
+           style="aspect-ratio:16 / 9"></video>
+    <figcaption>Optional caption</figcaption>
+</figure>
+```
+
+The user picks an aspect ratio (`auto`, `16:9`, `4:3`, `1:1`, or `9:16`) in the modal. Auto means native dimensions — no inline style. The other choices write a single `aspect-ratio` declaration on the `<video>` tag so the player keeps its shape on the production site without extra CSS. Inside the editor a max-height of 450px keeps vertical clips from blowing up the viewport — same as images. On the production site the admin's stylesheet decides everything.
+
+**Allowed attributes** are intentionally narrow: `src`, `controls`, `preload="metadata"`, optional `style="aspect-ratio:…"`. No autoplay, no muted, no loop, no poster — they're stripped on paste so users can't surprise readers with auto-playing audio.
+
+**Lite mode** forces the entire feature off — videos never appear in comments / forums.
+
+**API** — same protocol as image upload, just with a `video` file field (or `type=video` for browse / delete):
+
+```
+POST /redactix_images.php
+Content-Type: multipart/form-data
+Body: video=<file>
+
+Response:
+{
+    "success": true,
+    "src": "/uploads/abc123.mp4",
+    "caption": ""
+}
+```
+
+```
+POST /redactix_images.php
+Content-Type: multipart/form-data
+Body: action=browse&type=video
+
+Response:
+{
+    "success": true,
+    "videos": [...],
+    "allowDelete": false
+}
+```
+
+The demo PHP (`redactix_images_demo.php`) always returns `uploads/default.mp4` so you can wire `videoUpload: true` through end-to-end without filling your uploads directory.
+
+---
+
 ## 🔌 JavaScript API
 
 Each textarea with Redactix gets a reference to its instance via `textarea.redactix`. This allows programmatic control over the editor content.
@@ -254,6 +324,10 @@ new Redactix({
     uploadUrl: '/upload.php',           // Image upload endpoint
     browseUrl: '/browse.php',           // Image gallery endpoint
     allowImageDelete: true,             // Show delete buttons in gallery
+    videoUpload: false,                 // Native HTML5 video — off by default. Pass true to surface the /video command and toolbar button
+    videoUploadUrl: '/redactix_images.php', // Video upload endpoint (only used when videoUpload: true)
+    videoBrowseUrl: '/redactix_images.php', // Optional video gallery endpoint
+    allowVideoDelete: false,            // Show delete buttons in the video gallery
     maxHeight: '500px',                 // Maximum editor height
     classes: ['highlight', 'centered'], // Quick-select classes in Attributes
     liteMode: false,                    // Enable lite mode for comments/forums
@@ -337,6 +411,8 @@ Type `/` anywhere to open the command menu:
 | `/callout` | Callout/aside block |
 | `/code` | Code block |
 | `/image` | Insert image |
+| `/gallery` | Photo gallery — multiple images, single shared caption, per-image link |
+| `/video` | Native HTML5 `<video>` — upload a file or paste a direct URL, choose aspect ratio. Hidden until you opt in with `videoUpload: true` |
 | `/embed` | Universal embed — paste any URL, provider is auto-detected (YouTube, Vimeo, Spotify, Twitter/X, Instagram, TikTok, Reddit, Bluesky, Loom, CodePen, Twitch, SoundCloud, Apple Music, Maps, …). Provider names also work as fuzzy-search keywords (`/youtube`, `/spotify` surface the same command). |
 | `/table` | Insert table |
 | `/hr` | Horizontal divider |
@@ -431,6 +507,8 @@ redactix/
 │   ├── History.js        # Undo/redo
 │   ├── HtmlMode.js       # Raw HTML editor
 │   ├── Image.js          # Image upload and management
+│   ├── Gallery.js        # Photo gallery (multiple imgs, shared caption)
+│   ├── Video.js          # Native HTML5 <video> upload (opt-in)
 │   ├── Link.js           # Link insertion
 │   ├── List.js           # Lists (UL/OL)
 │   ├── Markdown.js       # Markdown shortcuts
@@ -515,6 +593,17 @@ Redactix produces clean, semantic HTML:
     <figcaption>Image caption</figcaption>
 </figure>
 
+<figure class="redactix-gallery">
+    <div class="redactix-gallery-grid">
+        <img src="/uploads/a.jpg" alt="">
+        <a href="https://example.com" target="_blank" rel="nofollow">
+            <img src="/uploads/b.jpg" alt="">
+        </a>
+        <img src="/uploads/c.jpg" alt="">
+    </div>
+    <figcaption>Shared caption for the whole gallery</figcaption>
+</figure>
+
 <table>
     <thead>
         <tr><th>Header</th></tr>
@@ -567,6 +656,8 @@ Redactix produces clean, semantic HTML:
 | **Quote cards** | `<figure class="quote-card">` (+ optional `.big`) | **Yes** — see below | No |
 | **Callouts** | `<aside class="warning\|danger\|information\|success">` (+ optional `data-emoji`) | **Yes** — see below | No |
 | **Embeds** | `<figure class="redactix-embed">` with **all layout inline** | **No, layout is self-contained**. CSS only for cosmetics | **Optional** — `embed-runtime.js` for live auto-resize of social embeds |
+| **Photo galleries** | `<figure class="redactix-gallery"><div class="redactix-gallery-grid">…imgs…</div>` | **Yes** — grid layout, image sizing, caption | No |
+| **Native videos** (opt-in) | `<figure class="redactix-video"><video controls preload="metadata">` with optional inline `aspect-ratio` | Optional — width/border/caption styling | No |
 | **Spoilers** | `<span class="spoiler">…</span>` | Optional — only if you want the click-to-reveal effect | Optional — see below |
 
 ### 1. Embeds — the easy one

@@ -82,6 +82,24 @@ export default class SlashCommands extends Module {
                 keywords: ['image', 'picture', 'photo', 'img', 'изображение', 'картинка'],
                 action: () => this.openImageModal()
             },
+            {
+                id: 'video',
+                label: this.t('slashCommands.video'),
+                description: this.t('slashCommands.videoDesc'),
+                icon: Icons.video,
+                keywords: ['video', 'mp4', 'movie', 'clip', 'видео', 'ролик'],
+                category: 'video',
+                action: () => this.openVideoModal()
+            },
+            {
+                id: 'gallery',
+                label: this.t('slashCommands.gallery'),
+                description: this.t('slashCommands.galleryDesc'),
+                icon: Icons.gallery,
+                keywords: ['gallery', 'photos', 'mosaic', 'multiple', 'images', 'галерея', 'фото'],
+                category: 'gallery',
+                action: () => this.openGalleryModal()
+            },
             // Universal embed — provider auto-detected from the pasted URL.
             // Keywords cover popular services so /youtube, /spotify, /tiktok
             // etc. all surface the same command.
@@ -246,10 +264,17 @@ export default class SlashCommands extends Module {
         let commands = this.getCommands();
 
         // Lite mode: hide every embed entry (universal /embed and all
-        // provider aliases). Image / table / code are already constrained
-        // by their own modules.
+        // provider aliases) plus galleries. Image / table / code are
+        // already constrained by their own modules.
         if (this.liteMode) {
-            commands = commands.filter(cmd => cmd.category !== 'embed');
+            commands = commands.filter(cmd => cmd.category !== 'embed' && cmd.category !== 'gallery');
+        }
+
+        // Hide /video unless the Video module is actually enabled on this
+        // instance (videoUpload: true). The setting is off by default.
+        const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
+        if (!videoModule || !videoModule.enabled) {
+            commands = commands.filter(cmd => cmd.category !== 'video');
         }
 
         // Inside a quote-card, only allow text-level blocks: H1-H3 + UL/OL.
@@ -406,10 +431,10 @@ export default class SlashCommands extends Module {
      * Execute selected command
      */
     executeCommand(cmd) {
-        // For modal commands (image, embed/aliases, table, code), don't
-        // delete "/" immediately — save the range for later deletion if
-        // the modal action succeeds.
-        const modalCommands = ['image', 'table', 'code'];
+        // For modal commands (image, video, embed/aliases, table, code),
+        // don't delete "/" immediately — save the range for later deletion
+        // if the modal action succeeds.
+        const modalCommands = ['image', 'video', 'gallery', 'table', 'code'];
         if (cmd.category === 'embed') modalCommands.push(cmd.id);
 
         if (modalCommands.includes(cmd.id)) {
@@ -684,6 +709,32 @@ export default class SlashCommands extends Module {
             this.instance.selection.save();
             this.setupModalCloseHandler();
             imageModule.openModal();
+        }
+    }
+
+    /**
+     * Open the photo-gallery modal.
+     */
+    openGalleryModal() {
+        const galleryModule = this.instance.modules.find(m => m.constructor.name === 'Gallery');
+        if (galleryModule && !this.liteMode) {
+            this.deletePendingSlash();
+            this.instance.selection.save();
+            this.setupModalCloseHandler();
+            galleryModule.openModal();
+        }
+    }
+
+    /**
+     * Open native HTML5 video modal (file upload + URL).
+     */
+    openVideoModal() {
+        const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
+        if (videoModule && videoModule.enabled) {
+            this.deletePendingSlash();
+            this.instance.selection.save();
+            this.setupModalCloseHandler();
+            videoModule.openModal();
         }
     }
 

@@ -16,6 +16,10 @@ export default class Image extends Module {
         this.instance.editorEl.addEventListener('click', (e) => {
             const img = e.target.closest('img');
             if (img) {
+                // Photo galleries handle their own clicks (Gallery module).
+                // Quote-card author photos are managed by QuoteCard.
+                if (img.closest('figure.redactix-gallery')) return;
+                if (img.closest('figure.quote-card')) return;
                 e.preventDefault();
                 const figure = img.closest('figure');
                 if (figure) {

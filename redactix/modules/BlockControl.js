@@ -448,6 +448,32 @@ export default class BlockControl extends Module {
             }
         }
 
+        // Группа: редактирование видео (figure.redactix-video)
+        if (tag === 'FIGURE' && this.currentBlock.classList.contains('redactix-video') && !this.liteMode) {
+            const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
+            if (videoModule && videoModule.enabled) {
+                const editGroup = this.createMenuGroup(this.t('video.menuGroup'));
+                editGroup.appendChild(this.createMenuItem('✎', this.t('video.edit'), () => {
+                    videoModule.openModal(this.currentBlock);
+                }));
+                this.menu.appendChild(editGroup);
+                this.menu.appendChild(this.createMenuDivider());
+            }
+        }
+
+        // Группа: редактирование фото-галереи (figure.redactix-gallery)
+        if (tag === 'FIGURE' && this.currentBlock.classList.contains('redactix-gallery') && !this.liteMode) {
+            const galleryModule = this.instance.modules.find(m => m.constructor.name === 'Gallery');
+            if (galleryModule) {
+                const editGroup = this.createMenuGroup(this.t('gallery.menuGroup'));
+                editGroup.appendChild(this.createMenuItem('✎', this.t('gallery.edit'), () => {
+                    galleryModule.openModal(this.currentBlock);
+                }));
+                this.menu.appendChild(editGroup);
+                this.menu.appendChild(this.createMenuDivider());
+            }
+        }
+
         // Группа: Преобразование списка
         if (tag === 'LI' || tag === 'UL' || tag === 'OL') {
             const listGroup = this.createMenuGroup(this.t('blockControl.listType'));
@@ -537,6 +563,19 @@ export default class BlockControl extends Module {
 
         let target = e.target;
 
+        // Hovering an editor-UI overlay (the floating "Edit" button on
+        // embeds and videos) — hide every handle so they don't visually
+        // collide with the overlay. The overlay handles its own click.
+        if (target && target.closest && target.closest('[data-redactix-ui]')) {
+            this.hideHandle();
+            this.hideListHandle();
+            this.hideContainerHandle();
+            this.currentBlock = null;
+            this.currentList = null;
+            this.currentContainer = null;
+            return;
+        }
+
         // Если курсор над редактором (например в паддинге слева),
         // пробуем найти контент по оси Y. Перебираем несколько X-точек,
         // чтобы поймать центрированные блоки (max-width embeds, big quote
@@ -568,6 +607,24 @@ export default class BlockControl extends Module {
         if (target && target.classList && target.classList.contains('redactix-embed-frame')) {
             const embed = target.closest('figure.redactix-embed');
             if (embed) target = embed;
+        }
+        // Same for native <video> — its editor CSS sets display:block so
+        // the walk-up below would stop on the video itself and render a
+        // duplicate handle next to it.
+        if (target && target.tagName === 'VIDEO') {
+            const figure = target.closest('figure.redactix-video');
+            if (figure) target = figure;
+        }
+        // Hover an individual image / link inside a photo gallery →
+        // promote to the gallery figure. Otherwise the walk-up would
+        // attach the handle to the inner img, not the whole gallery.
+        if (target && (target.tagName === 'IMG' || target.tagName === 'A')) {
+            const gallery = target.closest && target.closest('figure.redactix-gallery');
+            if (gallery) target = gallery;
+        }
+        if (target && target.classList && target.classList.contains('redactix-gallery-grid')) {
+            const gallery = target.closest('figure.redactix-gallery');
+            if (gallery) target = gallery;
         }
 
         // Whenever the cursor sits anywhere inside an aside or

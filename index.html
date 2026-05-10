@@ -752,6 +752,22 @@
                 </div>
 
                 <div class="feature-card">
+                    <div class="feature-icon">&#127916;</div>
+                    <h3>Native Video (opt-in)</h3>
+                    <p>Upload an MP4 / WebM / MOV file or paste a direct URL — renders as a real
+                        <code>&lt;figure&gt;&lt;video controls&gt;</code> with a chosen aspect ratio. Off by default;
+                        flip <code>videoUpload: true</code> to enable.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">&#127748;</div>
+                    <h3>Photo Galleries</h3>
+                    <p>Multiple images grouped under one <code>&lt;figure&gt;</code> with a single shared caption.
+                        Drag-to-reorder in the modal, per-image alt and optional link. Same upload pipeline as single
+                        images.</p>
+                </div>
+
+                <div class="feature-card">
                     <div class="feature-icon">&#128187;</div>
                     <h3>Code Blocks</h3>
                     <p>Syntax-highlighted code blocks with language selection. Click to edit in a dedicated modal.</p>
@@ -892,7 +908,7 @@
                 </div>
                 <div class="demo-content">
                     <textarea
-                        class="redactix-full"><h1>Welcome to Redactix!</h1><p>This is a <b>modern</b> WYSIWYG editor with Notion-like experience. Select text to see the <i>floating toolbar</i> with formatting options including <code>inline code</code>, <span class="spoiler">spoilers</span> and <mark>text highlighting</mark>.</p><h2>Text Formatting</h2><p>The editor supports <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s> text. Also <code>inline code</code> for technical terms, <span class="spoiler">spoilers for hidden content</span> and <mark>highlighting important fragments</mark>.</p><p>Links can have <a href="https://example.com" title="Example link" target="_blank" rel="nofollow">title and rel attributes</a>.</p><h2>Lists</h2><ul><li>Unordered list item</li><li>Drag items to reorder</li><li>Click the handle for menu options</li></ul><ol><li>Ordered list item</li><li>Convert via context menu</li><li>Or type <code>1. </code> at line start</li></ol><h2>Blockquotes</h2><figure class="quote-card"><blockquote><p>Standard quote created via block menu or by typing <code>> </code> at the start of a line. Click the handle on the left to choose a quote style, add a caption, or attach an author photo.</p></blockquote></figure><figure class="quote-card"><blockquote><p>Quotes can hold multiple paragraphs, headings and lists.</p><p>You can keep going with another paragraph here.</p></blockquote><figcaption><span>— Source name</span></figcaption></figure><figure class="quote-card big"><blockquote><p>Large quote — perfect for highlighting key thoughts or article epigraphs.</p></blockquote><figcaption><img src="/uploads/cat.jpg" alt="Author portrait"><span>— <a href="https://example.com" rel="author">Demo Author</a></span></figcaption></figure><h2>Callout Blocks</h2><p>Callout is a block for important information with different styles. Click the handle on the left to select a preset or add an emoji:</p><aside>Standard callout without a class — gray, neutral.</aside><aside data-emoji="💡" class="information"><p>Information block — for helpful tips and additional info. Callouts can hold multiple blocks: paragraphs, headings, lists and dividers.</p><h3>Inner heading</h3><ul><li>First bullet</li><li>Second bullet</li></ul><hr><p>Click the emoji on the left to change it.</p></aside><aside class="warning">Warning — for important notices that need attention.</aside><aside data-emoji="🔥" class="danger">Danger — for critical warnings and errors.</aside><aside class="success">Success — for positive results and confirmations.</aside><h2>Images</h2><p>Click on an image to edit its settings:</p><figure><img src="/uploads/cat.jpg" alt="Demo image"><figcaption>Image caption — click to edit</figcaption></figure><h2>Code Blocks</h2><p>For technical articles and tutorials:</p><pre><code class="language-javascript">// JavaScript example
+                        class="redactix-full"><h1>Welcome to Redactix!</h1><p>This is a <b>modern</b> WYSIWYG editor with Notion-like experience. Select text to see the <i>floating toolbar</i> with formatting options including <code>inline code</code>, <span class="spoiler">spoilers</span> and <mark>text highlighting</mark>.</p><h2>Text Formatting</h2><p>The editor supports <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s> text. Also <code>inline code</code> for technical terms, <span class="spoiler">spoilers for hidden content</span> and <mark>highlighting important fragments</mark>.</p><p>Links can have <a href="https://example.com" title="Example link" target="_blank" rel="nofollow">title and rel attributes</a>.</p><h2>Lists</h2><ul><li>Unordered list item</li><li>Drag items to reorder</li><li>Click the handle for menu options</li></ul><ol><li>Ordered list item</li><li>Convert via context menu</li><li>Or type <code>1. </code> at line start</li></ol><h2>Blockquotes</h2><figure class="quote-card"><blockquote><p>Standard quote created via block menu or by typing <code>> </code> at the start of a line. Click the handle on the left to choose a quote style, add a caption, or attach an author photo.</p></blockquote></figure><figure class="quote-card"><blockquote><p>Quotes can hold multiple paragraphs, headings and lists.</p><p>You can keep going with another paragraph here.</p></blockquote><figcaption><span>— Source name</span></figcaption></figure><figure class="quote-card big"><blockquote><p>Large quote — perfect for highlighting key thoughts or article epigraphs.</p></blockquote><figcaption><img src="/uploads/cat.jpg" alt="Author portrait"><span>— <a href="https://example.com" rel="author">Demo Author</a></span></figcaption></figure><h2>Callout Blocks</h2><p>Callout is a block for important information with different styles. Click the handle on the left to select a preset or add an emoji:</p><aside>Standard callout without a class — gray, neutral.</aside><aside data-emoji="💡" class="information"><p>Information block — for helpful tips and additional info. Callouts can hold multiple blocks: paragraphs, headings, lists and dividers.</p><h3>Inner heading</h3><ul><li>First bullet</li><li>Second bullet</li></ul><hr><p>Click the emoji on the left to change it.</p></aside><aside class="warning">Warning — for important notices that need attention.</aside><aside data-emoji="🔥" class="danger">Danger — for critical warnings and errors.</aside><aside class="success">Success — for positive results and confirmations.</aside><h2>Images</h2><p>Click on an image to edit its settings:</p><figure><img src="/uploads/cat.jpg" alt="Demo image"><figcaption>Image caption — click to edit</figcaption></figure><h2>Photo Gallery</h2><p>Use <code>/gallery</code> to drop multiple images under one shared <code>&amp;lt;figure&amp;gt;</code>. Drag rows in the modal to reorder, per-image alt + optional link.</p><figure class="redactix-gallery"><div class="redactix-gallery-grid"><img src="/uploads/cat.jpg" alt=""><img src="/uploads/default.jpg" alt=""><img src="/uploads/cat.jpg" alt=""></div><figcaption>Shared caption — supports inline formatting like <b>bold</b> or <a href="https://example.com">links</a>.</figcaption></figure><h2>Native Video</h2><p>The <code>/video</code> command (off by default — flip <code>videoUpload: true</code> to enable) wraps a real <code>&amp;lt;video controls&amp;gt;</code> in a <code>&amp;lt;figure&amp;gt;</code> with an optional caption and a chosen aspect ratio. No autoplay, no muted — readers get full native controls.</p><figure class="redactix-video" data-aspect="16:9"><video src="/uploads/default.mp4" controls preload="metadata" style="aspect-ratio:16 / 9"></video><figcaption>Native HTML5 video — chosen aspect ratio is written inline so the player keeps its shape on the production site.</figcaption></figure><h2>Code Blocks</h2><p>For technical articles and tutorials:</p><pre><code class="language-javascript">// JavaScript example
 function greet(name) {
     console.log(`Hello, ${name}!`);
     return true;
@@ -1058,6 +1074,22 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                     <h4><code>allowImageDelete</code></h4>
                     <p>Show delete buttons in image gallery. Requires server-side support. Default: <code>false</code>
                     </p>
+                </div>
+                <div class="config-item">
+                    <h4><code>videoUpload</code></h4>
+                    <p>Native HTML5 <code>&lt;video&gt;</code> support. Off by default — pass <code>true</code> to
+                        surface the <code>/video</code> command and toolbar button. Requires
+                        <code>videoUploadUrl</code> for file uploads.</p>
+                </div>
+                <div class="config-item">
+                    <h4><code>videoUploadUrl</code></h4>
+                    <p>Endpoint for video file uploads. Same script can serve both images and videos. Default:
+                        <code>null</code></p>
+                </div>
+                <div class="config-item">
+                    <h4><code>videoBrowseUrl</code></h4>
+                    <p>Optional endpoint for the video gallery (browse + reuse already-uploaded videos). Default:
+                        <code>null</code></p>
                 </div>
                 <div class="config-item">
                     <h4><code>maxHeight</code></h4>
@@ -1471,6 +1503,12 @@ chmod 755 uploads</code>
             // Image upload and browse endpoint (combined script)
             uploadUrl: '/redactix_images_demo.php',
             browseUrl: '/redactix_images_demo.php',
+            // Native HTML5 <video> upload — off by default; flip these
+            // three on (and set $allowVideoUpload = true in the demo PHP)
+            // to surface the /video command in the demo above.
+            videoUpload: true,
+            videoUploadUrl: '/redactix_images_demo.php',
+            videoBrowseUrl: '/redactix_images_demo.php',
             // Enable delete button in image browser (requires allowDelete=true in PHP)
             // allowImageDelete: true,
             // Max editor height (optional)

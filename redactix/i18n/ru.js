@@ -16,6 +16,8 @@ export default {
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Вставить изображение',
+        insertGallery: 'Вставить фото-галерею',
+        insertVideo: 'Вставить видео',
         insertEmbed: 'Вставить embed',
         insertTable: 'Вставить таблицу',
         insertCode: 'Вставить блок кода',
@@ -68,6 +70,57 @@ export default {
         imageSelected: 'Изображение выбрано',
         closeGallery: 'Закрыть галерею',
         deleteConfirm: 'Удалить'
+    },
+
+    // Gallery module (несколько фото в одном <figure> с общей подписью)
+    gallery: {
+        title: 'Вставить фото-галерею',
+        editTitle: 'Редактировать фото-галерею',
+        caption: 'Подпись',
+        captionPlaceholder: 'Поддерживается HTML',
+        empty: 'Пока нет фотографий — добавьте через кнопки ниже',
+        addByUrl: '+ Добавить по URL',
+        addUpload: '+ Загрузить файлы',
+        addFromGallery: '+ Из галереи',
+        promptUrl: 'URL изображения:',
+        itemUrl: 'URL изображения',
+        itemAlt: 'Alt текст',
+        itemLink: 'Ссылка (необязательно)',
+        openNewWindow: 'Новая вкладка',
+        nofollow: 'nofollow',
+        removeItem: 'Удалить фото',
+        removeGallery: 'Удалить галерею',
+        loadingImages: 'Загрузка изображений...',
+        noImages: 'Нет загруженных изображений',
+        drag: 'Перетащить для сортировки',
+        edit: 'Редактировать галерею',
+        menuGroup: 'Галерея'
+    },
+
+    // Video module (нативное HTML5 <video>, по умолчанию выключено)
+    video: {
+        title: 'Вставить видео',
+        editTitle: 'Редактировать видео',
+        url: 'URL видео',
+        aspect: 'Пропорции',
+        aspectAuto: 'Натуральные (auto)',
+        aspectVertical: '9:16 (вертикальное)',
+        caption: 'Подпись',
+        captionPlaceholder: 'Поддерживается HTML',
+        uploadReplace: 'Заменить видео: нажмите для загрузки',
+        uploadClick: 'Нажмите для загрузки или перетащите файл',
+        uploadFormats: 'MP4, WebM, OGG, MOV',
+        uploading: 'Загрузка...',
+        uploadSuccess: 'Загружено успешно',
+        chooseFromUploaded: 'Выбрать из загруженных видео',
+        orEnterUrl: 'или введите URL',
+        loadingVideos: 'Загрузка видео...',
+        noVideos: 'Нет загруженных видео',
+        videoSelected: 'Видео выбрано',
+        closeGallery: 'Закрыть галерею',
+        removeVideo: 'Удалить видео',
+        edit: 'Редактировать видео',
+        menuGroup: 'Видео'
     },
 
     // Link module
@@ -224,6 +277,10 @@ export default {
         codeBlockDesc: 'Код с подсветкой синтаксиса',
         image: 'Изображение',
         imageDesc: 'Вставить изображение',
+        gallery: 'Фото-галерея',
+        galleryDesc: 'Несколько фото с общей подписью',
+        video: 'Видео',
+        videoDesc: 'Загрузить или вставить ссылку на MP4 / WebM',
         embed: 'Embed',
         embedDesc: 'Видео, пост, плеер с любого сайта',
         table: 'Таблица',

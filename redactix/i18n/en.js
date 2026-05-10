@@ -16,6 +16,8 @@ export default {
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Insert Image',
+        insertGallery: 'Insert Photo Gallery',
+        insertVideo: 'Insert Video',
         insertEmbed: 'Insert Embed',
         insertTable: 'Insert Table',
         insertCode: 'Insert Code Block',
@@ -68,6 +70,57 @@ export default {
         imageSelected: 'Image selected',
         closeGallery: 'Close gallery',
         deleteConfirm: 'Delete'
+    },
+
+    // Gallery module (multiple images grouped under one figure)
+    gallery: {
+        title: 'Insert Photo Gallery',
+        editTitle: 'Edit Photo Gallery',
+        caption: 'Caption',
+        captionPlaceholder: 'HTML supported',
+        empty: 'No images yet — add one with the buttons below',
+        addByUrl: '+ Add by URL',
+        addUpload: '+ Upload images',
+        addFromGallery: '+ From gallery',
+        promptUrl: 'Image URL:',
+        itemUrl: 'Image URL',
+        itemAlt: 'Alt text',
+        itemLink: 'Link URL (optional)',
+        openNewWindow: 'New tab',
+        nofollow: 'nofollow',
+        removeItem: 'Remove image',
+        removeGallery: 'Remove Gallery',
+        loadingImages: 'Loading images...',
+        noImages: 'No images uploaded yet',
+        drag: 'Drag to reorder',
+        edit: 'Edit gallery',
+        menuGroup: 'Gallery'
+    },
+
+    // Video module (native HTML5 <video>, off by default)
+    video: {
+        title: 'Insert Video',
+        editTitle: 'Edit Video',
+        url: 'Video URL',
+        aspect: 'Aspect ratio',
+        aspectAuto: 'Native (auto)',
+        aspectVertical: '9:16 (vertical)',
+        caption: 'Caption',
+        captionPlaceholder: 'HTML supported',
+        uploadReplace: 'Replace video: click to upload',
+        uploadClick: 'Click to upload or drag & drop',
+        uploadFormats: 'MP4, WebM, OGG, MOV',
+        uploading: 'Uploading...',
+        uploadSuccess: 'Uploaded successfully',
+        chooseFromUploaded: 'Choose from uploaded videos',
+        orEnterUrl: 'or enter URL',
+        loadingVideos: 'Loading videos...',
+        noVideos: 'No videos uploaded yet',
+        videoSelected: 'Video selected',
+        closeGallery: 'Close gallery',
+        removeVideo: 'Remove Video',
+        edit: 'Edit video',
+        menuGroup: 'Video'
     },
 
     // Link module
@@ -224,6 +277,10 @@ export default {
         codeBlockDesc: 'Code with syntax highlighting',
         image: 'Image',
         imageDesc: 'Insert an image',
+        gallery: 'Photo Gallery',
+        galleryDesc: 'Multiple images sharing one caption',
+        video: 'Video',
+        videoDesc: 'Upload or link an MP4 / WebM file',
         embed: 'Embed',
         embedDesc: 'Video, post, player from any site',
         table: 'Table',

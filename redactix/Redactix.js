@@ -10,6 +10,8 @@ import BlockStyles from './modules/BlockStyles.js';
 import List from './modules/List.js';
 import Link from './modules/Link.js';
 import Image from './modules/Image.js';
+import Gallery from './modules/Gallery.js';
+import Video from './modules/Video.js';
 import Table from './modules/Table.js';
 import Embed from './modules/Embed.js';
 import Separator from './modules/Separator.js';
@@ -47,6 +49,14 @@ export default class Redactix {
         // Разрешить удаление изображений через браузер
         this.allowImageDelete = options.allowImageDelete || false;
 
+        // Видео-фича выключена по умолчанию: чтобы её включить, передайте
+        // videoUpload: true. Параллельно нужны videoUploadUrl (загрузка
+        // файлов) и опционально videoBrowseUrl (галерея загруженных).
+        this.videoUpload = options.videoUpload || false;
+        this.videoUploadUrl = options.videoUploadUrl || null;
+        this.videoBrowseUrl = options.videoBrowseUrl || null;
+        this.allowVideoDelete = options.allowVideoDelete || false;
+
         // Максимальная высота редактора (например: '500px', '50vh')
         this.maxHeight = options.maxHeight || null;
 
@@ -73,7 +83,7 @@ export default class Redactix {
         this.elements = document.querySelectorAll(this.selector);
         this.instances = [];
         // Список классов модулей для подключения
-        this.modulesConfig = [History, BaseStyles, BlockStyles, List, Link, Image, QuoteCard, Callout, Table, Embed, Separator, Code, Markdown, FindReplace, HtmlMode, Fullscreen, Attributes, BlockControl, BlockGap, FloatingToolbar, SlashCommands];
+        this.modulesConfig = [History, BaseStyles, BlockStyles, List, Link, Image, Gallery, Video, QuoteCard, Callout, Table, Embed, Separator, Code, Markdown, FindReplace, HtmlMode, Fullscreen, Attributes, BlockControl, BlockGap, FloatingToolbar, SlashCommands];
 
         this.init();
     }
@@ -97,6 +107,13 @@ export default class Redactix {
                 uploadUrl: this.liteMode ? null : this.uploadUrl, // В lite mode отключаем загрузку
                 browseUrl: this.liteMode ? null : this.browseUrl, // В lite mode отключаем галерею
                 allowImageDelete: this.allowImageDelete,
+                // Видео отключаем в lite mode целиком — даже если хост
+                // случайно передал videoUpload, lite-комментарии остаются
+                // без видеовложений.
+                videoUpload: this.liteMode ? false : this.videoUpload,
+                videoUploadUrl: this.liteMode ? null : this.videoUploadUrl,
+                videoBrowseUrl: this.liteMode ? null : this.videoBrowseUrl,
+                allowVideoDelete: this.allowVideoDelete,
                 maxHeight: this.maxHeight,
                 liteMode: this.liteMode,
                 theme: this.theme,
@@ -226,6 +243,8 @@ class RedactixInstance {
         this.runQuoteCardSetup();
         this.runCalloutSetup();
         this.runEmbedSetup();
+        this.runVideoSetup();
+        this.runGallerySetup();
 
         // 10. Обновляем счётчик (не в lite mode)
         if (!this.config.liteMode) {
@@ -264,6 +283,26 @@ class RedactixInstance {
         if (!m) return;
         m.migrate(this.editorEl);
         m.setupEmbeds(this.editorEl);
+    }
+
+    /**
+     * Wire contenteditable + Edit button on every figure.redactix-video.
+     * Safe to call multiple times.
+     */
+    runVideoSetup() {
+        const m = this.modules.find(mod => mod.constructor.name === 'Video');
+        if (!m) return;
+        m.setupVideos(this.editorEl);
+    }
+
+    /**
+     * Wire contenteditable + floating Edit button on every figure.redactix-gallery.
+     * Safe to call multiple times.
+     */
+    runGallerySetup() {
+        const m = this.modules.find(mod => mod.constructor.name === 'Gallery');
+        if (!m) return;
+        m.setupGalleries(this.editorEl);
     }
 
     createCounter() {
@@ -327,6 +366,8 @@ class RedactixInstance {
         this.runQuoteCardSetup();
         this.runCalloutSetup();
         this.runEmbedSetup();
+        this.runVideoSetup();
+        this.runGallerySetup();
 
         // Синхронизируем с textarea
         this.sync();
@@ -375,12 +416,27 @@ class RedactixInstance {
             embedModule.cleanEmbedsForSync(clone);
         }
 
-        // Clean up figure and figcaption (skip quote-cards and embeds —
-        // already handled by their own cleanup above).
+        // Video cleanup: strip Edit button, reapply inline aspect-ratio,
+        // drop empty figcaptions inside figure.redactix-video.
+        const videoModule = this.modules.find(m => m.constructor.name === 'Video');
+        if (videoModule) {
+            videoModule.cleanVideosForSync(clone);
+        }
+
+        // Gallery cleanup: strip Edit button + drop empty figcaption.
+        const galleryModule = this.modules.find(m => m.constructor.name === 'Gallery');
+        if (galleryModule) {
+            galleryModule.cleanGalleriesForSync(clone);
+        }
+
+        // Clean up figure and figcaption (skip quote-cards, embeds,
+        // videos and galleries — already handled by their own cleanup).
         clone.querySelectorAll('figure').forEach(figure => {
             figure.removeAttribute('contenteditable');
             if (figure.classList.contains('quote-card')) return;
             if (figure.classList.contains('redactix-embed')) return;
+            if (figure.classList.contains('redactix-video')) return;
+            if (figure.classList.contains('redactix-gallery')) return;
             const figcaption = figure.querySelector('figcaption');
             if (figcaption) {
                 figcaption.removeAttribute('contenteditable');
@@ -462,11 +518,13 @@ class RedactixInstance {
     setupFigures() {
         // Настраиваем contenteditable для figure и figcaption
         this.editorEl.querySelectorAll('figure').forEach(figure => {
-            // Пропускаем video wrapper, quote-card и redactix-embed
-            // (последние два управляются собственными модулями).
+            // Пропускаем video wrapper, quote-card, redactix-embed и
+            // redactix-video — все они управляются собственными модулями.
             if (figure.classList.contains('redactix-video-wrapper')) return;
             if (figure.classList.contains('quote-card')) return;
             if (figure.classList.contains('redactix-embed')) return;
+            if (figure.classList.contains('redactix-video')) return;
+            if (figure.classList.contains('redactix-gallery')) return;
 
             figure.contentEditable = 'false';
 

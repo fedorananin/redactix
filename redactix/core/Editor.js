@@ -370,6 +370,31 @@ export default class Editor {
             });
         }
 
+        // Spare <video> tags that already sit inside a figure.redactix-video
+        // (i.e. saved Redactix output being pasted back). They get a safe
+        // attribute set, then survive the global attribute sweep below.
+        // Standalone <video> tags pasted from elsewhere are stripped — we
+        // only re-render videos the editor itself produced.
+        const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
+        const safeVideos = new Set();
+        if (videoModule && videoModule.enabled) {
+            Array.from(temp.querySelectorAll('figure.redactix-video > video')).forEach(video => {
+                const src = video.getAttribute('src') || '';
+                if (!src || src.toLowerCase().startsWith('javascript:')) return;
+                // Whitelisted attribute set: src + controls + preload + style
+                // (only when style declares aspect-ratio).
+                const aspectStyle = (video.getAttribute('style') || '').match(/aspect-ratio\s*:\s*[^;]+/i);
+                Array.from(video.attributes).forEach(attr => {
+                    video.removeAttribute(attr.name);
+                });
+                video.setAttribute('src', src);
+                video.setAttribute('controls', '');
+                video.setAttribute('preload', 'metadata');
+                if (aspectStyle) video.setAttribute('style', aspectStyle[0]);
+                safeVideos.add(video);
+            });
+        }
+
         // Удаляем опасные и ненужные теги
         const dangerousTags = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'meta', 'colgroup'];
         dangerousTags.forEach(tag => {
@@ -378,6 +403,13 @@ export default class Editor {
                 if (tag === 'iframe' && safeIframes.has(el)) return;
                 if (el.parentNode) el.parentNode.removeChild(el);
             });
+        });
+
+        // Strip standalone <video> tags that aren't wrapped in a redactix-video
+        // figure — we only render videos through our own pipeline.
+        Array.from(temp.querySelectorAll('video')).forEach(video => {
+            if (safeVideos.has(video)) return;
+            if (video.parentNode) video.parentNode.removeChild(video);
         });
 
         // Конвертируем стилизованные span в семантические теги (до удаления стилей!)
@@ -433,7 +465,8 @@ export default class Editor {
         const allowedAttributes = ['href', 'src', 'alt', 'title', 'colspan', 'rowspan'];
         // Разрешённые классы (наши внутренние)
         const allowedClasses = ['spoiler', 'warning', 'danger', 'information',
-            'success', 'big', 'quote-card', 'redactix-embed', 'redactix-embed-frame'];
+            'success', 'big', 'quote-card', 'redactix-embed', 'redactix-embed-frame',
+            'redactix-video', 'redactix-gallery', 'redactix-gallery-grid'];
         const allElements = temp.getElementsByTagName('*');
 
         for (let i = 0; i < allElements.length; i++) {
@@ -441,6 +474,8 @@ export default class Editor {
             // Iframes that we've spared above were already sanitized to a
             // safe attribute set — don't re-strip them here.
             if (el.tagName === 'IFRAME' && safeIframes.has(el)) continue;
+            // Same for safe <video> tags inside figure.redactix-video.
+            if (el.tagName === 'VIDEO' && safeVideos.has(el)) continue;
             const attrs = Array.from(el.attributes);
 
             attrs.forEach(attr => {
@@ -457,6 +492,12 @@ export default class Editor {
                          attr.name.toLowerCase() === 'data-source-url') &&
                         el.tagName === 'FIGURE' &&
                         el.classList.contains('redactix-embed')) {
+                        return;
+                    }
+                    // Allow data-aspect on redactix-video figures
+                    if (attr.name.toLowerCase() === 'data-aspect' &&
+                        el.tagName === 'FIGURE' &&
+                        el.classList.contains('redactix-video')) {
                         return;
                     }
                     // For class — filter, keeping only allowed ones
@@ -479,8 +520,11 @@ export default class Editor {
                 }
             });
 
-            // Удаляем inline стили
-            el.removeAttribute('style');
+            // Удаляем inline стили — кроме <video> внутри figure.redactix-video,
+            // у которого мы выше уже оставили только aspect-ratio.
+            if (!(el.tagName === 'VIDEO' && safeVideos.has(el))) {
+                el.removeAttribute('style');
+            }
         }
 
         // Упрощаем структуру списков: если li содержит только один p — разворачиваем
