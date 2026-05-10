@@ -13,6 +13,7 @@ export default class SlashCommands extends Module {
         this.filteredCommands = [];
         this.slashRange = null; // Range where "/" was typed
         this.isOpen = false;
+        this.liteMode = instance.config.liteMode || false;
     }
 
     init() {
@@ -81,13 +82,23 @@ export default class SlashCommands extends Module {
                 keywords: ['image', 'picture', 'photo', 'img', 'изображение', 'картинка'],
                 action: () => this.openImageModal()
             },
+            // Universal embed — provider auto-detected from the pasted URL.
+            // Keywords cover popular services so /youtube, /spotify, /tiktok
+            // etc. all surface the same command.
             {
-                id: 'youtube',
-                label: this.t('slashCommands.youtube'),
-                description: this.t('slashCommands.youtubeDesc'),
+                id: 'embed',
+                label: this.t('slashCommands.embed'),
+                description: this.t('slashCommands.embedDesc'),
                 icon: Icons.youtube,
-                keywords: ['youtube', 'video', 'embed', 'media', 'видео'],
-                action: () => this.openYoutubeModal()
+                keywords: ['embed', 'iframe', 'видео', 'video',
+                    'youtube', 'yt', 'vimeo', 'twitch', 'loom', 'dailymotion',
+                    'spotify', 'apple', 'applemusic', 'soundcloud', 'sc',
+                    'bandcamp', 'mixcloud', 'codepen', 'pen',
+                    'twitter', 'x', 'tweet', 'instagram', 'ig',
+                    'tiktok', 'reddit', 'bluesky', 'bsky',
+                    'map', 'maps'],
+                category: 'embed',
+                action: () => this.openEmbedModal()
             },
             {
                 id: 'table',
@@ -233,6 +244,13 @@ export default class SlashCommands extends Module {
      */
     filterCommands(searchText) {
         let commands = this.getCommands();
+
+        // Lite mode: hide every embed entry (universal /embed and all
+        // provider aliases). Image / table / code are already constrained
+        // by their own modules.
+        if (this.liteMode) {
+            commands = commands.filter(cmd => cmd.category !== 'embed');
+        }
 
         // Inside a quote-card, only allow text-level blocks: H1-H3 + UL/OL.
         // No nested cards, callouts, images, tables, code, hr, or videos.
@@ -388,9 +406,11 @@ export default class SlashCommands extends Module {
      * Execute selected command
      */
     executeCommand(cmd) {
-        // For modal commands (image, youtube, table, code), don't delete "/" immediately
-        // Save the range for later deletion if the modal action succeeds
-        const modalCommands = ['image', 'youtube', 'table', 'code'];
+        // For modal commands (image, embed/aliases, table, code), don't
+        // delete "/" immediately — save the range for later deletion if
+        // the modal action succeeds.
+        const modalCommands = ['image', 'table', 'code'];
+        if (cmd.category === 'embed') modalCommands.push(cmd.id);
 
         if (modalCommands.includes(cmd.id)) {
             // Save range for deferred deletion
@@ -455,11 +475,15 @@ export default class SlashCommands extends Module {
                 // Delete the "/" content
                 this.pendingSlashRange.deleteContents();
 
-                // If the block is now empty, add <br> to keep it visible
+                // If the block is now empty, append a <br> via DOM API to
+                // keep it visually tall — but DON'T touch innerHTML, that
+                // would detach the text node window.getSelection() is still
+                // pointing at and silently invalidate the saved range we
+                // restore later (then insertNode bails with no insert).
                 if (block && block !== this.instance.editorEl) {
                     const isEmpty = !block.textContent.trim() && !block.querySelector('img, iframe, hr, table');
                     if (isEmpty && !block.querySelector('br')) {
-                        block.innerHTML = '<br>';
+                        block.appendChild(document.createElement('br'));
                     }
 
                     // Save this block for cursor restoration after modal closes
@@ -664,14 +688,15 @@ export default class SlashCommands extends Module {
     }
 
     /**
-     * Open YouTube modal
+     * Open universal Embed modal. Provider is auto-detected from the URL
+     * the user types into the modal.
      */
-    openYoutubeModal() {
-        const youtubeModule = this.instance.modules.find(m => m.constructor.name === 'Youtube');
-        if (youtubeModule) {
+    openEmbedModal() {
+        const embedModule = this.instance.modules.find(m => m.constructor.name === 'Embed');
+        if (embedModule) {
             this.deletePendingSlash();
             this.setupModalCloseHandler();
-            youtubeModule.openModal();
+            embedModule.openModal();
         }
     }
 

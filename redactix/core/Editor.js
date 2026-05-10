@@ -227,6 +227,9 @@ export default class Editor {
             if (this.instance.runCalloutSetup) {
                 this.instance.runCalloutSetup();
             }
+            if (this.instance.runEmbedSetup) {
+                this.instance.runEmbedSetup();
+            }
         } else if (text) {
             // Если только текст - вставляем с сохранением переносов строк
             const lines = text.split('\n');
@@ -334,13 +337,47 @@ export default class Editor {
             wrapper.remove();
         });
 
+        // Spare iframes that belong to a known embed provider (or already
+        // sit inside a redactix-embed figure) before the dangerousTags
+        // sweep. Sanitize them in place so the attribute-cleanup loop
+        // below doesn't strip src/allow/etc.
+        const embedModule = this.instance.modules.find(m => m.constructor.name === 'Embed');
+        const safeIframes = new Set();
+        if (embedModule) {
+            Array.from(temp.querySelectorAll('iframe')).forEach(iframe => {
+                const insideEmbed = iframe.closest && iframe.closest('figure.redactix-embed');
+                const src = iframe.getAttribute('src') || '';
+                const detected = embedModule.findProviderByUrl(src);
+                if (insideEmbed || detected) {
+                    embedModule.sanitizeIframe(iframe);
+                    safeIframes.add(iframe);
+
+                    // If the iframe wasn't wrapped in a redactix-embed figure,
+                    // wrap it now so it survives later passes and renders
+                    // correctly with our CSS.
+                    if (!insideEmbed) {
+                        const figure = document.createElement('figure');
+                        figure.className = 'redactix-embed';
+                        figure.setAttribute('data-provider', detected ? detected.provider.name : 'custom');
+                        figure.setAttribute('data-aspect', detected ? (detected.provider.aspect || 'auto') : 'auto');
+                        const frame = document.createElement('div');
+                        frame.className = 'redactix-embed-frame';
+                        iframe.parentNode.insertBefore(figure, iframe);
+                        frame.appendChild(iframe);
+                        figure.appendChild(frame);
+                    }
+                }
+            });
+        }
+
         // Удаляем опасные и ненужные теги
         const dangerousTags = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'meta', 'colgroup'];
         dangerousTags.forEach(tag => {
-            const elements = temp.getElementsByTagName(tag);
-            while (elements.length > 0) {
-                elements[0].parentNode.removeChild(elements[0]);
-            }
+            const elements = Array.from(temp.getElementsByTagName(tag));
+            elements.forEach(el => {
+                if (tag === 'iframe' && safeIframes.has(el)) return;
+                if (el.parentNode) el.parentNode.removeChild(el);
+            });
         });
 
         // Конвертируем стилизованные span в семантические теги (до удаления стилей!)
@@ -395,17 +432,31 @@ export default class Editor {
         // Удаляем все атрибуты, кроме разрешённых
         const allowedAttributes = ['href', 'src', 'alt', 'title', 'colspan', 'rowspan'];
         // Разрешённые классы (наши внутренние)
-        const allowedClasses = ['spoiler', 'warning', 'danger', 'information', 'success', 'big', 'quote-card'];
+        const allowedClasses = ['spoiler', 'warning', 'danger', 'information',
+            'success', 'big', 'quote-card', 'redactix-embed', 'redactix-embed-frame'];
         const allElements = temp.getElementsByTagName('*');
 
         for (let i = 0; i < allElements.length; i++) {
             const el = allElements[i];
+            // Iframes that we've spared above were already sanitized to a
+            // safe attribute set — don't re-strip them here.
+            if (el.tagName === 'IFRAME' && safeIframes.has(el)) continue;
             const attrs = Array.from(el.attributes);
 
             attrs.forEach(attr => {
                 if (!allowedAttributes.includes(attr.name.toLowerCase())) {
                     // Allow data-emoji on aside elements
                     if (attr.name.toLowerCase() === 'data-emoji' && el.tagName === 'ASIDE') {
+                        return;
+                    }
+                    // Allow data-provider / data-aspect / data-height /
+                    // data-source-url on redactix-embed figures
+                    if ((attr.name.toLowerCase() === 'data-provider' ||
+                         attr.name.toLowerCase() === 'data-aspect' ||
+                         attr.name.toLowerCase() === 'data-height' ||
+                         attr.name.toLowerCase() === 'data-source-url') &&
+                        el.tagName === 'FIGURE' &&
+                        el.classList.contains('redactix-embed')) {
                         return;
                     }
                     // For class — filter, keeping only allowed ones

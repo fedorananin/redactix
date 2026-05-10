@@ -11,7 +11,7 @@ import List from './modules/List.js';
 import Link from './modules/Link.js';
 import Image from './modules/Image.js';
 import Table from './modules/Table.js';
-import Youtube from './modules/Youtube.js';
+import Embed from './modules/Embed.js';
 import Separator from './modules/Separator.js';
 import Code from './modules/Code.js';
 import Markdown from './modules/Markdown.js';
@@ -20,6 +20,7 @@ import Fullscreen from './modules/Fullscreen.js';
 import FindReplace from './modules/FindReplace.js';
 import Attributes from './modules/Attributes.js';
 import BlockControl from './modules/BlockControl.js';
+import BlockGap from './modules/BlockGap.js';
 import FloatingToolbar from './modules/FloatingToolbar.js';
 import History from './modules/History.js';
 import SlashCommands from './modules/SlashCommands.js';
@@ -56,6 +57,10 @@ export default class Redactix {
         // Отключает: fullscreen, html mode, find/replace, атрибуты, загрузку фото, расширенные настройки
         this.liteMode = options.liteMode || false;
 
+        // Hover-gap "+" between blocks. Default on; pass false to disable
+        // for users who find the constant hover affordance distracting.
+        this.gapInsertHandle = options.gapInsertHandle !== false;
+
         // Theme: 'light' (default), 'dark', or 'auto' (follows system preference)
         this.theme = options.theme || 'light';
 
@@ -68,7 +73,7 @@ export default class Redactix {
         this.elements = document.querySelectorAll(this.selector);
         this.instances = [];
         // Список классов модулей для подключения
-        this.modulesConfig = [History, BaseStyles, BlockStyles, List, Link, Image, QuoteCard, Callout, Table, Youtube, Separator, Code, Markdown, FindReplace, HtmlMode, Fullscreen, Attributes, BlockControl, FloatingToolbar, SlashCommands];
+        this.modulesConfig = [History, BaseStyles, BlockStyles, List, Link, Image, QuoteCard, Callout, Table, Embed, Separator, Code, Markdown, FindReplace, HtmlMode, Fullscreen, Attributes, BlockControl, BlockGap, FloatingToolbar, SlashCommands];
 
         this.init();
     }
@@ -95,6 +100,7 @@ export default class Redactix {
                 maxHeight: this.maxHeight,
                 liteMode: this.liteMode,
                 theme: this.theme,
+                gapInsertHandle: this.gapInsertHandle,
                 i18n: this.i18n // Pass i18n instance to each editor instance
             };
 
@@ -213,11 +219,13 @@ class RedactixInstance {
         // 8. Инициализируем модули
         this.initModules();
 
-        // 9. Миграция legacy <blockquote> → <figure class="quote-card">
-        // и <aside>plain text</aside> → <aside><p>...</p></aside>.
+        // 9. Миграция legacy <blockquote> → <figure class="quote-card">,
+        // <aside>plain text</aside> → <aside><p>...</p></aside>,
+        // .redactix-video-wrapper → figure.redactix-embed.
         // Делается после initModules(), потому что нужны экземпляры модулей.
         this.runQuoteCardSetup();
         this.runCalloutSetup();
+        this.runEmbedSetup();
 
         // 10. Обновляем счётчик (не в lite mode)
         if (!this.config.liteMode) {
@@ -244,6 +252,18 @@ class RedactixInstance {
         const m = this.modules.find(mod => mod.constructor.name === 'Callout');
         if (!m) return;
         m.migrate(this.editorEl);
+    }
+
+    /**
+     * Migrate legacy <div class="redactix-video-wrapper"> to
+     * <figure class="redactix-embed"> and wire contenteditable on every
+     * embed figure. Safe to call multiple times.
+     */
+    runEmbedSetup() {
+        const m = this.modules.find(mod => mod.constructor.name === 'Embed');
+        if (!m) return;
+        m.migrate(this.editorEl);
+        m.setupEmbeds(this.editorEl);
     }
 
     createCounter() {
@@ -306,6 +326,7 @@ class RedactixInstance {
         this.setupCodeBlocks();
         this.runQuoteCardSetup();
         this.runCalloutSetup();
+        this.runEmbedSetup();
 
         // Синхронизируем с textarea
         this.sync();
@@ -348,10 +369,18 @@ class RedactixInstance {
             calloutModule.cleanCalloutsForSync(clone);
         }
 
-        // Clean up figure and figcaption (skip quote-cards — already handled).
+        // Embed cleanup: drop empty figcaptions inside figure.redactix-embed.
+        const embedModule = this.modules.find(m => m.constructor.name === 'Embed');
+        if (embedModule) {
+            embedModule.cleanEmbedsForSync(clone);
+        }
+
+        // Clean up figure and figcaption (skip quote-cards and embeds —
+        // already handled by their own cleanup above).
         clone.querySelectorAll('figure').forEach(figure => {
             figure.removeAttribute('contenteditable');
             if (figure.classList.contains('quote-card')) return;
+            if (figure.classList.contains('redactix-embed')) return;
             const figcaption = figure.querySelector('figcaption');
             if (figcaption) {
                 figcaption.removeAttribute('contenteditable');
@@ -433,9 +462,11 @@ class RedactixInstance {
     setupFigures() {
         // Настраиваем contenteditable для figure и figcaption
         this.editorEl.querySelectorAll('figure').forEach(figure => {
-            // Пропускаем video wrapper и quote-card (последний управляется QuoteCard модулем)
+            // Пропускаем video wrapper, quote-card и redactix-embed
+            // (последние два управляются собственными модулями).
             if (figure.classList.contains('redactix-video-wrapper')) return;
             if (figure.classList.contains('quote-card')) return;
+            if (figure.classList.contains('redactix-embed')) return;
 
             figure.contentEditable = 'false';
 

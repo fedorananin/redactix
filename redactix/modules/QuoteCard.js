@@ -129,7 +129,12 @@ export default class QuoteCard extends Module {
                 const bareText = topBlock.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
                 const isEmpty = !bareText &&
                     !topBlock.querySelector('img, iframe, hr, table');
-                if (isEmpty && topBlock.tagName === 'P') {
+                // Replace any empty text-block (P or any heading); on Enter
+                // at end of an H2, Chrome often creates a fresh empty H2,
+                // and we want the quote-card to take its place — not to
+                // land *after* it leaving an empty heading hanging above.
+                const replaceableTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+                if (isEmpty && replaceableTags.includes(topBlock.tagName)) {
                     topBlock.parentNode.replaceChild(card, topBlock);
                 } else {
                     topBlock.parentNode.insertBefore(card, topBlock.nextSibling);
@@ -239,7 +244,7 @@ export default class QuoteCard extends Module {
         const data = {
             photoUrl: existingImg ? (existingImg.getAttribute('src') || '') : '',
             photoAlt: existingImg ? (existingImg.getAttribute('alt') || '') : '',
-            authorText: existingSpan ? this.extractAuthorText(existingSpan) : ''
+            authorText: existingSpan ? this.extractAuthorHtml(existingSpan) : ''
         };
 
         const form = document.createElement('div');
@@ -415,11 +420,8 @@ export default class QuoteCard extends Module {
                 span = document.createElement('span');
                 figcaption.appendChild(span);
             }
-            // Only overwrite the span content if the plain text actually
-            // changed — otherwise keep any inline links / formatting the
-            // user added through the floating toolbar.
-            if ((span.textContent || '') !== authorText) {
-                span.textContent = authorText;
+            if ((span.innerHTML || '') !== authorText) {
+                span.innerHTML = authorText;
             }
         } else if (span) {
             span.remove();
@@ -449,11 +451,13 @@ export default class QuoteCard extends Module {
     }
 
     /**
-     * Read author text as plain text for the modal input. Inline tags
-     * (links, bold, etc.) are flattened — they live in the editor span.
+     * Read author HTML for the modal input — keeps inline tags (links,
+     * bold, etc.) so they round-trip through the modal. Mirrors the
+     * approach used by Image.js for figcaptions.
      */
-    extractAuthorText(span) {
-        return span.textContent || '';
+    extractAuthorHtml(span) {
+        const html = span.innerHTML || '';
+        return html.replace(/<br\s*\/?>/gi, '').trim();
     }
 
     // ---------- Migration ----------

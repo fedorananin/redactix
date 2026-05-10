@@ -3,49 +3,11 @@
  */
 import en from './en.js';
 import ru from './ru.js';
-import fr from './fr.js';
-import es from './es.js';
-import pt from './pt.js';
-import uk from './uk.js';
-import pl from './pl.js';
-import de from './de.js';
-import sr from './sr.js';
-import ka from './ka.js';
-import sw from './sw.js';
-import vi from './vi.js';
-import th from './th.js';
-import tr from './tr.js';
-import ar from './ar.js';
-import he from './he.js';
-import ja from './ja.js';
-import ko from './ko.js';
-import zh from './zh.js';
-import kk from './kk.js';
-import uz from './uz.js';
 
-// Available locales
+// Available locales (kept minimal — add more as needed)
 const locales = {
     en,
-    ru,
-    fr,
-    es,
-    pt,
-    uk,
-    pl,
-    de,
-    sr,
-    ka,
-    sw,
-    vi,
-    th,
-    tr,
-    ar,
-    he,
-    ja,
-    ko,
-    zh,
-    kk,
-    uz
+    ru
 };
 
 // RTL (Right-to-Left) locales

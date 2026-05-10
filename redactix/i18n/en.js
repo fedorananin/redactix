@@ -16,8 +16,8 @@ export default {
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Insert Image',
+        insertEmbed: 'Insert Embed',
         insertTable: 'Insert Table',
-        insertYoutube: 'Insert YouTube Video',
         insertCode: 'Insert Code Block',
         findReplace: 'Find and Replace (Ctrl+F)',
         fullscreen: 'Fullscreen Mode',
@@ -105,11 +105,21 @@ export default {
         headerPrefix: 'Header'
     },
 
-    // YouTube module
-    youtube: {
-        title: 'YouTube',
-        videoLink: 'YouTube Video Link',
-        invalidUrl: 'Invalid YouTube URL'
+    // Embed module (YouTube, Spotify, X, Instagram, TikTok, ...)
+    embed: {
+        title: 'Insert Embed',
+        editTitle: 'Edit Embed',
+        removeEmbed: 'Remove Embed',
+        tabUrl: 'From URL',
+        tabCustom: 'Custom HTML',
+        urlLabel: 'URL',
+        urlHint: 'YouTube, Vimeo, Spotify, X, Instagram, TikTok, Reddit, Bluesky, SoundCloud, Twitch, CodePen, Loom, Maps, …',
+        customLabel: 'Embed code',
+        customHint: 'Paste an <iframe> code from the source site (e.g. LinkedIn, Facebook). Only iframe tags are kept.',
+        captionLabel: 'Caption',
+        captionPlaceholder: 'Optional',
+        edit: 'Edit embed',
+        menuGroup: 'Embed'
     },
 
     // Code module
@@ -214,8 +224,8 @@ export default {
         codeBlockDesc: 'Code with syntax highlighting',
         image: 'Image',
         imageDesc: 'Insert an image',
-        youtube: 'YouTube',
-        youtubeDesc: 'Embed a video',
+        embed: 'Embed',
+        embedDesc: 'Video, post, player from any site',
         table: 'Table',
         tableDesc: 'Insert a table',
         divider: 'Divider',
@@ -224,6 +234,10 @@ export default {
         numberedListDesc: 'List with numbers',
         bulletList: 'Bullet List',
         bulletListDesc: 'List with bullets'
+    },
+
+    blockGap: {
+        insertBlock: 'Insert block here'
     },
 
     // Upload errors

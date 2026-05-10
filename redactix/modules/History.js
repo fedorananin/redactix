@@ -196,6 +196,9 @@ export default class History extends Module {
         if (this.instance.runCalloutSetup) {
             this.instance.runCalloutSetup();
         }
+        if (this.instance.runEmbedSetup) {
+            this.instance.runEmbedSetup();
+        }
         
         // Восстанавливаем позицию курсора
         this.restoreSelection(state.selection);

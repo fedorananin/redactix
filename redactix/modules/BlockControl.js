@@ -419,6 +419,19 @@ export default class BlockControl extends Module {
             }
         }
 
+        // Группа: редактирование embed (figure.redactix-embed)
+        if (tag === 'FIGURE' && this.currentBlock.classList.contains('redactix-embed') && !this.liteMode) {
+            const embedModule = this.instance.modules.find(m => m.constructor.name === 'Embed');
+            if (embedModule) {
+                const editGroup = this.createMenuGroup(this.t('embed.menuGroup'));
+                editGroup.appendChild(this.createMenuItem('✎', this.t('embed.edit'), () => {
+                    embedModule.openModal(this.currentBlock);
+                }));
+                this.menu.appendChild(editGroup);
+                this.menu.appendChild(this.createMenuDivider());
+            }
+        }
+
         // Группа: Преобразование списка
         if (tag === 'LI' || tag === 'UL' || tag === 'OL') {
             const listGroup = this.createMenuGroup(this.t('blockControl.listType'));
@@ -509,16 +522,36 @@ export default class BlockControl extends Module {
         let target = e.target;
 
         // Если курсор над редактором (например в паддинге слева),
-        // пробуем найти элемент чуть правее курсора (по оси Y того же уровня)
+        // пробуем найти контент по оси Y. Перебираем несколько X-точек,
+        // чтобы поймать центрированные блоки (max-width embeds, big quote
+        // cards, etc.), которые не лежат у левого края.
         if (target === this.instance.editorEl) {
             const editorRect = this.instance.editorEl.getBoundingClientRect();
-            // Смещаемся на 60px от левого края редактора (примерно начало контента)
-            const contentX = editorRect.left + 60;
-            // Ищем элемент в этой точке
-            const elementAtPoint = document.elementFromPoint(contentX, e.clientY);
-            if (elementAtPoint && this.instance.editorEl.contains(elementAtPoint)) {
-                target = elementAtPoint;
+            const xs = [
+                editorRect.left + 60,
+                editorRect.left + editorRect.width / 2,
+                editorRect.right - 60
+            ];
+            for (const x of xs) {
+                const el = document.elementFromPoint(x, e.clientY);
+                if (el && this.instance.editorEl.contains(el) && el !== this.instance.editorEl) {
+                    target = el;
+                    break;
+                }
             }
+        }
+
+        // Hover on an embed iframe → promote to its figure (the iframe
+        // swallows mouse events anyway; we want the handle on the embed
+        // as a whole). Same trick as for blockquote inside quote-card.
+        if (target && target.tagName === 'IFRAME') {
+            const embed = target.closest('figure.redactix-embed');
+            if (embed) target = embed;
+        }
+        // Hovering the embed-frame wrapper → also promote to figure.
+        if (target && target.classList && target.classList.contains('redactix-embed-frame')) {
+            const embed = target.closest('figure.redactix-embed');
+            if (embed) target = embed;
         }
 
         // Whenever the cursor sits anywhere inside an aside or
@@ -671,6 +704,12 @@ export default class BlockControl extends Module {
                 ? 32
                 : 6;
             leftPos = (leftRefRect.left - wrapperRect.left) + innerOffset;
+        } else if (block.tagName === 'FIGURE' && block.classList.contains('redactix-embed')) {
+            // Embeds may be centered (max-width + margin auto) so anchoring
+            // to figure.left would put the handle in the middle of nowhere.
+            // Park it in the editor's left padding instead.
+            const editorRect = this.instance.editorEl.getBoundingClientRect();
+            leftPos = (editorRect.left - wrapperRect.left) + 8;
         } else {
             leftPos = (rect.left - wrapperRect.left) - 30;
         }

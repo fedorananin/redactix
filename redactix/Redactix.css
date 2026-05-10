@@ -985,8 +985,125 @@ textarea.redactix[style*="display: none"] {
 }
 
 /* ================================
-   Video Wrapper
+   Embed (figure.redactix-embed)
    ================================ */
+.redactix-editor figure.redactix-embed {
+    margin: 1em 0;
+    padding: 0;
+    text-align: center;
+}
+
+/* Per-provider max-width: social posts have a natural reading width.
+   Anything wider just adds whitespace around tall vertical content
+   (Instagram reels, TikTok, vertical tweets). margin auto centers them. */
+.redactix-editor figure.redactix-embed[data-provider="bandcamp"],
+.redactix-editor figure.redactix-embed[data-provider="bluesky"],
+.redactix-editor figure.redactix-embed[data-provider="mixcloud"],
+.redactix-editor figure.redactix-embed[data-provider="reddit"] {
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.redactix-editor figure.redactix-embed[data-provider="instagram"] {
+    max-width: 540px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.redactix-editor figure.redactix-embed[data-provider="twitter"] {
+    max-width: 550px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.redactix-editor figure.redactix-embed[data-provider="tiktok"] {
+    max-width: 325px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.redactix-editor figure.redactix-embed[data-provider="spotify"] {
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.redactix-editor figure.redactix-embed[data-provider="apple-music"] {
+    max-width: 660px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* The .redactix-embed-frame wraps the iframe and controls its aspect-ratio.
+   Default = 16:9 video aspect (padding-top trick keeps responsive width). */
+.redactix-editor figure.redactix-embed .redactix-embed-frame {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%;
+    height: 0;
+    border-radius: var(--redactix-radius);
+    overflow: hidden;
+    background: var(--redactix-bg-secondary);
+}
+
+.redactix-editor figure.redactix-embed[data-aspect="4:3"] .redactix-embed-frame {
+    padding-top: 75%;
+}
+.redactix-editor figure.redactix-embed[data-aspect="1:1"] .redactix-embed-frame {
+    padding-top: 100%;
+}
+
+/* "auto" aspect = pixel height set inline by JS based on the provider's
+   defaultHeight (or user override). No fixed CSS fallback here — every
+   auto-aspect embed must come with an inline style.height. */
+.redactix-editor figure.redactix-embed[data-aspect="auto"] .redactix-embed-frame {
+    padding-top: 0;
+}
+
+.redactix-editor figure.redactix-embed .redactix-embed-frame > iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.redactix-editor figure.redactix-embed > figcaption {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--redactix-text-muted);
+    text-align: center;
+}
+
+/* Floating Edit button on top of the iframe — visible on hover.
+   pointer-events:none by default lets clicks pass through to the iframe;
+   on hover we enable it so the button itself is clickable. */
+.redactix-editor .redactix-embed-edit-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    background: rgba(17, 24, 39, 0.85);
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s, background 0.15s;
+}
+
+.redactix-editor figure.redactix-embed:hover .redactix-embed-edit-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.redactix-editor .redactix-embed-edit-btn:hover {
+    background: var(--redactix-primary);
+}
+
+/* Legacy class kept for safety (server-rendered HTML from older versions
+   that wasn't run through migration). Will be migrated on next load. */
 .redactix-video-wrapper {
     position: relative;
     padding-bottom: 56.25%;
@@ -1002,6 +1119,32 @@ textarea.redactix[style*="display: none"] {
     left: 0;
     width: 100%;
     height: 100%;
+}
+
+/* Embed modal: tab toggle + hint text */
+.redactix-embed-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--redactix-border);
+}
+.redactix-embed-tab {
+    background: transparent;
+    border: none;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--redactix-text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+.redactix-embed-tab.is-active {
+    color: var(--redactix-primary);
+    border-bottom-color: var(--redactix-primary);
+}
+.redactix-embed-hint {
+    font-size: 12px;
+    color: var(--redactix-text-muted);
+    margin: 4px 0 12px;
 }
 
 /* ================================
@@ -1037,6 +1180,56 @@ textarea.redactix[style*="display: none"] {
 .redactix-list-handle {
     background: #fef3c7;
     border: 1px dashed #f59e0b;
+}
+
+/* ================================
+   Block Gap Insert Handle ("+")
+   Notion-style hover affordance shown between two top-level blocks.
+   ================================ */
+.redactix-gap-handle {
+    position: absolute;
+    height: 24px;
+    transform: translateY(-50%);
+    display: none;
+    align-items: center;
+    cursor: pointer;
+    z-index: 9;
+    user-select: none;
+}
+
+.redactix-gap-line {
+    flex: 1;
+    height: 2px;
+    background: var(--redactix-primary);
+    border-radius: 1px;
+    opacity: 0.35;
+    transition: opacity 0.15s ease;
+}
+
+.redactix-gap-handle:hover .redactix-gap-line {
+    opacity: 0.7;
+}
+
+.redactix-gap-button {
+    width: 24px;
+    height: 24px;
+    margin: 0 8px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--redactix-primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.redactix-gap-handle:hover .redactix-gap-button {
+    transform: scale(1.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .redactix-list-handle:hover {

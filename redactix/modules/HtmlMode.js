@@ -73,9 +73,25 @@ export default class HtmlMode extends Module {
             tempDiv.querySelectorAll('[contenteditable]').forEach(el => {
                 el.removeAttribute('contenteditable');
             });
-            
+
+            // Apply per-module cleanups so HTML mode shows the same output
+            // sync() writes to the textarea (no edit-button, no live frame
+            // snapshots, no quote-card UI artifacts, etc.).
+            const quoteCardModule = this.instance.modules.find(m => m.constructor.name === 'QuoteCard');
+            if (quoteCardModule && quoteCardModule.cleanCardsForSync) {
+                quoteCardModule.cleanCardsForSync(tempDiv);
+            }
+            const calloutModule = this.instance.modules.find(m => m.constructor.name === 'Callout');
+            if (calloutModule && calloutModule.cleanCalloutsForSync) {
+                calloutModule.cleanCalloutsForSync(tempDiv);
+            }
+            const embedModule = this.instance.modules.find(m => m.constructor.name === 'Embed');
+            if (embedModule && embedModule.cleanEmbedsForSync) {
+                embedModule.cleanEmbedsForSync(tempDiv);
+            }
+
             tempDiv.normalize();
-            
+
             rawHtml = tempDiv.innerHTML;
 
             const prettyHtml = this.beautifyHtml(rawHtml);
@@ -118,6 +134,17 @@ export default class HtmlMode extends Module {
             }
             if (this.instance.setupCodeBlocks) {
                 this.instance.setupCodeBlocks();
+            }
+            // Re-attach module-managed setup so quote-cards / callouts /
+            // embeds get their contenteditable, edit buttons, etc. back.
+            if (this.instance.runQuoteCardSetup) {
+                this.instance.runQuoteCardSetup();
+            }
+            if (this.instance.runCalloutSetup) {
+                this.instance.runCalloutSetup();
+            }
+            if (this.instance.runEmbedSetup) {
+                this.instance.runEmbedSetup();
             }
 
             // 3. Убираем редактор кода

@@ -25,7 +25,7 @@ The `modulesConfig` array in [Redactix.js:69](redactix/Redactix.js#L69) is the r
 
 Every feature is a class extending `Module`. A module receives the `RedactixInstance` and can:
 - Access the contenteditable via `this.instance.editorEl` and the core editor via `this.editor` / `this.instance.core`.
-- Read config via `this.instance.config` (this includes `liteMode`, `uploadUrl`, `browseUrl`, `calloutPresets`, `quotePresets`, `predefinedClasses`, `maxHeight`, `theme`, `i18n`).
+- Read config via `this.instance.config` (this includes `liteMode`, `uploadUrl`, `browseUrl`, `calloutPresets`, `quotePresets`, `predefinedClasses`, `maxHeight`, `theme`, `gapInsertHandle`, `i18n`).
 - Return toolbar buttons from `getButtons()` (`{ name, icon, title, action, active? }`).
 - Translate strings via `this.t('namespace.key')`.
 
@@ -39,6 +39,10 @@ To add a new feature: create a file in [redactix/modules/](redactix/modules/), e
 
 When changing module behavior, check whether lite mode needs a branch.
 
+### Block gap insert handle
+
+The `BlockGap` module ([redactix/modules/BlockGap.js](redactix/modules/BlockGap.js)) draws a Notion-style horizontal line with a centred `+` button between adjacent top-level blocks on hover; click → empty `<p>` is inserted at that gap and focused. It only inspects direct children of `editorEl`, so internal gaps inside callouts / quote-cards aren't covered (those are handled by the in-container block handle's "insert below"). Toggle with `gapInsertHandle: false` in the Redactix constructor — the module short-circuits in `init()` and renders nothing.
+
 ### Content lifecycle (sync invariant)
 
 The editor stores presentational wrappers (e.g. `.redactix-separator` around `<hr>`, `contenteditable` flags on `<figure>`/`<pre>`/`figure.quote-card`) that must NOT leak into saved HTML. `RedactixInstance.sync()` clones `editorEl`, strips those wrappers, and writes the cleaned HTML to `textarea.value`. Conversely, `setContent()` and the constructor run `wrapSeparators()` / `setupFigures()` / `setupCodeBlocks()` / `runQuoteCardSetup()` to re-add the wrappers after injecting raw HTML.
@@ -51,9 +55,21 @@ Every quote in the editor is `<figure class="quote-card"><blockquote>…</blockq
 
 User-supplied `quotePresets` apply their `class` to the outer `<figure>`, not to the inner `<blockquote>` — relevant when scoping CSS.
 
+### Embeds (single embed model)
+
+All third-party embeds (videos, posts, players) live in `<figure class="redactix-embed" data-provider="..." data-aspect="16:9|4:3|1:1|auto">` with an inner `<div class="redactix-embed-frame"><iframe>` and an optional `<figcaption>`. No external scripts are loaded — everything is plain iframes. Provider registry is in [Embed.js buildProviderRegistry()](redactix/modules/Embed.js); each entry maps a URL regex to an iframe spec. The `custom` provider accepts raw iframe HTML pasted by the user (LinkedIn, Facebook, niche services); only one `<iframe>` survives sanitisation, attributes are whitelisted, src must be `https://`.
+
+There is a single `/embed` slash command. Provider names (youtube, spotify, twitter, instagram, tiktok, …) are listed as keywords on that command, so fuzzy search surfaces it whether the user types `/embed`, `/youtube`, or `/spotify`. The modal then auto-detects the provider from the URL the user pastes. The command is filtered out entirely in lite mode. Legacy `<div class="redactix-video-wrapper">` is migrated to the new shape on load.
+
+The paste sanitizer in [Editor.js](redactix/core/Editor.js) keeps an iframe if it's already inside a `figure.redactix-embed` or its src matches a registered provider; everything else (including unknown iframes) still gets stripped. If you add a new provider, it automatically becomes paste-safe.
+
+**Self-contained inline layout.** All critical layout (frame `position`, `width`, `overflow`, aspect-ratio padding-top OR fixed height, plus iframe `position:absolute`/`top`/`left`/`width:100%`/`height:100%`/`border:0`) is written **inline** by `applyFrameLayout()` and `applyIframeLayout()` in [Embed.js](redactix/modules/Embed.js) — both at create-time and during `cleanEmbedsForSync()`. The production site doesn't need `Redactix.css` to render embeds; only the cosmetic `max-width` / `margin` / `border-radius` rules live in CSS, and they're optional.
+
+**Production-side runtime.** [redactix/embed-runtime.js](redactix/embed-runtime.js) is a ~3KB IIFE — opt-in. It listens for `postMessage` resize events from Instagram / Twitter / TikTok / Reddit / Bluesky iframes and updates `frame.style.height` live. The same parser lives in [Embed.js](redactix/modules/Embed.js) so the editor and the rendered site behave identically. If you add a new provider that posts size messages, add a case in BOTH `parseResizeMessage` functions.
+
 ### i18n ([redactix/i18n/](redactix/i18n/))
 
-Locales are plain JS objects keyed by dot paths (e.g. `toolbar.bold`). Adding a new string means updating **every** locale file in [redactix/i18n/](redactix/i18n/) — there is no fallback at the key level. RTL detection is automatic for `ar` / `he` and applies the `redactix-rtl` class plus `dir="rtl"` on the wrapper.
+Locales are plain JS objects keyed by dot paths (e.g. `toolbar.bold`). Currently shipped: `en` and `ru`. Adding a new string means updating **every** locale file — there is no fallback at the key level. To add a language: create a new file using `en.js` as a template, import it in [i18n/index.js](redactix/i18n/index.js), and add the code to `rtlLocales` if it's right-to-left.
 
 ### Theming
 

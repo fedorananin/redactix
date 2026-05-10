@@ -14,21 +14,22 @@ Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero depen
 
 ### Core Features
 - 🎨 **Notion-like UI** — Floating toolbar for text selection, block handles for drag & drop
-- ⌨️ **Slash Commands** — Type `/` to open command menu with all block types (h1, h2, h3, quote, callout, code, image, youtube, table, hr, ol, ul)
+- ⌨️ **Slash Commands** — Type `/` to open command menu with all block types (h1, h2, h3, quote, callout, code, image, embed, table, hr, ol, ul)
 - 📝 **Rich Text Formatting** — Bold, italic, underline, strikethrough, inline code, highlights, spoilers
 - 🔗 **Advanced Links** — Full control over href, title, target, rel attributes (nofollow, sponsored, ugc)
 - 📋 **Lists** — Ordered and unordered lists with drag & drop reordering and nesting
 - 🎯 **Block Controls** — Drag handle on hover, context menu for transformations
+- ➕ **Block Gap Insert** — Notion-style "+" handle that appears between blocks on hover. Click to insert a paragraph exactly there. Disable with `gapInsertHandle: false`
 - 🖼️ **Images** — Upload, browse gallery, drag & drop, paste from clipboard, auto-upload base64
 - 📊 **Tables** — Full-featured tables with row/column manipulation
 - 💬 **Quote cards** — `<figure class="quote-card">` with multi-paragraph blockquote, headings and lists inside, plus optional author photo, name and link in `<figcaption>`. Aside (callout) blocks have presets (info, warning, danger, success) and optional emoji
-- 🎬 **YouTube Embeds** — Automatic responsive video wrapper
+- 🔗 **Embeds** — Universal embed for any iframe-able service: YouTube, Vimeo, Spotify, Apple Music, SoundCloud, Twitch, CodePen, X/Twitter, Instagram, TikTok, Reddit, Bluesky, Loom, Google Maps, etc. Plus a Custom HTML mode that accepts pasted iframe code from anywhere (LinkedIn, Facebook, niche services). Wrapped in `<figure>` with optional caption
 - 📱 **Touch Support** — Full mobile support with touch events for drag & drop
 - ⌨️ **Markdown Shortcuts** — `#`, `##`, `###`, `*`, `-`, `1.`, `>`, `!`, `---` for quick formatting
 - 🔍 **Find & Replace** — Built-in search with navigation and replace functionality
 - 🕐 **History** — Unlimited undo/redo with smart batching
 - 🌐 **HTML Mode** — Switch to raw HTML editing with syntax highlighting
-- 🌍 **Internationalization** — Native support for 20+ languages with automatic RTL detection
+- 🌍 **Internationalization** — Built-in English and Russian; RTL detection ready for additional locales
 - 🔄 **Auto-sync** — Automatic synchronization with original textarea
 - 🎯 **Element Attributes** — Edit ID (anchors) and CSS classes for any element
 - 📏 **Word/Character Counter** — Real-time statistics in the bottom right
@@ -255,7 +256,8 @@ new Redactix({
     allowImageDelete: true,             // Show delete buttons in gallery
     maxHeight: '500px',                 // Maximum editor height
     classes: ['highlight', 'centered'], // Quick-select classes in Attributes
-    liteMode: false                     // Enable lite mode for comments/forums
+    liteMode: false,                    // Enable lite mode for comments/forums
+    gapInsertHandle: true               // "+" between-blocks handle (default true; pass false to hide it)
 });
 ```
 
@@ -335,7 +337,7 @@ Type `/` anywhere to open the command menu:
 | `/callout` | Callout/aside block |
 | `/code` | Code block |
 | `/image` | Insert image |
-| `/youtube` | YouTube video |
+| `/embed` | Universal embed — paste any URL, provider is auto-detected (YouTube, Vimeo, Spotify, Twitter/X, Instagram, TikTok, Reddit, Bluesky, Loom, CodePen, Twitch, SoundCloud, Apple Music, Maps, …). Provider names also work as fuzzy-search keywords (`/youtube`, `/spotify` surface the same command). |
 | `/table` | Insert table |
 | `/hr` | Horizontal divider |
 | `/ol` | Numbered list |
@@ -388,6 +390,10 @@ Hover over any block to see the drag handle on the left:
 - **Drag** — Reorder blocks with drag & drop
 - **Touch** — Long press opens menu, drag to reorder
 
+### Block Gap Insert
+
+Hover the gap between two top-level blocks to see a thin line with a centred "+" button. Click anywhere on the strip to insert an empty paragraph exactly there and place the cursor inside it — no need to climb back into the previous block and press Enter. Disable with `gapInsertHandle: false` if the always-visible affordance is distracting.
+
 ### Context Menu
 
 Right-click or click the handle to:
@@ -416,6 +422,7 @@ redactix/
 │   ├── Attributes.js     # ID and class editor
 │   ├── BaseStyles.js     # Bold, italic, underline, etc.
 │   ├── BlockControl.js   # Drag handles and context menu
+│   ├── BlockGap.js       # Hover-gap "+" insert between top-level blocks
 │   ├── BlockStyles.js    # Headings, paragraphs
 │   ├── Code.js           # Code blocks
 │   ├── FindReplace.js    # Search functionality
@@ -431,7 +438,7 @@ redactix/
 │   ├── Separator.js      # Horizontal rules
 │   ├── SlashCommands.js  # "/" command menu (Notion-like)
 │   ├── Table.js          # Table management
-│   └── Youtube.js        # Video embeds
+│   └── Embed.js          # Universal embed (YouTube, Spotify, X, IG, TikTok, custom iframe …)
 ├── ui/
 │   ├── Icons.js          # SVG icon library
 │   ├── Modal.js          # Modal dialog component
@@ -517,11 +524,14 @@ Redactix produces clean, semantic HTML:
     </tbody>
 </table>
 
-<div class="redactix-video-wrapper">
-    <iframe src="https://www.youtube.com/embed/VIDEO_ID"></iframe>
-</div>
+<figure class="redactix-embed" data-provider="youtube" data-aspect="16:9">
+    <div class="redactix-embed-frame">
+        <iframe src="https://www.youtube.com/embed/VIDEO_ID" allowfullscreen></iframe>
+    </div>
+    <figcaption>Optional caption</figcaption>
+</figure>
 
-<div class="redactix-separator"><hr></div>
+<hr>
 
 <pre><code>function hello() {
     console.log('Hello!');
@@ -538,6 +548,261 @@ Redactix produces clean, semantic HTML:
 - `<mark>` — Highlight
 - `<span class="spoiler">` — Spoiler
 - `<a>` — Links with full attributes
+
+---
+
+## 🌐 Rendering Output on Your Site
+
+`Redactix.css` is **scoped to `.redactix-editor`** — it styles the editor itself, not your published HTML. Saved content lands on your site as plain semantic markup, and you decide how it looks. This section is the practical checklist: which content types need CSS, which need a runtime script, and a copy-paste stylesheet that gets you 90% of the way there.
+
+### What needs what
+
+| Content type | HTML on production | CSS required? | JS required? |
+|---|---|---|---|
+| Headings, paragraphs, lists, links, inline formatting | `<h1>`, `<p>`, `<ul>`, `<a>`, `<b>`, `<i>`, `<code>`, `<mark>`, `<s>`, `<u>` | Browser defaults work; style to taste | No |
+| Tables | `<table><thead>…</tbody></table>` | Style borders / spacing to taste | No |
+| Horizontal rule | `<hr>` (no wrapper, the editor's `.redactix-separator` is stripped on save) | Browser default works | No |
+| **Images** | `<figure><img><figcaption>` | **Yes** — figure margins, image max-width, caption | No |
+| **Code blocks** | `<pre><code>…</code></pre>` | Style as you wish; if you want syntax highlighting, plug in your own (Prism, highlight.js, …) | Optional (your highlighter) |
+| **Quote cards** | `<figure class="quote-card">` (+ optional `.big`) | **Yes** — see below | No |
+| **Callouts** | `<aside class="warning\|danger\|information\|success">` (+ optional `data-emoji`) | **Yes** — see below | No |
+| **Embeds** | `<figure class="redactix-embed">` with **all layout inline** | **No, layout is self-contained**. CSS only for cosmetics | **Optional** — `embed-runtime.js` for live auto-resize of social embeds |
+| **Spoilers** | `<span class="spoiler">…</span>` | Optional — only if you want the click-to-reveal effect | Optional — see below |
+
+### 1. Embeds — the easy one
+
+Every embed is emitted with **all critical layout (position / width / height / aspect-ratio) written inline**, so the iframe renders correctly even with no Redactix CSS on the page:
+
+```html
+<figure class="redactix-embed" data-provider="instagram" data-aspect="auto"
+        data-source-url="https://www.instagram.com/p/...">
+  <div class="redactix-embed-frame"
+       style="width:100%;height:700px">
+    <iframe src="https://www.instagram.com/p/.../embed/"
+            style="display:block;width:100%;height:100%;border:0"
+            sandbox="..." loading="lazy"></iframe>
+  </div>
+</figure>
+```
+
+What you might still want:
+
+```css
+/* Cosmetics for embeds — layout is already inline, this is just polish. */
+figure.redactix-embed { margin: 1em 0; text-align: center; }
+figure.redactix-embed .redactix-embed-frame { border-radius: 8px; overflow: hidden; }
+
+/* Per-provider max-width: social posts read better in a narrower column. */
+figure.redactix-embed[data-provider="instagram"] { max-width: 540px; margin-inline: auto; }
+figure.redactix-embed[data-provider="twitter"]   { max-width: 550px; margin-inline: auto; }
+figure.redactix-embed[data-provider="tiktok"]    { max-width: 325px; margin-inline: auto; }
+figure.redactix-embed[data-provider="spotify"]   { max-width: 700px; margin-inline: auto; }
+figure.redactix-embed[data-provider="bluesky"],
+figure.redactix-embed[data-provider="reddit"],
+figure.redactix-embed[data-provider="bandcamp"],
+figure.redactix-embed[data-provider="mixcloud"]  { max-width: 600px; margin-inline: auto; }
+
+figure.redactix-embed > figcaption {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+}
+```
+
+**Optional auto-resize script.** Instagram, X (Twitter), TikTok, Reddit and Bluesky iframes `postMessage` their actual content height. Without the runtime they stay at the editor's initial guess (700, 600, 750, 500, 500 px); with it the frame matches the real content as soon as the iframe loads:
+
+```html
+<script src="/redactix/embed-runtime.js" defer></script>
+```
+
+Tiny, no dependencies, no third-party requests — it only listens for `window.postMessage` events. **Skip it if your content has only video embeds** (YouTube / Vimeo / Twitch / Loom / Maps) — those use aspect-ratio and don't need the runtime.
+
+### 2. Quote cards
+
+The HTML is self-explanatory but **inert without CSS** — `<blockquote>` would otherwise inherit the browser's default 40px indent and the figcaption would lay out as block text:
+
+```html
+<!-- Default quote -->
+<figure class="quote-card">
+  <blockquote><p>The quote text — multiple paragraphs allowed.</p></blockquote>
+  <figcaption>
+    <img src="/uploads/photo.jpg" alt="">
+    <span>— <a href="https://author.example" rel="author">Author</a></span>
+  </figcaption>
+</figure>
+
+<!-- Big preset (centered, large italic) -->
+<figure class="quote-card big">
+  <blockquote><p>Pull-quote.</p></blockquote>
+</figure>
+```
+
+Drop-in CSS:
+
+```css
+figure.quote-card {
+  margin: 1em 0;
+  padding: 0.6em 1em;
+  border-left: 4px solid #2563eb;
+  background: #f8fafc;
+  color: #4b5563;
+  text-align: left;
+}
+figure.quote-card > blockquote {
+  margin: 0; padding: 0; border: 0; background: transparent; color: inherit;
+}
+figure.quote-card > blockquote > * { margin: 0.5em 0; }
+figure.quote-card > blockquote > *:first-child { margin-top: 0; }
+figure.quote-card > blockquote > *:last-child  { margin-bottom: 0; }
+
+figure.quote-card > figcaption {
+  margin-top: 0.6em;
+  padding-top: 0.6em;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.875em;
+  color: #6b7280;
+}
+figure.quote-card > figcaption > img {
+  flex: 0 0 auto;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+figure.quote-card > figcaption > span { flex: 1 1 auto; min-width: 0; }
+
+/* Big preset */
+figure.quote-card.big {
+  border-left: none;
+  border-top: 3px solid #2563eb;
+  border-bottom: 3px solid #2563eb;
+  background: transparent;
+  padding: 1em;
+  text-align: center;
+  color: #111827;
+}
+figure.quote-card.big > blockquote { font-size: 1.5em; font-style: italic; }
+figure.quote-card.big > figcaption {
+  justify-content: center; border-top: none;
+  margin-top: 0.8em; padding-top: 0; font-size: 0.7em;
+}
+```
+
+Customize colors and spacing to match your design — the structure (`figure > blockquote`, `figure > figcaption > img`, `figure > figcaption > span`) is fixed by the editor, the visuals are entirely yours.
+
+### 3. Callouts (`<aside>`)
+
+Without CSS, a browser renders `<aside>` as a plain block. Preset classes (`warning`, `danger`, `information`, `success`) and the `data-emoji` attribute are convention-only — you have to style them:
+
+```html
+<aside class="warning">Be careful here.</aside>
+<aside data-emoji="💡" class="information">Tip with an emoji.</aside>
+```
+
+Drop-in CSS:
+
+```css
+aside {
+  margin: 1em 0;
+  padding: 1em;
+  border-radius: 6px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #374151;
+}
+aside > * { margin: 0.5em 0; }
+aside > *:first-child { margin-top: 0; }
+aside > *:last-child  { margin-bottom: 0; }
+
+/* Presets */
+aside.warning     { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+aside.danger      { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+aside.information { background: #dbeafe; border-color: #3b82f6; color: #1e40af; }
+aside.success     { background: #dcfce7; border-color: #22c55e; color: #166534; }
+
+/* Emoji prefix — rendered from the data-emoji attribute via ::before. */
+aside[data-emoji] {
+  padding-left: 3.25em;
+  position: relative;
+}
+aside[data-emoji]::before {
+  content: attr(data-emoji);
+  position: absolute;
+  left: 0.75em;
+  top: 0.75em;
+  font-size: 1.25em;
+  line-height: 1;
+}
+
+/* Inside-callout HR uses currentColor so it stays visible on tinted bg. */
+aside hr { border: 0; border-top: 1px solid currentColor; opacity: 0.25; }
+```
+
+### 4. Images
+
+Images are emitted as `<figure><img><figcaption>`:
+
+```html
+<figure>
+  <img src="/uploads/photo.jpg" alt="Description" loading="lazy">
+  <figcaption>Optional caption</figcaption>
+</figure>
+```
+
+Drop-in CSS:
+
+```css
+/* Center the figure, give the caption a softer color. */
+figure { margin: 1em 0; padding: 0; text-align: center; }
+figure > img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+figure > figcaption {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+}
+```
+
+> **Note.** The same selector matches `figure.quote-card` and `figure.redactix-embed`. The CSS for those two **(above) overrides these defaults** because it's more specific (`figure.quote-card`, `figure.redactix-embed`). Order doesn't matter — keep this generic figure rule first if you prefer.
+
+### 5. Spoilers (optional)
+
+Spoilers are emitted as `<span class="spoiler">…</span>` with no inline behavior. If you want the click-to-reveal effect on your site:
+
+```css
+span.spoiler {
+  background: #1f2937;
+  color: #1f2937; /* hides the text */
+  border-radius: 3px;
+  padding: 0 4px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+span.spoiler.is-revealed { color: #f3f4f6; }
+```
+
+```html
+<script>
+document.addEventListener('click', (e) => {
+  const sp = e.target.closest('span.spoiler');
+  if (sp) sp.classList.toggle('is-revealed');
+});
+</script>
+```
+
+### Summary
+
+- **Always required on production:** nothing. Saved HTML is valid semantic markup and a browser will render it (ugly, but functional).
+- **Recommended:** copy the four CSS blocks above into your site's stylesheet (or a single `redactix-content.css` you ship alongside your articles). Tweak colors and spacing to match your design.
+- **Conditional:** include `embed-runtime.js` if you display Instagram / X / TikTok / Reddit / Bluesky embeds. Skip if you only have video embeds.
+- **Don't ship `Redactix.css`** to your visitors — it's the editor's stylesheet, scoped to `.redactix-editor`, and would do nothing on saved content.
 
 ---
 
@@ -853,23 +1118,16 @@ new Redactix({
 
 ### Supported Languages
 
-| Code | Language | | Code | Language |
-|------|----------|-|------|----------|
-| `en` | English | | `ru` | Russian |
-| `fr` | French | | `es` | Spanish |
-| `de` | German | | `pt` | Portuguese |
-| `uk` | Ukrainian | | `pl` | Polish |
-| `tr` | Turkish | | `sr` | Serbian |
-| `ja` | Japanese | | `ko` | Korean |
-| `zh` | Chinese | | `vi` | Vietnamese |
-| `th` | Thai | | `sw` | Swahili |
-| `ka` | Georgian | | `kk` | Kazakh |
-| `uz` | Uzbek | | `ar` | Arabic (RTL) |
-| `he` | Hebrew (RTL) | | | |
+| Code | Language |
+|------|----------|
+| `en` | English |
+| `ru` | Russian |
+
+To add another language, drop a new file into [redactix/i18n/](redactix/i18n/) using `en.js` as a template and import it from [redactix/i18n/index.js](redactix/i18n/index.js). Add the locale code to the `rtlLocales` array if it's a Right-to-Left language.
 
 ### RTL Support
 
-Redactix automatically detects RTL languages (like Arabic and Hebrew) and adjusts the UI accordingly:
+Redactix automatically detects RTL languages (codes listed in `rtlLocales` inside [i18n/index.js](redactix/i18n/index.js); `ar`, `he`, `fa`, `ur` by default) and adjusts the UI accordingly:
 - Toolbar alignment
 - Text direction
 - UI elements positioning

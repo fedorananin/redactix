@@ -16,8 +16,8 @@ export default {
     // Toolbar tooltips
     toolbar: {
         insertImage: 'Вставить изображение',
+        insertEmbed: 'Вставить embed',
         insertTable: 'Вставить таблицу',
-        insertYoutube: 'Вставить видео YouTube',
         insertCode: 'Вставить блок кода',
         findReplace: 'Найти и заменить (Ctrl+F)',
         fullscreen: 'Полноэкранный режим',
@@ -105,11 +105,21 @@ export default {
         headerPrefix: 'Заголовок'
     },
 
-    // YouTube module
-    youtube: {
-        title: 'YouTube',
-        videoLink: 'Ссылка на видео YouTube',
-        invalidUrl: 'Неверный URL YouTube'
+    // Embed module (YouTube, Spotify, X, Instagram, TikTok, ...)
+    embed: {
+        title: 'Вставить embed',
+        editTitle: 'Редактировать embed',
+        removeEmbed: 'Удалить embed',
+        tabUrl: 'По ссылке',
+        tabCustom: 'Свой HTML',
+        urlLabel: 'URL',
+        urlHint: 'YouTube, Vimeo, Spotify, X, Instagram, TikTok, Reddit, Bluesky, SoundCloud, Twitch, CodePen, Loom, Maps, …',
+        customLabel: 'Embed-код',
+        customHint: 'Вставьте <iframe>-код с сайта-источника (например, LinkedIn, Facebook). Сохраняется только тег iframe.',
+        captionLabel: 'Подпись',
+        captionPlaceholder: 'Необязательно',
+        edit: 'Редактировать embed',
+        menuGroup: 'Embed'
     },
 
     // Code module
@@ -214,8 +224,8 @@ export default {
         codeBlockDesc: 'Код с подсветкой синтаксиса',
         image: 'Изображение',
         imageDesc: 'Вставить изображение',
-        youtube: 'YouTube',
-        youtubeDesc: 'Встроить видео',
+        embed: 'Embed',
+        embedDesc: 'Видео, пост, плеер с любого сайта',
         table: 'Таблица',
         tableDesc: 'Вставить таблицу',
         divider: 'Разделитель',
@@ -224,6 +234,10 @@ export default {
         numberedListDesc: 'Список с номерами',
         bulletList: 'Маркированный список',
         bulletListDesc: 'Список с маркерами'
+    },
+
+    blockGap: {
+        insertBlock: 'Вставить блок'
     },
 
     // Upload errors
