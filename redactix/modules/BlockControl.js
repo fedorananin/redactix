@@ -87,6 +87,18 @@ export default class BlockControl extends Module {
             }
         });
 
+        // Меню portal'нуто в <body> и спозиционировано через `fixed`,
+        // поэтому при скролле страницы / редактора оно остаётся на
+        // месте, а ручка уезжает. Закрываем его на любой скролл —
+        // capture: true, чтобы ловить и внутренние scrollable-контейнеры
+        // (редактор с maxHeight, fullscreen, любой враппер на стороне
+        // подключения).
+        window.addEventListener('scroll', () => {
+            if (this.menu && this.menu.style.display === 'block') {
+                this.hideMenu();
+            }
+        }, { capture: true, passive: true });
+
         // Скрываем ручки, если мышь ушла с редактора
         this.instance.wrapper.addEventListener('mouseleave', (e) => {
             // Проверяем, что мышь не перешла на ручки или меню
@@ -268,7 +280,11 @@ export default class BlockControl extends Module {
         this.menu = document.createElement('div');
         this.menu.className = 'redactix-block-menu';
         this.menu.style.display = 'none';
-        this.instance.wrapper.appendChild(this.menu);
+        // Portal to <body> so the menu can render outside the editor /
+        // demo-wrapper bounds (which often have overflow:hidden for
+        // rounded corners). Position is set with `fixed` against the
+        // viewport in showMenu().
+        document.body.appendChild(this.menu);
     }
 
     buildMenu() {
@@ -857,38 +873,35 @@ export default class BlockControl extends Module {
     showMenu() {
         this.buildMenu();
 
+        // Mirror theme / RTL / lite-mode classes from the wrapper so the
+        // CSS variables that style the menu still resolve while it lives
+        // detached in <body>. `redactix-wrapper` itself defines those
+        // variables, so we add it to the menu element too.
+        const themeClasses = ['redactix-block-menu', 'redactix-wrapper'];
+        ['redactix-dark', 'redactix-auto', 'redactix-rtl', 'redactix-lite-mode']
+            .forEach(c => { if (this.instance.wrapper.classList.contains(c)) themeClasses.push(c); });
+        this.menu.className = themeClasses.join(' ');
+
         const handleRect = this.handle.getBoundingClientRect();
-        const wrapperRect = this.instance.wrapper.getBoundingClientRect();
-        const editorRect = this.instance.editorEl.getBoundingClientRect();
 
         this.menu.style.display = 'block';
-
-        // Получаем размеры меню после отображения
         const menuRect = this.menu.getBoundingClientRect();
 
-        // Рассчитываем позицию по умолчанию (вниз)
-        let top = handleRect.bottom - wrapperRect.top + 5;
-        let left = handleRect.left - wrapperRect.left;
+        // Viewport-relative coordinates (position: fixed).
+        let top = handleRect.bottom + 5;
+        let left = handleRect.left;
 
-        // Проверяем, уместится ли меню внизу
-        const spaceBelow = editorRect.bottom - handleRect.bottom;
-        const spaceAbove = handleRect.top - editorRect.top;
-
+        // Flip up if the menu wouldn't fit below the handle but would fit above.
+        const spaceBelow = window.innerHeight - handleRect.bottom;
+        const spaceAbove = handleRect.top;
         if (spaceBelow < menuRect.height && spaceAbove > menuRect.height) {
-            // Открываем вверх
-            top = handleRect.top - wrapperRect.top - menuRect.height - 5;
+            top = handleRect.top - menuRect.height - 5;
         }
 
-        // Проверяем, не выходит ли меню за левый край
-        if (left < 5) {
-            left = 5;
-        }
-
-        // Проверяем, не выходит ли меню за правый край
-        const maxLeft = wrapperRect.width - menuRect.width - 5;
-        if (left > maxLeft) {
-            left = maxLeft;
-        }
+        // Clamp to viewport with a small margin.
+        if (left < 5) left = 5;
+        const maxLeft = window.innerWidth - menuRect.width - 5;
+        if (left > maxLeft) left = maxLeft;
 
         this.menu.style.top = `${top}px`;
         this.menu.style.left = `${left}px`;

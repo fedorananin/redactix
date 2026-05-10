@@ -1260,13 +1260,15 @@ textarea.redactix[style*="display: none"] {
    Block Menu
    ================================ */
 .redactix-block-menu {
-    position: absolute;
+    /* Portal'd to <body> + viewport-relative coords so the menu can
+       escape any overflow:hidden ancestor (rounded demo-wrapper, etc.) */
+    position: fixed;
     background: var(--redactix-bg);
     border: 1px solid var(--redactix-border);
     box-shadow: var(--redactix-shadow);
     border-radius: 8px;
     padding: 6px;
-    z-index: 100;
+    z-index: 1000;
     min-width: 180px;
     animation: menuFadeIn 0.15s ease;
 }
