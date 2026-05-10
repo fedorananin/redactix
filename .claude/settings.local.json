@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git -C \"c:\\\\Users\\\\i\\\\OneDrive\\\\Soft\\\\OpenServer\\\\domains\\\\redactix.local\" log --oneline -5 -- redactix/core/Selection.js redactix/core/Editor.js)",
-      "Bash(git -C \"c:\\\\Users\\\\i\\\\OneDrive\\\\Soft\\\\OpenServer\\\\domains\\\\redactix.local\" log --all --oneline -p -S \"this.editorEl = \" -- redactix/core/Editor.js)"
-    ]
-  }
-}
