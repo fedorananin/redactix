@@ -181,6 +181,15 @@ export default class Editor {
                 }
             }
 
+            // Delete (forward) — protect atomic blocks (figure / pre / table /
+            // hr / video-wrapper / separator) from being destroyed when the
+            // user is just trying to remove an adjacent empty paragraph.
+            if (e.key === 'Delete') {
+                if (this.handleDelete(e)) {
+                    return;
+                }
+            }
+
             // Пробел - умная обработка
             if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 e.preventDefault();
@@ -1097,7 +1106,27 @@ export default class Editor {
             return true;
         }
 
-        // Standalone P at top level — let the browser handle it (default merge)
+        // Standalone P at top level — protect adjacent atomic blocks
+        // (figure / pre / table / hr / video-wrapper / separator) from
+        // browser's default backspace-merge, which deletes the whole atomic
+        // block when its only "neighbour" content is non-editable.
+        if (block.tagName === 'P' && block.parentNode === this.el) {
+            const prev = block.previousElementSibling;
+            if (prev && this.isAtomicBlock(prev) &&
+                this.isCursorAtStartOfBlock(range, block)) {
+                e.preventDefault();
+                const isEmpty = !block.textContent.trim() &&
+                    !block.querySelector('img, iframe, video, audio, table, hr');
+                if (!isEmpty) {
+                    // Don't merge content into / destroy the atomic block.
+                    return true;
+                }
+                this.removeBlockNextToAtomic(block, prev, 'end');
+                this.instance.sync();
+                return true;
+            }
+            return false;
+        }
         if (block.tagName === 'P') return false;
 
         // Преобразуем заголовок в параграф
@@ -1146,6 +1175,185 @@ export default class Editor {
         }
 
         return false;
+    }
+
+    /**
+     * Forward Delete handler — symmetric to handleBackspace's protection of
+     * adjacent atomic blocks. Triggered on Delete pressed at the END of a
+     * top-level P that's followed by figure / pre / table / hr / .redactix-
+     * separator / .redactix-video-wrapper. Browser's default would merge the
+     * atomic block into the empty paragraph, destroying both.
+     */
+    handleDelete(e) {
+        const selection = window.getSelection();
+        if (!selection.rangeCount || !selection.isCollapsed) return false;
+
+        const range = selection.getRangeAt(0);
+
+        // Find the top-level block (direct child of the editor) that
+        // contains the cursor. We deliberately do NOT stop at the nearest
+        // P/H — going to top level lets us correctly handle cases like a
+        // cursor in the last paragraph of a list/aside followed by an atomic
+        // block, and cases where the immediate nearest editable block is the
+        // top-level block itself.
+        const block = this.findTopLevelBlock(range.endContainer);
+        if (!block) return false;
+        // Cursor inside an atomic block (e.g. figcaption of a figure) — let
+        // the browser handle Delete inside it.
+        if (this.isAtomicBlock(block)) return false;
+
+        // Cursor must have nothing meaningful between it and the end of the
+        // block. toString() on a Range ignores <br> and other non-text
+        // nodes, so this correctly treats trailing <br>, empty inline
+        // wrappers, and empty paragraphs as "at end".
+        if (!this.isCursorAtEndOfBlock(range, block)) return false;
+
+        const next = block.nextElementSibling;
+        if (!next || !this.isAtomicBlock(next)) return false;
+
+        e.preventDefault();
+        const isEmpty = !block.textContent.trim() &&
+            !block.querySelector('img, iframe, video, audio, table, hr');
+        if (!isEmpty) {
+            // Block has content — don't merge the atomic block backward
+            // (which would also destroy it). Just no-op.
+            return true;
+        }
+        this.removeBlockNextToAtomic(block, next, 'start');
+        this.instance.sync();
+        return true;
+    }
+
+    /** Top-level block (direct child of editorEl) that contains `node`. */
+    findTopLevelBlock(node) {
+        while (node && node.parentNode !== this.el) {
+            node = node.parentNode;
+        }
+        return (node && node !== this.el) ? node : null;
+    }
+
+    /**
+     * Range-based "is the cursor at the start of `block`?" — robust to
+     * inline wrappers, leading <br>, etc. Returns true iff there is no
+     * visible text between the start of the block and the cursor.
+     */
+    isCursorAtStartOfBlock(range, block) {
+        if (!range.collapsed) return false;
+        const head = document.createRange();
+        head.setStart(block, 0);
+        head.setEnd(range.startContainer, range.startOffset);
+        return head.toString() === '';
+    }
+
+    /**
+     * Range-based "is the cursor at the end of `block`?" — robust to
+     * trailing <br>, inline wrappers, etc. Returns true iff there is no
+     * visible text between the cursor and the end of the block.
+     */
+    isCursorAtEndOfBlock(range, block) {
+        if (!range.collapsed) return false;
+        const tail = document.createRange();
+        tail.setStart(range.endContainer, range.endOffset);
+        tail.setEnd(block, block.childNodes.length);
+        return tail.toString() === '';
+    }
+
+    /**
+     * Atomic blocks are top-level elements that should never be destroyed by
+     * a browser-default merge with an adjacent empty paragraph: image/video/
+     * embed/gallery figures (FIGURE), code blocks (PRE), tables, separators
+     * (HR / .redactix-separator), and the legacy .redactix-video-wrapper.
+     */
+    isAtomicBlock(el) {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+        const tag = el.tagName;
+        if (tag === 'FIGURE' || tag === 'PRE' || tag === 'TABLE' || tag === 'HR') return true;
+        if (tag === 'DIV' && (el.classList.contains('redactix-separator') || el.classList.contains('redactix-video-wrapper'))) return true;
+        return false;
+    }
+
+    /**
+     * Remove an empty paragraph that sits next to an atomic block, placing
+     * the cursor in a sensible existing landing spot. We deliberately do NOT
+     * create new figcaptions — for video/embed without a caption a phantom
+     * figcaption looks like an unwanted caption box, and for quote-cards
+     * the figcaption is reserved for author info (img + span) and managed
+     * by the QuoteCard module.
+     *
+     * If no good landing spot exists, leave the empty paragraph alone — the
+     * caller has already preventDefault'd, so the only effect is that
+     * backspace/delete is a visible no-op rather than destroying the figure.
+     *
+     * @param {HTMLElement} block       The empty P to remove.
+     * @param {HTMLElement} atomic      The adjacent atomic block.
+     * @param {'start'|'end'} edge      Where to land the cursor relative to
+     *                                  any editable target inside the atomic
+     *                                  ('start' = top — used for forward
+     *                                  Delete; 'end' = bottom — used for
+     *                                  Backspace).
+     */
+    removeBlockNextToAtomic(block, atomic, edge) {
+        const targetRange = this.findCursorTargetForAtomic(atomic, edge);
+        if (!targetRange) return; // preventDefault was already called
+
+        block.remove();
+        this.ensureTrailingParagraph();
+
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(targetRange);
+    }
+
+    /**
+     * Where should the cursor land after removing a paragraph adjacent to
+     * `atomic`? Returns a Range positioned in the most natural editable
+     * spot, or null when none exists.
+     *
+     *   • Quote-card  → inside its inner blockquote's first/last <p>.
+     *   • Other FIGURE with an EXISTING editable <figcaption> (typically the
+     *     image module always creates one, video/embed only when caption
+     *     was supplied) → that figcaption.
+     *   • Non-figure atomic, or figure without figcaption → "jump over" the
+     *     atomic into the nearest non-atomic editable sibling on the side
+     *     the user was deleting toward (end of prev for Backspace, start of
+     *     next for Delete).
+     */
+    findCursorTargetForAtomic(atomic, edge) {
+        if (atomic.tagName === 'FIGURE') {
+            if (atomic.classList.contains('quote-card')) {
+                const bq = atomic.querySelector(':scope > blockquote');
+                const innerP = bq && (edge === 'end' ? bq.lastElementChild : bq.firstElementChild);
+                if (innerP) {
+                    const r = document.createRange();
+                    r.selectNodeContents(innerP);
+                    r.collapse(edge === 'start');
+                    return r;
+                }
+            } else {
+                const figcaption = atomic.querySelector(':scope > figcaption');
+                if (figcaption && figcaption.isContentEditable) {
+                    const r = document.createRange();
+                    r.selectNodeContents(figcaption);
+                    r.collapse(edge === 'start');
+                    return r;
+                }
+            }
+        }
+
+        // Fall back to jumping over the atomic into the nearest non-atomic
+        // editable sibling — direction follows the keystroke:
+        //   Backspace (edge='end') → end of atomic.previousElementSibling.
+        //   Delete    (edge='start') → start of atomic.nextElementSibling.
+        const target = edge === 'end'
+            ? atomic.previousElementSibling
+            : atomic.nextElementSibling;
+        if (target && target.isContentEditable !== false && !this.isAtomicBlock(target)) {
+            const r = document.createRange();
+            r.selectNodeContents(target);
+            r.collapse(edge === 'start');
+            return r;
+        }
+        return null;
     }
 
     handleSpace() {

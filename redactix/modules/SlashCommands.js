@@ -503,6 +503,20 @@ export default class SlashCommands extends Module {
                         block.appendChild(document.createElement('br'));
                     }
 
+                    // Re-anchor the live selection to the start of the
+                    // block. After deleteContents() the live range can be
+                    // pointing at an empty/detached text node leftover from
+                    // the "/command" — the subsequent selection.save()
+                    // would then capture an out-of-editor range and
+                    // insertNode() would fall back to appending the
+                    // inserted figure at the end of the editor.
+                    const sel = window.getSelection();
+                    const newRange = document.createRange();
+                    newRange.setStart(block, 0);
+                    newRange.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+
                     // Save this block for cursor restoration after modal closes
                     this.cursorRestoreBlock = block;
                 }

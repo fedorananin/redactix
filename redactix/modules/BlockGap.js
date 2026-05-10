@@ -187,7 +187,12 @@ export default class BlockGap extends Module {
         p.innerHTML = '<br>';
         after.parentNode.insertBefore(p, after);
 
-        this.instance.editorEl.focus();
+        // preventScroll: avoid the editor jumping back to the top when its
+        // contents are taller than the viewport. We're inserting at a known
+        // position and setting the selection there ourselves — letting the
+        // browser's focus-scroll align the top of the contenteditable wins
+        // over our own range placement and feels like a glitch.
+        this.instance.editorEl.focus({ preventScroll: true });
         const range = document.createRange();
         range.setStart(p, 0);
         range.collapse(true);
