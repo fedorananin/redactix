@@ -189,6 +189,19 @@ export default class Image extends Module {
     initDragDrop() {
         const editor = this.instance.editorEl;
 
+        // Полностью запрещаем нативный HTML5-drag для содержимого
+        // редактора. Иначе браузер по умолчанию умеет таскать <img>
+        // внутри contenteditable и кидать их куда попало (вплоть до
+        // вставки <img> внутрь <h2>). Перетаскивание блоков в Redactix
+        // реализовано через mousedown в BlockControl, нативный
+        // dragstart ему не нужен — поэтому глушим его на корню.
+        // Бонус: после этого editor вообще не получает дальнейших
+        // drag-событий от внутренних элементов, так что подсветку
+        // зоны загрузки и повторную загрузку триггерить нечем.
+        editor.addEventListener('dragstart', (e) => {
+            e.preventDefault();
+        });
+
         editor.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.stopPropagation();

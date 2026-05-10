@@ -25,7 +25,7 @@ The `modulesConfig` array in [Redactix.js:69](redactix/Redactix.js#L69) is the r
 
 Every feature is a class extending `Module`. A module receives the `RedactixInstance` and can:
 - Access the contenteditable via `this.instance.editorEl` and the core editor via `this.editor` / `this.instance.core`.
-- Read config via `this.instance.config` (this includes `liteMode`, `uploadUrl`, `browseUrl`, `videoUpload`, `videoUploadUrl`, `videoBrowseUrl`, `allowVideoDelete`, `calloutPresets`, `quotePresets`, `predefinedClasses`, `maxHeight`, `theme`, `gapInsertHandle`, `i18n`).
+- Read config via `this.instance.config` (this includes `liteMode`, `uploadUrl`, `browseUrl`, `videoUploadUrl`, `videoBrowseUrl`, `allowVideoDelete`, `calloutPresets`, `quotePresets`, `predefinedClasses`, `maxHeight`, `theme`, `gapInsertHandle`, `i18n`).
 - Return toolbar buttons from `getButtons()` (`{ name, icon, title, action, active? }`).
 - Translate strings via `this.t('namespace.key')`.
 
@@ -55,6 +55,17 @@ Every quote in the editor is `<figure class="quote-card"><blockquote>…</blockq
 
 User-supplied `quotePresets` apply their `class` to the outer `<figure>`, not to the inner `<blockquote>` — relevant when scoping CSS.
 
+### Preset configuration (callout + quote)
+
+Both `calloutPresets` and `quotePresets` are normalised in [Redactix.js](redactix/Redactix.js) by `resolvePresets()` into a single flat array `[{ name, label, class }, …]` that downstream consumers (BlockControl menu, Editor sanitizer) read from `instance.config`. Two input shapes:
+
+- Array form (legacy): `calloutPresets: [{ name, label, class }, …]` — extends defaults.
+- Object form: `calloutPresets: { defaults: false, custom: [...] }` — `defaults: false` drops the built-ins; omitting `defaults` keeps them.
+
+Defaults live inline in the constructor: warning/danger/information/success for callouts, `big` for quotes. The "No Style" / "Standard" placeholder entry is added by [BlockControl.js](redactix/modules/BlockControl.js) on read so the menu always offers a way to clear styling.
+
+[Editor.js](redactix/core/Editor.js) `sanitizeHtml()` builds `allowedClasses` dynamically from these resolved arrays — so user-defined preset classes survive paste without manual whitelisting, and disabled defaults DON'T survive paste (consistent with the user's intent). When adding a new preset-style block, push its class names through this same path.
+
 ### Photo galleries (Gallery module)
 
 `<figure class="redactix-gallery"><div class="redactix-gallery-grid"><a href="..."><img …></a><img …>…</div><figcaption>…</figcaption></figure>` — multiple images grouped under a single shared figcaption. The inner `.redactix-gallery-grid` is just a wrapper so the figcaption is unambiguously separate from the images (mirrors the embed/video pattern).
@@ -65,11 +76,11 @@ The module is on by default; no separate flag. Upload uses the existing `uploadU
 
 The paste sanitizer in [Editor.js](redactix/core/Editor.js) whitelists `redactix-gallery` and `redactix-gallery-grid` classes alongside the rest. Inner `<a>` and `<img>` go through the standard attribute sweep — same surface as a single image.
 
-### Native videos (Video module — off by default)
+### Native videos (Video module)
 
 `<figure class="redactix-video" data-aspect="16:9|4:3|1:1|9:16|auto"><video src="..." controls preload="metadata"[ style="aspect-ratio:..."]></video><figcaption>…</figcaption></figure>` is what the [Video module](redactix/modules/Video.js) emits. Different from `redactix-embed`: it's a real `<video>` tag, not an iframe — for self-hosted MP4/WebM/OGG/MOV files. The user uploads or pastes a URL via the `/video` slash command.
 
-The whole feature is **opt-in**: pass `videoUpload: true` in the constructor. Without it the slash command is filtered out, the toolbar button is hidden, and the module short-circuits in `init()`. `videoUploadUrl` enables file upload inside the modal (POST `multipart/form-data` with a `video` field); `videoBrowseUrl` enables the gallery panel; `allowVideoDelete` mirrors the image flag. Lite mode forces all of these off — videos never appear in comments. Stripping happens in [Redactix.js](redactix/Redactix.js) the same way image upload is stripped.
+The module follows the same on/off contract as Image: **always loaded, URL inserts always work**. File upload appears in the modal only when `videoUploadUrl` is configured (POST `multipart/form-data` with a `video` field); `videoBrowseUrl` adds the "choose from already uploaded" panel; `allowVideoDelete` mirrors the image flag. Lite mode strips the upload/browse URLs (commenters fall back to URL only) but keeps the `/video` command alive. Stripping happens in [Redactix.js](redactix/Redactix.js) the same way image upload is stripped.
 
 Aspect ratio is the only visual layout the editor enforces: when the user picks `16:9` / `4:3` / `1:1` / `9:16`, an inline `style="aspect-ratio:16 / 9"` lands on the `<video>` element so the production site renders the same shape — no Redactix.css required. Inside the editor a single CSS rule (`figure.redactix-video > video { max-height:450px }`, mirroring the image rule) keeps vertical clips from blowing up the editor; on the production site the admin's stylesheet decides everything.
 

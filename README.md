@@ -2,7 +2,7 @@
 
 Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero dependencies. Vanilla JS.
 
-![Redactix Editor](https://img.shields.io/badge/version-1.9.0-blue.svg)
+![Redactix Editor](https://img.shields.io/badge/version-1.10.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-js-yellow.svg)
 
@@ -22,7 +22,7 @@ Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero depen
 - ➕ **Block Gap Insert** — Notion-style "+" handle that appears between blocks on hover. Click to insert a paragraph exactly there. Disable with `gapInsertHandle: false`
 - 🖼️ **Images** — Upload, browse gallery, drag & drop, paste from clipboard, auto-upload base64
 - 🖼️🖼️ **Photo galleries** — Multiple images grouped under a single shared caption. Drag-to-reorder in the modal, per-image alt + optional link. Uses the same image upload / browse pipeline
-- 🎞️ **Native videos** (opt-in) — Upload an MP4 / WebM / OGG / MOV file or paste a direct URL; renders as a real `<figure><video controls>` with a chosen aspect ratio. Off by default — enable with `videoUpload: true`
+- 🎞️ **Native videos** — Insert by URL out of the box; provide `videoUploadUrl` to also accept MP4 / WebM / OGG / MOV uploads (and `videoBrowseUrl` for a "choose from already uploaded" panel). Renders as a real `<figure><video controls>` with a chosen aspect ratio
 - 📊 **Tables** — Full-featured tables with row/column manipulation
 - 💬 **Quote cards** — `<figure class="quote-card">` with multi-paragraph blockquote, headings and lists inside, plus optional author photo, name and link in `<figcaption>`. Aside (callout) blocks have presets (info, warning, danger, success) and optional emoji
 - 🔗 **Embeds** — Universal embed for any iframe-able service: YouTube, Vimeo, Spotify, Apple Music, SoundCloud, Twitch, CodePen, X/Twitter, Instagram, TikTok, Reddit, Bluesky, Loom, Google Maps, etc. Plus a Custom HTML mode that accepts pasted iframe code from anywhere (LinkedIn, Facebook, niche services). Wrapped in `<figure>` with optional caption
@@ -175,19 +175,22 @@ Response:
 
 ---
 
-## 🎞️ Native Video Upload (opt-in)
+## 🎞️ Native Video
 
-Redactix supports inline `<video>` for self-hosted MP4 / WebM / OGG / MOV files. The feature is **off by default** — flip `videoUpload: true` in the constructor and the `/video` slash command (plus a toolbar button) appears. The same `redactix_images.php` script handles video upload, browse and delete; flip `$allowVideoUpload = true` in the PHP config too.
+Redactix supports inline `<video>` for self-hosted MP4 / WebM / OGG / MOV files using the same model as images: the module is always on, URL inserts work out of the box, file upload + the "choose from already uploaded" panel light up only when you provide endpoints.
 
 ```javascript
 new Redactix({
     selector: '.redactix',
-    videoUpload: true,
+    // URL-only — works with no extra setup, the /video modal accepts a direct URL
+    // OR — also accept file uploads:
     videoUploadUrl: '/redactix_images.php',
-    videoBrowseUrl: '/redactix_images.php', // optional
-    allowVideoDelete: false                  // optional
+    videoBrowseUrl: '/redactix_images.php', // optional gallery panel
+    allowVideoDelete: false                  // optional delete buttons
 });
 ```
+
+To accept uploads, flip the matching server-side flag too — by default the bundled PHP refuses video uploads:
 
 ```php
 // redactix_images.php
@@ -239,7 +242,7 @@ Response:
 }
 ```
 
-The demo PHP (`redactix_images_demo.php`) always returns `uploads/default.mp4` so you can wire `videoUpload: true` through end-to-end without filling your uploads directory.
+The demo PHP (`redactix_images_demo.php`) always returns `uploads/default.mp4` so you can wire `videoUploadUrl` through end-to-end without filling your uploads directory.
 
 ---
 
@@ -321,11 +324,10 @@ textarea.redactix.setTheme('auto');
 new Redactix({
     selector: '.redactix',              // CSS selector for textareas
     locale: 'en',                       // Language (en, ru, fr, es, etc.)
-    uploadUrl: '/upload.php',           // Image upload endpoint
+    uploadUrl: '/upload.php',           // Image upload endpoint (URL-only without it)
     browseUrl: '/browse.php',           // Image gallery endpoint
-    allowImageDelete: true,             // Show delete buttons in gallery
-    videoUpload: false,                 // Native HTML5 video — off by default. Pass true to surface the /video command and toolbar button
-    videoUploadUrl: '/redactix_images.php', // Video upload endpoint (only used when videoUpload: true)
+    allowImageDelete: true,             // Show delete buttons in image gallery
+    videoUploadUrl: '/redactix_images.php', // Video upload endpoint (URL-only without it)
     videoBrowseUrl: '/redactix_images.php', // Optional video gallery endpoint
     allowVideoDelete: false,            // Show delete buttons in the video gallery
     maxHeight: '500px',                 // Maximum editor height
@@ -375,24 +377,93 @@ new Redactix({
 
 ### Custom Presets
 
+Both `calloutPresets` and `quotePresets` accept either an array (legacy — appends to defaults) or a `{ defaults?, custom? }` object (full control). Defaults: `warning`/`danger`/`information`/`success` for callouts, `big` for quotes.
+
 ```javascript
 new Redactix({
     selector: '.redactix',
-    
-    // Custom callout (aside) styles
+
+    // ----- Array form: extends defaults -----
     calloutPresets: [
         { name: 'note', label: 'Note', class: 'my-note' },
-        { name: 'tip', label: 'Pro Tip', class: 'my-tip' }
+        { name: 'tip',  label: 'Pro Tip', class: 'my-tip' }
     ],
-    
-    // Custom quote-card styles. The class is applied to the outer
-    // <figure class="quote-card">, NOT to the inner <blockquote>.
-    quotePresets: [
-        { name: 'pull', label: 'Pull Quote', class: 'pull-quote' },
-        { name: 'testimonial', label: 'Testimonial', class: 'testimonial' }
-    ]
+
+    // ----- Object form: full control -----
+    quotePresets: {
+        defaults: false,                                // turn off "big"
+        custom: [
+            { name: 'pull',        label: 'Pull Quote', class: 'pull-quote' },
+            { name: 'testimonial', label: 'Testimonial', class: 'testimonial' }
+        ]
+    }
 });
 ```
+
+`defaults: false` strips the built-in entries; `defaults: true` (or omitting) keeps them. The "No Style" / "Standard" entry that lets users clear styling is always present.
+
+#### Where the class lands in the saved HTML
+
+| Block | Class lands on |
+|---|---|
+| Callout | `<aside class="my-tip">…</aside>` |
+| Quote | `<figure class="quote-card my-pull-quote">…</figure>` (NOT on the inner `<blockquote>`) |
+
+#### Making your custom CSS actually show up — both in the editor and on the published page
+
+The sanitizer auto-allows any class you list in `calloutPresets` / `quotePresets`, so pasted HTML keeps your classes intact — no extra setup on the JS side. The CSS side, on the other hand, has a small subtlety worth understanding.
+
+**Why there's a subtlety.** When the editor renders your content, it wraps it in `<div class="redactix-editor">`. On the published page there's no such wrapper — the article is just plain HTML inside your normal layout. So a rule like `aside.my-tip { ... }` works on the published page but only shows up inside the editor preview if that stylesheet is also loaded on the admin page where the editor lives.
+
+You have three ways to handle this:
+
+**1. Easiest — load the same stylesheet on both sides.** If your site CSS is included on `/admin` (or wherever the editor lives) as well as on the public site, one unscoped rule covers both contexts:
+
+```css
+/* site.css — loaded on /admin AND the public site */
+aside.my-tip {
+    background: #f0f9ff;
+    border: 1px solid #0ea5e9;
+    color: #075985;
+}
+```
+
+**2. Editor-only stylesheet.** If your site CSS does NOT load on the admin page, write a separate file scoped to `.redactix-editor` (so it can't leak into your admin chrome) and include it next to `Redactix.css`:
+
+```css
+/* redactix-presets.css — loaded only on /admin */
+.redactix-editor aside.my-tip {
+    background: #f0f9ff;
+    border: 1px solid #0ea5e9;
+    color: #075985;
+}
+```
+
+The same rule unscoped lives in your public `site.css` so readers see the same look.
+
+**3. One rule that works in both places.** Combine both selectors with a comma — slightly verbose, but the rule lives in a single file no matter where you load it:
+
+```css
+.redactix-editor aside.my-tip,
+aside.my-tip {
+    background: #f0f9ff;
+    border: 1px solid #0ea5e9;
+    color: #075985;
+}
+```
+
+The same idea applies to quote presets — the class lands on `figure.quote-card`, not on the inner `<blockquote>`:
+
+```css
+.redactix-editor figure.quote-card.pull-quote,
+figure.quote-card.pull-quote {
+    border-left: 6px solid #f59e0b;
+    background: #fffbeb;
+    font-size: 1.25em;
+}
+```
+
+> **Common mistake:** writing only the unscoped `aside.my-tip { ... }` rule and not including that stylesheet on the admin page. The published page will look right; the editor preview won't. If your custom callout looks like a default grey one inside the editor, that's almost always why.
 
 ---
 
@@ -412,7 +483,7 @@ Type `/` anywhere to open the command menu:
 | `/code` | Code block |
 | `/image` | Insert image |
 | `/gallery` | Photo gallery — multiple images, single shared caption, per-image link |
-| `/video` | Native HTML5 `<video>` — upload a file or paste a direct URL, choose aspect ratio. Hidden until you opt in with `videoUpload: true` |
+| `/video` | Native HTML5 `<video>` — paste a direct URL out of the box; provide `videoUploadUrl` to also accept file uploads. Choose aspect ratio in the modal |
 | `/embed` | Universal embed — paste any URL, provider is auto-detected (YouTube, Vimeo, Spotify, Twitter/X, Instagram, TikTok, Reddit, Bluesky, Loom, CodePen, Twitch, SoundCloud, Apple Music, Maps, …). Provider names also work as fuzzy-search keywords (`/youtube`, `/spotify` surface the same command). |
 | `/table` | Insert table |
 | `/hr` | Horizontal divider |
@@ -657,7 +728,7 @@ Redactix produces clean, semantic HTML:
 | **Callouts** | `<aside class="warning\|danger\|information\|success">` (+ optional `data-emoji`) | **Yes** — see below | No |
 | **Embeds** | `<figure class="redactix-embed">` with **all layout inline** | **No, layout is self-contained**. CSS only for cosmetics | **Optional** — `embed-runtime.js` for live auto-resize of social embeds |
 | **Photo galleries** | `<figure class="redactix-gallery"><div class="redactix-gallery-grid">…imgs…</div>` | **Yes** — grid layout, image sizing, caption | No |
-| **Native videos** (opt-in) | `<figure class="redactix-video"><video controls preload="metadata">` with optional inline `aspect-ratio` | Optional — width/border/caption styling | No |
+| **Native videos** | `<figure class="redactix-video"><video controls preload="metadata">` with optional inline `aspect-ratio` | Optional — width/border/caption styling | No |
 | **Spoilers** | `<span class="spoiler">…</span>` | Optional — only if you want the click-to-reveal effect | Optional — see below |
 
 ### 1. Embeds — the easy one

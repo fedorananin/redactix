@@ -5,10 +5,10 @@ import Icons from '../ui/Icons.js';
  * Video module.
  *
  * Native HTML5 <video> upload / link, wrapped in figure.redactix-video.
- * Disabled by default — turns on only when the parent Redactix instance
- * was initialised with `videoUpload: true`. The instance also strips
- * `videoUploadUrl` / `videoBrowseUrl` in lite mode (handled in
- * Redactix.js), so this module sees them only when really enabled.
+ * Mirrors the Image module's contract: the module is always on. URL
+ * insertion always works; file upload + browse panel light up only when
+ * `videoUploadUrl` / `videoBrowseUrl` are configured. Lite mode strips
+ * those URLs (handled in Redactix.js) so commenters fall back to URL only.
  *
  * Output shape (saved HTML):
  *
@@ -28,7 +28,6 @@ export default class Video extends Module {
     constructor(instance) {
         super(instance);
         this.liteMode = instance.config.liteMode || false;
-        this.enabled = !!instance.config.videoUpload && !this.liteMode;
         this.uploadUrl = instance.config.videoUploadUrl || null;
         this.browseUrl = instance.config.videoBrowseUrl || null;
         this.allowDelete = !!instance.config.allowVideoDelete;
@@ -36,8 +35,6 @@ export default class Video extends Module {
     }
 
     init() {
-        if (!this.enabled) return;
-
         // Edit modal opens via the floating "Edit" button (rendered on
         // hover) — clicks on the video itself drive the native controls.
         this.instance.editorEl.addEventListener('click', (e) => {
@@ -48,10 +45,16 @@ export default class Video extends Module {
             const figure = btn.closest('figure.redactix-video');
             if (figure) this.openModal(figure);
         });
+
+        // Drag&drop загрузка видеофайлов в редактор. Включаем только
+        // когда настроен videoUploadUrl и мы не в lite-режиме (lite
+        // зануляет uploadUrl в Redactix.js, но проверяем на всякий случай).
+        if (this.uploadUrl && !this.liteMode) {
+            this.initDragDrop();
+        }
     }
 
     getButtons() {
-        if (!this.enabled) return [];
         return [
             {
                 name: 'video',
@@ -64,11 +67,8 @@ export default class Video extends Module {
     }
 
     /**
-     * Wire contenteditable on every video figure + ensure the floating
-     * Edit button exists when the feature is enabled. Always runs even
-     * when the module is disabled, because old content (saved when the
-     * feature was on) might still contain video figures and we don't want
-     * the contenteditable to fall through to the inner <video>.
+     * Wire contenteditable + ensure the floating Edit button exists on
+     * every video figure. Called from Redactix.js after init / setContent.
      */
     setupVideos(rootEl) {
         const root = rootEl || this.instance.editorEl;
@@ -91,9 +91,7 @@ export default class Video extends Module {
             const figcaption = figure.querySelector(':scope > figcaption');
             if (figcaption) figcaption.setAttribute('contenteditable', 'true');
 
-            // Floating Edit button only when the feature is enabled —
-            // disabled instances must not let the user reach the modal.
-            if (this.enabled && !figure.querySelector(':scope > .redactix-video-edit-btn')) {
+            if (!figure.querySelector(':scope > .redactix-video-edit-btn')) {
                 const editBtn = document.createElement('button');
                 editBtn.type = 'button';
                 editBtn.className = 'redactix-video-edit-btn';
@@ -129,6 +127,156 @@ export default class Video extends Module {
     }
 
     /**
+     * Editor-wide drag&drop upload for video files. Mirrors the Image
+     * module's contract — listeners coexist with Image's (the dragover /
+     * dragleave handlers are idempotent w.r.t. the .redactix-dragover
+     * class, and stopPropagation does NOT block sibling listeners on
+     * the same element). Видеофайлы фильтруются по MIME 'video/*';
+     * картинки и прочее достанутся Image-модулю.
+     */
+    initDragDrop() {
+        const editor = this.instance.editorEl;
+
+        // Глушим нативный HTML5-drag для содержимого редактора —
+        // в Image-модуле это уже делается, но повторим на случай,
+        // когда Image-модуль выключен (videoUploadUrl без uploadUrl).
+        editor.addEventListener('dragstart', (e) => {
+            e.preventDefault();
+        });
+
+        editor.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            editor.classList.add('redactix-dragover');
+        });
+
+        editor.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!editor.contains(e.relatedTarget)) {
+                editor.classList.remove('redactix-dragover');
+            }
+        });
+
+        editor.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            editor.classList.remove('redactix-dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length === 0) return;
+            const videoFiles = Array.from(files).filter(f => f.type.startsWith('video/'));
+            if (videoFiles.length === 0) return;
+
+            this.instance.selection.save();
+            this.uploadFiles(videoFiles);
+        });
+    }
+
+    async uploadFiles(files) {
+        for (const file of files) {
+            await this.uploadFile(file);
+        }
+    }
+
+    async uploadFile(file) {
+        const placeholder = this.createUploadPlaceholder();
+        this.instance.selection.restore();
+        this.instance.selection.insertNode(placeholder);
+        this.instance.selection.save();
+
+        await this.processUpload(file, placeholder);
+    }
+
+    async processUpload(file, placeholder) {
+        try {
+            const formData = new FormData();
+            formData.append('video', file);
+
+            const response = await fetch(this.uploadUrl, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok && response.status !== 400) {
+                throw new Error(`Server error (${response.status})`);
+            }
+
+            let result;
+            try { result = await response.json(); }
+            catch (e) { throw new Error('Invalid server response'); }
+
+            if (result.success) {
+                this.replacePlaceholderWithVideo(placeholder, result);
+            } else {
+                this.showUploadError(placeholder, result.error || 'Upload failed');
+            }
+        } catch (error) {
+            this.showUploadError(placeholder, error.message || 'Connection error');
+        }
+    }
+
+    createUploadPlaceholder() {
+        const placeholder = document.createElement('figure');
+        placeholder.className = 'redactix-upload-placeholder';
+        placeholder.contentEditable = 'false';
+        placeholder.innerHTML = `
+            <div class="redactix-upload-loading">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32">
+                        <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+                <span>${this.t('video.uploading')}</span>
+            </div>
+        `;
+        return placeholder;
+    }
+
+    replacePlaceholderWithVideo(placeholder, data) {
+        const figure = document.createElement('figure');
+        figure.className = 'redactix-video';
+        figure.setAttribute('data-aspect', 'auto');
+
+        const video = document.createElement('video');
+        video.setAttribute('src', data.src);
+        video.setAttribute('controls', '');
+        video.setAttribute('preload', 'metadata');
+        figure.appendChild(video);
+
+        if (data.caption) {
+            const figcaption = document.createElement('figcaption');
+            figcaption.innerHTML = data.caption;
+            figure.appendChild(figcaption);
+        }
+
+        placeholder.replaceWith(figure);
+        this.setupVideos(this.instance.editorEl);
+        if (this.instance.core) this.instance.core.ensureTrailingParagraph();
+        this.instance.sync();
+    }
+
+    showUploadError(placeholder, message) {
+        placeholder.innerHTML = `
+            <div class="redactix-upload-error">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                <span>${message}</span>
+                <button type="button" class="redactix-upload-error-close">${this.t('upload.remove')}</button>
+            </div>
+        `;
+
+        const closeBtn = placeholder.querySelector('.redactix-upload-error-close');
+        closeBtn.addEventListener('click', () => {
+            placeholder.remove();
+            this.instance.sync();
+        });
+    }
+
+    /**
      * Set the inline aspect-ratio style on a video element based on the
      * chosen aspect. For "auto" the style is cleared so the video uses
      * its native dimensions.
@@ -153,7 +301,6 @@ export default class Video extends Module {
     }
 
     openModal(existingFigure = null) {
-        if (!this.enabled) return;
         this.instance.selection.save();
         this.currentFigure = existingFigure;
 

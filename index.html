@@ -753,10 +753,10 @@
 
                 <div class="feature-card">
                     <div class="feature-icon">&#127916;</div>
-                    <h3>Native Video (opt-in)</h3>
-                    <p>Upload an MP4 / WebM / MOV file or paste a direct URL — renders as a real
-                        <code>&lt;figure&gt;&lt;video controls&gt;</code> with a chosen aspect ratio. Off by default;
-                        flip <code>videoUpload: true</code> to enable.</p>
+                    <h3>Native Video</h3>
+                    <p>Insert by URL out of the box. Provide <code>videoUploadUrl</code> to also accept MP4 / WebM /
+                        MOV file uploads. Renders as a real <code>&lt;figure&gt;&lt;video controls&gt;</code> with a
+                        chosen aspect ratio.</p>
                 </div>
 
                 <div class="feature-card">
@@ -908,7 +908,7 @@
                 </div>
                 <div class="demo-content">
                     <textarea
-                        class="redactix-full"><h1>Welcome to Redactix!</h1><p>This is a <b>modern</b> WYSIWYG editor with Notion-like experience. Select text to see the <i>floating toolbar</i> with formatting options including <code>inline code</code>, <span class="spoiler">spoilers</span> and <mark>text highlighting</mark>.</p><h2>Text Formatting</h2><p>The editor supports <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s> text. Also <code>inline code</code> for technical terms, <span class="spoiler">spoilers for hidden content</span> and <mark>highlighting important fragments</mark>.</p><p>Links can have <a href="https://example.com" title="Example link" target="_blank" rel="nofollow">title and rel attributes</a>.</p><h2>Lists</h2><ul><li>Unordered list item</li><li>Drag items to reorder</li><li>Click the handle for menu options</li></ul><ol><li>Ordered list item</li><li>Convert via context menu</li><li>Or type <code>1. </code> at line start</li></ol><h2>Blockquotes</h2><figure class="quote-card"><blockquote><p>Standard quote created via block menu or by typing <code>> </code> at the start of a line. Click the handle on the left to choose a quote style, add a caption, or attach an author photo.</p></blockquote></figure><figure class="quote-card"><blockquote><p>Quotes can hold multiple paragraphs, headings and lists.</p><p>You can keep going with another paragraph here.</p></blockquote><figcaption><span>— Source name</span></figcaption></figure><figure class="quote-card big"><blockquote><p>Large quote — perfect for highlighting key thoughts or article epigraphs.</p></blockquote><figcaption><img src="/uploads/cat.jpg" alt="Author portrait"><span>— <a href="https://example.com" rel="author">Demo Author</a></span></figcaption></figure><h2>Callout Blocks</h2><p>Callout is a block for important information with different styles. Click the handle on the left to select a preset or add an emoji:</p><aside>Standard callout without a class — gray, neutral.</aside><aside data-emoji="💡" class="information"><p>Information block — for helpful tips and additional info. Callouts can hold multiple blocks: paragraphs, headings, lists and dividers.</p><h3>Inner heading</h3><ul><li>First bullet</li><li>Second bullet</li></ul><hr><p>Click the emoji on the left to change it.</p></aside><aside class="warning">Warning — for important notices that need attention.</aside><aside data-emoji="🔥" class="danger">Danger — for critical warnings and errors.</aside><aside class="success">Success — for positive results and confirmations.</aside><h2>Images</h2><p>Click on an image to edit its settings:</p><figure><img src="/uploads/cat.jpg" alt="Demo image"><figcaption>Image caption — click to edit</figcaption></figure><h2>Photo Gallery</h2><p>Use <code>/gallery</code> to drop multiple images under one shared <code>&amp;lt;figure&amp;gt;</code>. Drag rows in the modal to reorder, per-image alt + optional link.</p><figure class="redactix-gallery"><div class="redactix-gallery-grid"><img src="/uploads/cat.jpg" alt=""><img src="/uploads/default.jpg" alt=""><img src="/uploads/cat.jpg" alt=""></div><figcaption>Shared caption — supports inline formatting like <b>bold</b> or <a href="https://example.com">links</a>.</figcaption></figure><h2>Native Video</h2><p>The <code>/video</code> command (off by default — flip <code>videoUpload: true</code> to enable) wraps a real <code>&amp;lt;video controls&amp;gt;</code> in a <code>&amp;lt;figure&amp;gt;</code> with an optional caption and a chosen aspect ratio. No autoplay, no muted — readers get full native controls.</p><figure class="redactix-video" data-aspect="16:9"><video src="/uploads/default.mp4" controls preload="metadata" style="aspect-ratio:16 / 9"></video><figcaption>Native HTML5 video — chosen aspect ratio is written inline so the player keeps its shape on the production site.</figcaption></figure><h2>Code Blocks</h2><p>For technical articles and tutorials:</p><pre><code class="language-javascript">// JavaScript example
+                        class="redactix-full"><h1>Welcome to Redactix!</h1><p>This is a <b>modern</b> WYSIWYG editor with Notion-like experience. Select text to see the <i>floating toolbar</i> with formatting options including <code>inline code</code>, <span class="spoiler">spoilers</span> and <mark>text highlighting</mark>.</p><h2>Text Formatting</h2><p>The editor supports <b>bold</b>, <i>italic</i>, <u>underline</u>, <s>strikethrough</s> text. Also <code>inline code</code> for technical terms, <span class="spoiler">spoilers for hidden content</span> and <mark>highlighting important fragments</mark>.</p><p>Links can have <a href="https://example.com" title="Example link" target="_blank" rel="nofollow">title and rel attributes</a>.</p><h2>Lists</h2><ul><li>Unordered list item</li><li>Drag items to reorder</li><li>Click the handle for menu options</li></ul><ol><li>Ordered list item</li><li>Convert via context menu</li><li>Or type <code>1. </code> at line start</li></ol><h2>Blockquotes</h2><figure class="quote-card"><blockquote><p>Standard quote created via block menu or by typing <code>> </code> at the start of a line. Click the handle on the left to choose a quote style, add a caption, or attach an author photo.</p></blockquote></figure><figure class="quote-card"><blockquote><p>Quotes can hold multiple paragraphs, headings and lists.</p><p>You can keep going with another paragraph here.</p></blockquote><figcaption><span>— Source name</span></figcaption></figure><figure class="quote-card big"><blockquote><p>Large quote — perfect for highlighting key thoughts or article epigraphs.</p></blockquote><figcaption><img src="/uploads/cat.jpg" alt="Author portrait"><span>— <a href="https://example.com" rel="author">Demo Author</a></span></figcaption></figure><h2>Callout Blocks</h2><p>Callout is a block for important information with different styles. Click the handle on the left to select a preset or add an emoji:</p><aside>Standard callout without a class — gray, neutral.</aside><aside data-emoji="💡" class="information"><p>Information block — for helpful tips and additional info. Callouts can hold multiple blocks: paragraphs, headings, lists and dividers.</p><h3>Inner heading</h3><ul><li>First bullet</li><li>Second bullet</li></ul><hr><p>Click the emoji on the left to change it.</p></aside><aside class="warning">Warning — for important notices that need attention.</aside><aside data-emoji="🔥" class="danger">Danger — for critical warnings and errors.</aside><aside class="success">Success — for positive results and confirmations.</aside><h2>Images</h2><p>Click on an image to edit its settings:</p><figure><img src="/uploads/cat.jpg" alt="Demo image"><figcaption>Image caption — click to edit</figcaption></figure><h2>Photo Gallery</h2><p>Use <code>/gallery</code> to drop multiple images under one shared <code>&amp;lt;figure&amp;gt;</code>. Drag rows in the modal to reorder, per-image alt + optional link.</p><figure class="redactix-gallery"><div class="redactix-gallery-grid"><img src="/uploads/cat.jpg" alt=""><img src="/uploads/default.jpg" alt=""><img src="/uploads/cat.jpg" alt=""></div><figcaption>Shared caption — supports inline formatting like <b>bold</b> or <a href="https://example.com">links</a>.</figcaption></figure><h2>Native Video</h2><p>The <code>/video</code> command wraps a real <code>&amp;lt;video controls&amp;gt;</code> in a <code>&amp;lt;figure&amp;gt;</code> with an optional caption and a chosen aspect ratio. URL inserts work out of the box; provide <code>videoUploadUrl</code> to also accept file uploads. No autoplay, no muted — readers get full native controls.</p><figure class="redactix-video" data-aspect="16:9"><video src="/uploads/default.mp4" controls preload="metadata" style="aspect-ratio:16 / 9"></video><figcaption>Native HTML5 video — chosen aspect ratio is written inline so the player keeps its shape on the production site.</figcaption></figure><h2>Code Blocks</h2><p>For technical articles and tutorials:</p><pre><code class="language-javascript">// JavaScript example
 function greet(name) {
     console.log(`Hello, ${name}!`);
     return true;
@@ -967,6 +967,145 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                     <textarea id="locale-demo-editor"></textarea>
                 </div>
             </div>
+
+            <!-- Custom Presets Demo -->
+            <h3 style="margin-top: 50px; margin-bottom: 15px;">Custom Presets</h3>
+            <p style="color: var(--landing-text-muted); margin-bottom: 20px;">Both <code>calloutPresets</code> and
+                <code>quotePresets</code> accept a <code>{ defaults?, custom? }</code> object — pass
+                <code>defaults: false</code> to drop the built-ins (warning/danger/information/success for callouts,
+                "big" for quotes) and replace them with your own. Pick any class name; the sanitizer auto-allows it.
+            </p>
+
+            <!-- Inline CSS for the custom preset classes used below.
+                 In your project, put the same rules in your stylesheet,
+                 plus a copy scoped to .redactix-editor for editor preview. -->
+            <style>
+                .redactix-editor aside.my-tip,
+                aside.my-tip {
+                    background: #f0f9ff;
+                    border: 1px solid #0ea5e9;
+                    color: #075985;
+                }
+                .redactix-editor aside.my-note,
+                aside.my-note {
+                    background: #fefce8;
+                    border: 1px solid #eab308;
+                    color: #854d0e;
+                }
+                .redactix-editor figure.quote-card.pull-quote,
+                figure.quote-card.pull-quote {
+                    border-left: 6px solid #f59e0b;
+                    background: #fffbeb;
+                    color: #78350f;
+                    font-size: 1.2em;
+                    padding: 1em 1.25em;
+                }
+                .redactix-editor figure.quote-card.testimonial,
+                figure.quote-card.testimonial {
+                    border: none;
+                    border-radius: 12px;
+                    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+                    color: #4c1d95;
+                    padding: 1.25em 1.5em;
+                    text-align: center;
+                    font-style: italic;
+                }
+            </style>
+
+            <div class="demo-wrapper">
+                <div class="demo-header">
+                    <span class="demo-dot demo-dot-red"></span>
+                    <span class="demo-dot demo-dot-yellow"></span>
+                    <span class="demo-dot demo-dot-green"></span>
+                </div>
+                <div class="demo-content">
+                    <textarea
+                        class="redactix-presets"><h2>Custom Presets Demo</h2><p>This editor was initialised with built-in callouts <b>turned off</b> and replaced with two custom ones. Click the handle on a callout / quote to see the preset menu — only the custom entries (plus the always-present "No Style") are listed.</p><aside class="my-tip" data-emoji="💡"><p>"Pro Tip" callout — light blue, defined by <code>class="my-tip"</code>.</p></aside><aside class="my-note" data-emoji="📝"><p>"Note" callout — yellow, defined by <code>class="my-note"</code>.</p></aside><h3>Quotes</h3><p>"Big" was dropped from the defaults; two new ones added:</p><figure class="quote-card pull-quote"><blockquote><p>This is the "Pull Quote" preset — orange left border on a warm background.</p></blockquote></figure><figure class="quote-card testimonial"><blockquote><p>"Testimonial" preset — purple gradient card with italic centred text. Great for social proof on landing pages.</p></blockquote><figcaption><span>— A happy customer</span></figcaption></figure></textarea>
+                </div>
+            </div>
+
+            <p style="color: var(--landing-text-muted); margin-top: 16px; margin-bottom: 12px;">Configuration used for
+                this editor:</p>
+            <div class="code-block">
+                <code><span class="keyword">new</span> Redactix({
+    <span class="property">selector</span>: <span class="string">'.redactix-presets'</span>,
+
+    <span class="property">calloutPresets</span>: {
+        <span class="property">defaults</span>: <span class="keyword">false</span>,           <span class="comment">// drop warning/danger/information/success</span>
+        <span class="property">custom</span>: [
+            { <span class="property">name</span>: <span class="string">'tip'</span>,  <span class="property">label</span>: <span class="string">'Pro Tip'</span>, <span class="property">class</span>: <span class="string">'my-tip'</span> },
+            { <span class="property">name</span>: <span class="string">'note'</span>, <span class="property">label</span>: <span class="string">'Note'</span>,    <span class="property">class</span>: <span class="string">'my-note'</span> }
+        ]
+    },
+
+    <span class="property">quotePresets</span>: {
+        <span class="property">defaults</span>: <span class="keyword">false</span>,           <span class="comment">// drop "big"</span>
+        <span class="property">custom</span>: [
+            { <span class="property">name</span>: <span class="string">'pull'</span>,        <span class="property">label</span>: <span class="string">'Pull Quote'</span>,  <span class="property">class</span>: <span class="string">'pull-quote'</span> },
+            { <span class="property">name</span>: <span class="string">'testimonial'</span>, <span class="property">label</span>: <span class="string">'Testimonial'</span>, <span class="property">class</span>: <span class="string">'testimonial'</span> }
+        ]
+    }
+});</code>
+            </div>
+            <h4 style="margin-top: 24px; margin-bottom: 8px;">How to make your custom CSS show up — both in the editor
+                and on the published page</h4>
+            <p style="color: var(--landing-text-muted); margin-bottom: 12px;">When the editor renders your content, it
+                wraps it in <code>&lt;div class="redactix-editor"&gt;</code>. On the published page there's no such
+                wrapper — the article is just plain HTML inside your normal layout. That means a CSS rule like
+                <code>aside.my-tip { background: ... }</code> works on the published page but isn't necessarily picked
+                up inside the editor preview, depending on which stylesheets you've loaded.
+            </p>
+            <p style="color: var(--landing-text-muted); margin-bottom: 12px;">There are three ways to handle this — pick
+                whichever fits your setup:</p>
+
+            <p style="color: var(--landing-text-muted); margin: 16px 0 6px;"><b>1. Easiest — load the same stylesheet on
+                    both sides.</b> If your site's main CSS is included on the admin page (where the editor lives) as
+                well as on the public site, one rule covers both:</p>
+            <div class="code-block">
+                <code><span class="comment">/* site.css — loaded on both /admin and the public site */</span>
+<span class="keyword">aside</span>.<span class="property">my-tip</span> {
+    <span class="property">background</span>: <span class="string">#f0f9ff</span>;
+    <span class="property">border</span>: <span class="string">1px solid #0ea5e9</span>;
+    <span class="property">color</span>: <span class="string">#075985</span>;
+}</code>
+            </div>
+
+            <p style="color: var(--landing-text-muted); margin: 16px 0 6px;"><b>2. Editor-only stylesheet.</b> If your
+                site CSS does NOT load on the admin page, write a separate file just for the editor and include it next
+                to <code>Redactix.css</code>. Scope every rule to <code>.redactix-editor</code> so it can't accidentally
+                leak into your admin chrome:</p>
+            <div class="code-block">
+                <code><span class="comment">/* redactix-presets.css — loaded only on /admin, only Redactix scope */</span>
+.<span class="keyword">redactix-editor</span> <span class="keyword">aside</span>.<span class="property">my-tip</span> {
+    <span class="property">background</span>: <span class="string">#f0f9ff</span>;
+    <span class="property">border</span>: <span class="string">1px solid #0ea5e9</span>;
+    <span class="property">color</span>: <span class="string">#075985</span>;
+}</code>
+            </div>
+            <p style="color: var(--landing-text-muted); margin-bottom: 12px;">Then on the published page you'll have the
+                same rule unscoped (in <code>site.css</code>) so the same callout looks the same to readers.</p>
+
+            <p style="color: var(--landing-text-muted); margin: 16px 0 6px;"><b>3. One rule that works in both
+                    places.</b> Combine the two selectors with a comma — it's slightly more verbose but means the rule
+                lives in one file no matter where you load it:</p>
+            <div class="code-block">
+                <code><span class="comment">/* Works whether this file is loaded by /admin, by the public site, or both */</span>
+.<span class="keyword">redactix-editor</span> <span class="keyword">aside</span>.<span class="property">my-tip</span>,
+<span class="keyword">aside</span>.<span class="property">my-tip</span> {
+    <span class="property">background</span>: <span class="string">#f0f9ff</span>;
+    <span class="property">border</span>: <span class="string">1px solid #0ea5e9</span>;
+    <span class="property">color</span>: <span class="string">#075985</span>;
+}</code>
+            </div>
+            <p style="color: var(--landing-text-muted); margin-bottom: 12px;">This is exactly what the inline
+                <code>&lt;style&gt;</code> block above this demo uses — open the page source and search for
+                <code>my-tip</code> to see it in context.
+            </p>
+
+            <p style="color: var(--landing-text-muted); margin-top: 16px; font-size: 0.9em;"><b>Common mistake:</b>
+                writing only the unscoped <code>aside.my-tip { ... }</code> rule and not including that stylesheet on
+                the admin page. The published page will look right; the editor preview won't. If your custom callout
+                looks like the default grey one inside the editor, that's almost always why.</p>
 
             <!-- Dark Theme Demo -->
             <h3 style="margin-top: 50px; margin-bottom: 15px;">Dark Theme</h3>
@@ -1076,15 +1215,9 @@ greet('World');</code></pre><h2>Tables</h2><p>Hover over the table to see contro
                     </p>
                 </div>
                 <div class="config-item">
-                    <h4><code>videoUpload</code></h4>
-                    <p>Native HTML5 <code>&lt;video&gt;</code> support. Off by default — pass <code>true</code> to
-                        surface the <code>/video</code> command and toolbar button. Requires
-                        <code>videoUploadUrl</code> for file uploads.</p>
-                </div>
-                <div class="config-item">
                     <h4><code>videoUploadUrl</code></h4>
-                    <p>Endpoint for video file uploads. Same script can serve both images and videos. Default:
-                        <code>null</code></p>
+                    <p>Endpoint for video file uploads. Same script can serve both images and videos. Without it the
+                        <code>/video</code> modal still works in URL-only mode. Default: <code>null</code></p>
                 </div>
                 <div class="config-item">
                     <h4><code>videoBrowseUrl</code></h4>
@@ -1225,9 +1358,9 @@ target.<span class="property">redactix</span>.setContent(source.<span class="pro
     <!-- Image Upload Section -->
     <section class="section">
         <div class="container">
-            <h2 class="section-title">Image Upload & Gallery</h2>
-            <p class="section-subtitle">Built-in support for drag & drop, paste, file picker, and image gallery with a
-                unified PHP backend.</p>
+            <h2 class="section-title">Image, Gallery & Video Upload</h2>
+            <p class="section-subtitle">Built-in support for drag & drop, paste, file picker, and image gallery — plus
+                opt-in native HTML5 video upload. All driven by a single unified PHP backend.</p>
 
             <div class="features-grid" style="margin-bottom: 50px;">
                 <div class="feature-card">
@@ -1270,6 +1403,14 @@ target.<span class="property">redactix</span>.setContent(source.<span class="pro
                     <h3>Link Settings</h3>
                     <p>Full control over image links: URL, target, and rel attributes (nofollow, sponsored, ugc). Same
                         options as text links.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">&#127916;</div>
+                    <h3>Native Video</h3>
+                    <p>Same model as images: URL inserts work out of the box; provide <code>videoUploadUrl</code> to
+                        also accept MP4 / WebM / OGG / MOV file uploads. Renders as a real
+                        <code>&lt;figure&gt;&lt;video controls&gt;</code> with a chosen aspect ratio.</p>
                 </div>
             </div>
 
@@ -1321,6 +1462,39 @@ chmod 755 uploads</code>
                         </div>
                     </div>
                 </div>
+
+                <div class="install-step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>Enable Video Uploads (optional)</h3>
+                        <p>The <code>/video</code> command is always available — URL inserts work without any extra
+                            setup. Pass <code>videoUploadUrl</code> (and optionally <code>videoBrowseUrl</code>) to
+                            also accept file uploads from the same PHP script:</p>
+                        <div class="code-block">
+                            <code><span class="comment">// JS — point the /video modal's upload zone at the same script</span>
+<span class="keyword">new</span> Redactix({
+  <span class="property">selector</span>: <span class="string">'.redactix'</span>,
+  <span class="property">uploadUrl</span>: <span class="string">'/redactix_images.php'</span>,
+  <span class="property">browseUrl</span>: <span class="string">'/redactix_images.php'</span>,
+  <span class="property">videoUploadUrl</span>: <span class="string">'/redactix_images.php'</span>,
+  <span class="property">videoBrowseUrl</span>: <span class="string">'/redactix_images.php'</span>
+});</code>
+                        </div>
+                        <div class="code-block">
+                            <code><span class="comment">// PHP — flip the matching server-side flag</span>
+<span class="property">$allowVideoUpload</span> = <span class="keyword">true</span>;
+<span class="property">$maxVideoSize</span> = 50 * 1024 * 1024;  <span class="comment">// 50MB by default — also lift php.ini upload_max_filesize</span></code>
+                        </div>
+                        <p style="font-size: 0.9em; color: var(--landing-text-muted); margin-top: 8px;">Allowed
+                            extensions: <code>mp4</code>, <code>webm</code>, <code>ogg</code>, <code>ogv</code>,
+                            <code>mov</code>. Allowed MIME types: <code>video/mp4</code>, <code>video/webm</code>,
+                            <code>video/ogg</code>, <code>video/quicktime</code>. The user picks an aspect ratio
+                            (<code>auto</code> / <code>16:9</code> / <code>4:3</code> / <code>1:1</code> /
+                            <code>9:16</code>) in the insert modal — the choice is written as inline
+                            <code>aspect-ratio</code> on the <code>&lt;video&gt;</code> tag so the player keeps its
+                            shape on the published page.</p>
+                    </div>
+                </div>
             </div>
 
             <h3 style="margin-top: 60px; margin-bottom: 20px; text-align: center;">API Endpoints</h3>
@@ -1346,6 +1520,22 @@ chmod 755 uploads</code>
                     <p>Includes <code>allowDelete</code> flag so the JS knows whether to show delete buttons in the
                         gallery.</p>
                 </div>
+                <div class="config-item">
+                    <h4><code>POST</code> Video Upload</h4>
+                    <p>Send form data with a <code>video</code> file field (instead of <code>image</code>). Returns
+                        JSON with <code>src</code> and <code>caption</code>. Requires <code>$allowVideoUpload</code> on
+                        the PHP side.</p>
+                </div>
+                <div class="config-item">
+                    <h4><code>POST action=browse&type=video</code></h4>
+                    <p>Returns a <code>videos</code> array (instead of <code>images</code>) with <code>src</code>,
+                        <code>filename</code>, <code>size</code>, <code>sizeBytes</code>, <code>modified</code>.</p>
+                </div>
+                <div class="config-item">
+                    <h4><code>POST action=delete&type=video</code></h4>
+                    <p>Same shape as image delete; the <code>type=video</code> parameter routes to the video handler
+                        (which validates the extension against the video whitelist).</p>
+                </div>
             </div>
 
             <div
@@ -1357,9 +1547,12 @@ chmod 755 uploads</code>
             </div>
 
             <h3 style="margin-top: 60px; margin-bottom: 20px; text-align: center;">Server Response Format</h3>
-            <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 20px;">Upload endpoint should
-                return JSON with these fields:</p>
-            <div class="code-block" style="max-width: 600px; margin: 0 auto;">
+            <p style="text-align: center; color: var(--landing-text-muted); margin-bottom: 20px;">Upload endpoints
+                should return JSON with these fields:</p>
+
+            <p style="text-align: center; color: var(--landing-text-muted); margin: 0 0 8px; font-size: 0.9em;">
+                <b>Image upload</b> (<code>POST</code> with <code>image</code> field):</p>
+            <div class="code-block" style="max-width: 600px; margin: 0 auto 24px;">
                 <code>{
   <span class="property">"success"</span>: <span class="keyword">true</span>,
   <span class="property">"src"</span>: <span class="string">"/uploads/abc123.jpg"</span>,   <span class="comment">// Required</span>
@@ -1369,6 +1562,21 @@ chmod 755 uploads</code>
   <span class="property">"caption"</span>: <span class="string">""</span>                    <span class="comment">// Optional</span>
 }</code>
             </div>
+
+            <p style="text-align: center; color: var(--landing-text-muted); margin: 0 0 8px; font-size: 0.9em;">
+                <b>Video upload</b> (<code>POST</code> with <code>video</code> field):</p>
+            <div class="code-block" style="max-width: 600px; margin: 0 auto;">
+                <code>{
+  <span class="property">"success"</span>: <span class="keyword">true</span>,
+  <span class="property">"src"</span>: <span class="string">"/uploads/abc123.mp4"</span>,   <span class="comment">// Required</span>
+  <span class="property">"caption"</span>: <span class="string">""</span>                    <span class="comment">// Optional</span>
+}</code>
+            </div>
+
+            <p style="text-align: center; color: var(--landing-text-muted); margin-top: 12px; font-size: 0.9em;">For
+                quick local testing, <code>redactix_images_demo.php</code> mocks both: every image upload returns
+                <code>uploads/default.jpg</code>, every video upload returns <code>uploads/default.mp4</code> — your
+                uploads folder stays clean.</p>
         </div>
     </section>
 
@@ -1503,10 +1711,10 @@ chmod 755 uploads</code>
             // Image upload and browse endpoint (combined script)
             uploadUrl: '/redactix_images_demo.php',
             browseUrl: '/redactix_images_demo.php',
-            // Native HTML5 <video> upload — off by default; flip these
-            // three on (and set $allowVideoUpload = true in the demo PHP)
-            // to surface the /video command in the demo above.
-            videoUpload: true,
+            // Native HTML5 <video> — the module is always on; URL inserts
+            // work without these. Provide the endpoints to also enable
+            // file upload + the "choose from uploaded videos" panel
+            // (matching $allowVideoUpload = true in the demo PHP).
             videoUploadUrl: '/redactix_images_demo.php',
             videoBrowseUrl: '/redactix_images_demo.php',
             // Enable delete button in image browser (requires allowDelete=true in PHP)
@@ -1515,13 +1723,19 @@ chmod 755 uploads</code>
             // maxHeight: '750px',
             // Custom classes for quick select in attributes (optional)
             classes: ['your-own-preset', 'custom-class', 'hidden-mobile'],
-            // Custom presets example (optional)
+            // Preset examples (optional). Two forms:
+            //   - Array: extends defaults (warning/danger/information/success
+            //     for callouts; "big" for quotes).
+            //   - Object: full control via { defaults?, custom? }.
             // calloutPresets: [
-            //     { name: 'custom', label: 'My Style', class: 'my-callout' }
+            //     { name: 'tip', label: 'Pro Tip', class: 'my-tip' }
             // ],
-            // quotePresets: [
-            //     { name: 'custom', label: 'My Style', class: 'my-quote' }
-            // ]
+            // quotePresets: {
+            //     defaults: false,                      // drop "big"
+            //     custom: [
+            //         { name: 'pull', label: 'Pull Quote', class: 'pull-quote' }
+            //     ]
+            // }
         });
 
         // Lite editor for comments/forums
@@ -1534,6 +1748,28 @@ chmod 755 uploads</code>
         new Redactix({
             selector: '.redactix-dark',
             theme: 'dark'
+        });
+
+        // Custom presets editor — built-in callout / quote presets are
+        // turned off and replaced with the user's own. The CSS for the
+        // .my-tip / .my-note / .pull-quote / .testimonial classes lives
+        // in an inline <style> block right above the <textarea>.
+        new Redactix({
+            selector: '.redactix-presets',
+            calloutPresets: {
+                defaults: false,
+                custom: [
+                    { name: 'tip',  label: 'Pro Tip', class: 'my-tip' },
+                    { name: 'note', label: 'Note',    class: 'my-note' }
+                ]
+            },
+            quotePresets: {
+                defaults: false,
+                custom: [
+                    { name: 'pull',        label: 'Pull Quote',  class: 'pull-quote' },
+                    { name: 'testimonial', label: 'Testimonial', class: 'testimonial' }
+                ]
+            }
         });
 
         // Localization demo

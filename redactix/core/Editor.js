@@ -377,7 +377,7 @@ export default class Editor {
         // only re-render videos the editor itself produced.
         const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
         const safeVideos = new Set();
-        if (videoModule && videoModule.enabled) {
+        if (videoModule) {
             Array.from(temp.querySelectorAll('figure.redactix-video > video')).forEach(video => {
                 const src = video.getAttribute('src') || '';
                 if (!src || src.toLowerCase().startsWith('javascript:')) return;
@@ -463,10 +463,19 @@ export default class Editor {
 
         // Удаляем все атрибуты, кроме разрешённых
         const allowedAttributes = ['href', 'src', 'alt', 'title', 'colspan', 'rowspan'];
-        // Разрешённые классы (наши внутренние)
-        const allowedClasses = ['spoiler', 'warning', 'danger', 'information',
-            'success', 'big', 'quote-card', 'redactix-embed', 'redactix-embed-frame',
+        // Разрешённые классы. Структурные имена редактора зашиты, а
+        // классы коллаут/цитат-пресетов берутся из конфига — так у юзера,
+        // отключившего дефолтные пресеты, при вставке не выживут
+        // соответствующие классы; и наоборот, кастомные классы
+        // (calloutPresets / quotePresets) пройдут без явного whitelist'а.
+        const allowedClasses = ['spoiler', 'quote-card',
+            'redactix-embed', 'redactix-embed-frame',
             'redactix-video', 'redactix-gallery', 'redactix-gallery-grid'];
+        const presetClasses = [
+            ...(this.instance.config.calloutPresets || []),
+            ...(this.instance.config.quotePresets || [])
+        ].map(p => p.class).filter(Boolean);
+        allowedClasses.push(...presetClasses);
         const allElements = temp.getElementsByTagName('*');
 
         for (let i = 0; i < allElements.length; i++) {

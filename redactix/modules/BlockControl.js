@@ -16,28 +16,17 @@ export default class BlockControl extends Module {
         this.liteMode = instance.config.liteMode || false; // Lite mode
         this.emojiInput = null;    // Emoji input popup for callouts
 
-        // Пресеты для callout (aside)
+        // Resolved preset arrays come from Redactix.js (it merges user
+        // input with defaults — see resolvePresets()). We always prepend a
+        // "no style" entry so users can clear the styling.
         this.calloutPresets = [
-            { name: 'none', label: 'No Style', class: null },
-            { name: 'warning', label: 'Warning', class: 'warning' },
-            { name: 'danger', label: 'Danger', class: 'danger' },
-            { name: 'information', label: 'Information', class: 'information' },
-            { name: 'success', label: 'Success', class: 'success' }
+            { name: 'none', label: this.t('blockControl.noStyle'), class: null },
+            ...(instance.config.calloutPresets || [])
         ];
-
-        // Пресеты для цитат (blockquote)
         this.quotePresets = [
-            { name: 'none', label: 'Standard', class: null },
-            { name: 'big', label: 'Big', class: 'big' }
+            { name: 'none', label: this.t('blockControl.standard'), class: null },
+            ...(instance.config.quotePresets || [])
         ];
-
-        // Добавляем пользовательские пресеты из конфига
-        if (instance.config.calloutPresets) {
-            this.calloutPresets = [...this.calloutPresets, ...instance.config.calloutPresets];
-        }
-        if (instance.config.quotePresets) {
-            this.quotePresets = [...this.quotePresets, ...instance.config.quotePresets];
-        }
     }
 
     init() {
@@ -449,9 +438,9 @@ export default class BlockControl extends Module {
         }
 
         // Группа: редактирование видео (figure.redactix-video)
-        if (tag === 'FIGURE' && this.currentBlock.classList.contains('redactix-video') && !this.liteMode) {
+        if (tag === 'FIGURE' && this.currentBlock.classList.contains('redactix-video')) {
             const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
-            if (videoModule && videoModule.enabled) {
+            if (videoModule) {
                 const editGroup = this.createMenuGroup(this.t('video.menuGroup'));
                 editGroup.appendChild(this.createMenuItem('✎', this.t('video.edit'), () => {
                     videoModule.openModal(this.currentBlock);
@@ -939,7 +928,7 @@ export default class BlockControl extends Module {
             .forEach(c => { if (this.instance.wrapper.classList.contains(c)) themeClasses.push(c); });
         this.menu.className = themeClasses.join(' ');
 
-        const handleRect = this.handle.getBoundingClientRect();
+        const handleRect = this.getActiveHandleEl().getBoundingClientRect();
 
         this.menu.style.display = 'block';
         const menuRect = this.menu.getBoundingClientRect();
@@ -1389,6 +1378,12 @@ export default class BlockControl extends Module {
 
     // --- Drag & Drop ---
 
+    getActiveHandleEl() {
+        return this.activeHandle === 'container' ? this.containerHandle
+            : this.activeHandle === 'list' ? this.listHandle
+            : this.handle;
+    }
+
     onDragStart(e) {
         // Проверяем что это не правый клик (для меню)
         if (e.button !== 0) return;
@@ -1400,7 +1395,7 @@ export default class BlockControl extends Module {
         this.beginHistoryBatch();
 
         this.isDragging = true;
-        this.handle.classList.add('dragging');
+        this.getActiveHandleEl().classList.add('dragging');
         this.currentBlock.classList.add('redactix-block-dragging');
 
         // Создаем placeholder
@@ -1593,6 +1588,8 @@ export default class BlockControl extends Module {
     onDragEnd() {
         this.isDragging = false;
         this.handle.classList.remove('dragging');
+        this.containerHandle.classList.remove('dragging');
+        this.listHandle.classList.remove('dragging');
 
         if (this.currentBlock) {
             this.currentBlock.classList.remove('redactix-block-dragging');
@@ -1720,7 +1717,7 @@ export default class BlockControl extends Module {
         this.beginHistoryBatch();
 
         this.isDragging = true;
-        this.handle.classList.add('dragging');
+        this.getActiveHandleEl().classList.add('dragging');
         this.currentBlock.classList.add('redactix-block-dragging');
 
         // Создаем placeholder

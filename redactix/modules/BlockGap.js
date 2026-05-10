@@ -103,49 +103,65 @@ export default class BlockGap extends Module {
     }
 
     /**
-     * Find the gap between two top-level children whose vertical zone
-     * contains clientY. Returns null if cursor is inside a block (or in
-     * editor padding above the first block / below the last one — those
-     * aren't useful gap targets, the existing block-handle / trailing P
-     * already cover those cases).
+     * Find the gap between two adjacent direct children of one of the
+     * "gap-aware" containers — the editor itself, every callout (<aside>),
+     * and every quote-card's inner <blockquote>. Inner containers are
+     * checked first so a hover between two paragraphs inside a callout
+     * snaps to the inner gap rather than to whatever outer-editor gap
+     * happens to share the same Y. Returns null if the cursor is inside a
+     * block (or in container padding outside any actual gap — those cases
+     * are already covered by the block-handle / trailing P).
      */
     findGap(clientY) {
         const editor = this.instance.editorEl;
-        const children = Array.from(editor.children).filter(c => c.offsetHeight > 0 || c.tagName === 'HR');
-        if (children.length < 2) return null;
+
+        const containers = [];
+        editor.querySelectorAll('aside, figure.quote-card > blockquote').forEach(el => {
+            containers.push(el);
+        });
+        containers.push(editor);
 
         // 4px tolerance — matches the visual margin between blocks well
         // enough that the line "snaps" without feeling sticky.
         const TOLERANCE = 4;
 
-        for (let i = 0; i < children.length - 1; i++) {
-            const a = children[i].getBoundingClientRect();
-            const b = children[i + 1].getBoundingClientRect();
-            // Skip overlapping rects (shouldn't happen at top-level but safe).
-            if (a.bottom > b.top) continue;
-            if (clientY >= a.bottom - TOLERANCE && clientY <= b.top + TOLERANCE) {
-                return {
-                    before: children[i],
-                    after: children[i + 1],
-                    midY: (a.bottom + b.top) / 2
-                };
+        for (const container of containers) {
+            const children = Array.from(container.children).filter(c => c.offsetHeight > 0 || c.tagName === 'HR');
+            if (children.length < 2) continue;
+
+            for (let i = 0; i < children.length - 1; i++) {
+                const a = children[i].getBoundingClientRect();
+                const b = children[i + 1].getBoundingClientRect();
+                // Skip overlapping rects (shouldn't happen but safe).
+                if (a.bottom > b.top) continue;
+                if (clientY >= a.bottom - TOLERANCE && clientY <= b.top + TOLERANCE) {
+                    return {
+                        container,
+                        before: children[i],
+                        after: children[i + 1],
+                        midY: (a.bottom + b.top) / 2
+                    };
+                }
             }
         }
         return null;
     }
 
     showAt(gap) {
-        const editor = this.instance.editorEl;
         const wrapper = this.instance.wrapper;
-        const editorRect = editor.getBoundingClientRect();
         const wrapperRect = wrapper.getBoundingClientRect();
 
-        const cs = window.getComputedStyle(editor);
+        // Anchor horizontal extent to the gap's actual container so the
+        // line spans the inside of a callout / quote-card instead of the
+        // full editor width when we're between inner blocks.
+        const container = gap.container || this.instance.editorEl;
+        const containerRect = container.getBoundingClientRect();
+        const cs = window.getComputedStyle(container);
         const padL = parseFloat(cs.paddingLeft) || 0;
         const padR = parseFloat(cs.paddingRight) || 0;
 
-        const left = (editorRect.left + padL) - wrapperRect.left;
-        const width = editorRect.width - padL - padR;
+        const left = (containerRect.left + padL) - wrapperRect.left;
+        const width = containerRect.width - padL - padR;
         const top = gap.midY - wrapperRect.top;
 
         this.handle.style.display = 'flex';

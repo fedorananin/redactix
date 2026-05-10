@@ -88,7 +88,6 @@ export default class SlashCommands extends Module {
                 description: this.t('slashCommands.videoDesc'),
                 icon: Icons.video,
                 keywords: ['video', 'mp4', 'movie', 'clip', 'видео', 'ролик'],
-                category: 'video',
                 action: () => this.openVideoModal()
             },
             {
@@ -268,13 +267,6 @@ export default class SlashCommands extends Module {
         // already constrained by their own modules.
         if (this.liteMode) {
             commands = commands.filter(cmd => cmd.category !== 'embed' && cmd.category !== 'gallery');
-        }
-
-        // Hide /video unless the Video module is actually enabled on this
-        // instance (videoUpload: true). The setting is off by default.
-        const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
-        if (!videoModule || !videoModule.enabled) {
-            commands = commands.filter(cmd => cmd.category !== 'video');
         }
 
         // Inside a quote-card, only allow text-level blocks: H1-H3 + UL/OL.
@@ -730,7 +722,7 @@ export default class SlashCommands extends Module {
      */
     openVideoModal() {
         const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
-        if (videoModule && videoModule.enabled) {
+        if (videoModule) {
             this.deletePendingSlash();
             this.instance.selection.save();
             this.setupModalCloseHandler();

@@ -25,7 +25,7 @@ Output is **clean semantic HTML** — Redactix strips its own presentational wra
 | Quote card | `<figure class="quote-card">…</figure>` (optionally `quote-card big`) | See [Quote cards](#quote-cards). |
 | Callout | `<aside class="…" data-emoji="…">…</aside>` | See [Callouts (aside)](#callouts-aside). |
 | Embed | `<figure class="redactix-embed" data-provider="…" data-aspect="…">…</figure>` | See [Embeds](#embeds). |
-| Native video | `<figure class="redactix-video" data-aspect="…"><video src="…" controls preload="metadata">…</figure>` | Off by default; opt in with `videoUpload: true`. See [Native videos](#native-videos). |
+| Native video | `<figure class="redactix-video" data-aspect="…"><video src="…" controls preload="metadata">…</figure>` | Always available — URL inserts work out of the box; provide `videoUploadUrl` for file uploads. See [Native videos](#native-videos). |
 | Code block | `<pre><code class="language-…">…</code></pre>` | See [Code blocks](#code-blocks). |
 
 ### Allowed children of `<blockquote>` (inside a quote card)
@@ -161,6 +161,8 @@ If the editor was initialised with `quotePresets`, those custom classes also lan
   <blockquote><p>…</p></blockquote>
 </figure>
 ```
+
+Pass `quotePresets: { defaults: false, custom: [...] }` to drop the built-in `big` modifier and replace it with your own. The sanitizer auto-allows your preset classes — no extra setup. See [README → Custom Presets](../README.md#custom-presets) for full details.
 
 ### Drop-in CSS
 
@@ -308,6 +310,8 @@ aside.my-tip {
 }
 ```
 
+Pass `calloutPresets: { defaults: false, custom: [...] }` to drop the built-in warning/danger/information/success entries and replace them with your own. The sanitizer auto-allows your preset classes — no extra setup. See [README → Custom Presets](../README.md#custom-presets) for full details.
+
 ---
 
 ## Embeds
@@ -451,7 +455,7 @@ If you want strict equal-width tiles instead, swap the flex declaration for `dis
 
 ### Native videos
 
-Off by default — only emitted when the editor was initialised with `videoUpload: true` (and the `/video` slash command was used). The shape is a real HTML5 `<video>`, not an iframe:
+Same on/off contract as images: the `/video` command is always available; URL inserts work without any extra config; file upload + a "choose from already uploaded" panel light up only when `videoUploadUrl` (and optionally `videoBrowseUrl`) are passed to the editor. The shape is a real HTML5 `<video>`, not an iframe:
 
 ```html
 <figure class="redactix-video" data-aspect="16:9">
@@ -682,7 +686,7 @@ What survives a paste from the outside world (Google Docs, Word, websites):
 - **Tags stripped:** `<script>`, `<style>`, `<object>`, `<embed>`, `<form>`, `<input>`, `<button>`, `<meta>`, `<colgroup>`. `<iframe>` is stripped **unless** its `src` matches a registered embed provider, in which case it's kept and wrapped in a `figure.redactix-embed`. `<video>` is stripped **unless** it already sits inside a `figure.redactix-video` (i.e. saved Redactix output being pasted back) — and then only `src`, `controls`, `preload` and an `aspect-ratio` inline style survive.
 - **Attributes kept globally:** `href`, `src`, `alt`, `title`, `colspan`, `rowspan`. (Plus modules add `target`, `rel`, `srcset`, `loading` etc. when emitting their own elements.)
 - **Attributes stripped:** `style` (always), event handlers, every other attribute not in the whitelist.
-- **Classes whitelisted:** `spoiler`, `warning`, `danger`, `information`, `success`, `big`, `quote-card`, `redactix-embed`, `redactix-embed-frame`, `redactix-video`, `redactix-gallery`, `redactix-gallery-grid`. Any other class is silently dropped on paste.
+- **Classes whitelisted:** `spoiler`, `quote-card`, `redactix-embed`, `redactix-embed-frame`, `redactix-video`, `redactix-gallery`, `redactix-gallery-grid` — always. Plus the classes of every active preset in `calloutPresets` / `quotePresets` (defaults: `warning`, `danger`, `information`, `success`, `big` — disable with `{ defaults: false }`). Any other class is silently dropped on paste.
 - **`data-emoji`** is allowed only on `<aside>`. **`data-provider`** / **`data-aspect`** / **`data-height`** / **`data-source-url`** are allowed only on `<figure class="redactix-embed">`. **`data-aspect`** is also allowed on `<figure class="redactix-video">`.
 - **`href` / `src` containing `javascript:`** is stripped.
 
@@ -692,7 +696,7 @@ So your renderer only ever sees a small, predictable surface.
 
 ## Quick checklist for site setup
 
-- [ ] CSS for `figure` (images), `figure.redactix-gallery`, `figure.quote-card`, `figure.redactix-embed`, `figure.redactix-video` (only if you enabled `videoUpload`), `aside` (+ presets + `data-emoji`).
+- [ ] CSS for `figure` (images), `figure.redactix-gallery`, `figure.quote-card`, `figure.redactix-embed`, `figure.redactix-video`, `aside` (+ presets + `data-emoji`).
 - [ ] CSS for `code`, `pre > code`, `mark`, `span.spoiler`.
 - [ ] CSS for `table` (borders, hover).
 - [ ] If your articles use Instagram / X / TikTok / Reddit / Bluesky embeds, include `redactix/embed-runtime.js`.

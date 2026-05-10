@@ -35,10 +35,22 @@ export default class Redactix {
         // Конфиг для модулей (например, список классов)
         this.predefinedClasses = options.classes || ['red', 'blue', 'large-text', 'hidden-mobile'];
 
-        // Пользовательские пресеты для callout и цитат
-        // Формат: [{ name: 'custom', label: 'Мой стиль', class: 'custom-class' }]
-        this.calloutPresets = options.calloutPresets || [];
-        this.quotePresets = options.quotePresets || [];
+        // Пресеты для callout и цитат. Принимают две формы:
+        //   1) Массив пользовательских пресетов — расширяет дефолтные:
+        //        calloutPresets: [{ name, label, class }, …]
+        //   2) Объект { defaults?, custom? } — полный контроль:
+        //        calloutPresets: { defaults: false, custom: [...] }
+        // Резолв в итоговый плоский массив (без plug "none" — его добавит
+        // BlockControl сам) делает resolvePresets() ниже.
+        this.calloutPresets = this.resolvePresets(options.calloutPresets, [
+            { name: 'warning', label: 'Warning', class: 'warning' },
+            { name: 'danger', label: 'Danger', class: 'danger' },
+            { name: 'information', label: 'Information', class: 'information' },
+            { name: 'success', label: 'Success', class: 'success' }
+        ]);
+        this.quotePresets = this.resolvePresets(options.quotePresets, [
+            { name: 'big', label: 'Big', class: 'big' }
+        ]);
 
         // URL для загрузки изображений (если указан - включается drag&drop, paste и upload)
         this.uploadUrl = options.uploadUrl || null;
@@ -49,10 +61,10 @@ export default class Redactix {
         // Разрешить удаление изображений через браузер
         this.allowImageDelete = options.allowImageDelete || false;
 
-        // Видео-фича выключена по умолчанию: чтобы её включить, передайте
-        // videoUpload: true. Параллельно нужны videoUploadUrl (загрузка
-        // файлов) и опционально videoBrowseUrl (галерея загруженных).
-        this.videoUpload = options.videoUpload || false;
+        // Видео-модуль работает по той же логике, что и Image: всегда
+        // включён, всегда умеет вставлять по внешнему URL. Загрузка файлов
+        // на сервер появляется только если задан videoUploadUrl;
+        // галерея загруженных — videoBrowseUrl.
         this.videoUploadUrl = options.videoUploadUrl || null;
         this.videoBrowseUrl = options.videoBrowseUrl || null;
         this.allowVideoDelete = options.allowVideoDelete || false;
@@ -88,6 +100,21 @@ export default class Redactix {
         this.init();
     }
 
+    /**
+     * Normalize a preset config (array OR { defaults?, custom? } object)
+     * into a flat array of { name, label, class }. Used for both
+     * calloutPresets and quotePresets.
+     */
+    resolvePresets(input, defaults) {
+        if (!input) return [...defaults];
+        // Old-style array form — extends defaults.
+        if (Array.isArray(input)) return [...defaults, ...input];
+        // Object form — explicit control.
+        const useDefaults = input.defaults !== false;
+        const custom = Array.isArray(input.custom) ? input.custom : [];
+        return useDefaults ? [...defaults, ...custom] : [...custom];
+    }
+
     init() {
         if (this.elements.length === 0) {
             console.warn('Redactix: No elements found for selector', this.selector);
@@ -107,10 +134,9 @@ export default class Redactix {
                 uploadUrl: this.liteMode ? null : this.uploadUrl, // В lite mode отключаем загрузку
                 browseUrl: this.liteMode ? null : this.browseUrl, // В lite mode отключаем галерею
                 allowImageDelete: this.allowImageDelete,
-                // Видео отключаем в lite mode целиком — даже если хост
-                // случайно передал videoUpload, lite-комментарии остаются
-                // без видеовложений.
-                videoUpload: this.liteMode ? false : this.videoUpload,
+                // В lite mode оставляем модуль видео работать (URL-only,
+                // как и Image), но загрузку файлов и галерею отключаем —
+                // комментаторам ни к чему файловые загрузки на сервер.
                 videoUploadUrl: this.liteMode ? null : this.videoUploadUrl,
                 videoBrowseUrl: this.liteMode ? null : this.videoBrowseUrl,
                 allowVideoDelete: this.allowVideoDelete,
