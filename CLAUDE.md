@@ -15,11 +15,15 @@ The editor wraps a `<textarea>` with a contenteditable `<div>` and keeps the tex
 1. `new Redactix({ selector, ... })` finds matching textareas.
 2. For each textarea it constructs a `RedactixInstance`, which:
    - Builds a `.redactix-wrapper` containing `Toolbar` + `.redactix-editor` (contenteditable).
-   - Hides the original textarea and exposes the instance back on the DOM node as `textarea.redactix` (this is the public API surface — `getContent()`, `setContent()`, `sync()`, `setTheme()`).
+   - Hides the original textarea and exposes the instance back on the DOM node as `textarea.redactix` (this is the public API surface — `getContent()`, `setContent()`, `sync()`, `setTheme()`, `destroy()`).
    - Instantiates `Editor` (core editing/paste/structure logic), `Selection`, `Modal`, then iterates `modulesConfig` and calls `new ModuleClass(this).init()` on each.
    - Asks the toolbar to gather buttons from each module via `module.getButtons()`.
 
-The `modulesConfig` array in [Redactix.js:69](redactix/Redactix.js#L69) is the registration point for modules. Order matters for some modules (e.g., `History` is first so it can wrap subsequent module actions).
+The `modulesConfig` array in the `Redactix` constructor ([Redactix.js](redactix/Redactix.js)) is the registration point for modules. Order matters for some modules (e.g., `History` is first so it can wrap subsequent module actions).
+
+### Teardown (listener registry + destroy)
+
+Modules must register `document`/`window` listeners via `instance.listen(target, type, handler, options)` and other persistent resources (MutationObservers, `<body>` portals like the BlockControl menu) via `instance.onDestroy(cb)`. `RedactixInstance.destroy()` cancels the pending sync frame, removes every registered listener, runs the cleanups, removes the wrapper, and un-hides the original textarea (which can then be re-initialized). Listeners on elements inside the wrapper don't need registration — they die with `wrapper.remove()`. **If you add a module with a global listener, route it through `instance.listen`.**
 
 ### Module system ([redactix/core/Module.js](redactix/core/Module.js))
 
@@ -29,19 +33,21 @@ Every feature is a class extending `Module`. A module receives the `RedactixInst
 - Return toolbar buttons from `getButtons()` (`{ name, icon, title, action, active? }`).
 - Translate strings via `this.t('namespace.key')`.
 
-To add a new feature: create a file in [redactix/modules/](redactix/modules/), extend `Module`, then add the class to the `modulesConfig` array in [Redactix.js:69](redactix/Redactix.js#L69).
+To add a new feature: create a file in [redactix/modules/](redactix/modules/), extend `Module`, then add the class to the `modulesConfig` array in [Redactix.js](redactix/Redactix.js).
+
+URL / rel / target / inline-HTML sanitisation is centralised in [redactix/core/dom-utils.js](redactix/core/dom-utils.js) (`sanitizeUrl`, `sanitizeImageSrc`, `composeLinkRel`, `sanitizeInlineHtml`, `normalizeInlineSynonyms` — the latter canonicalises `<strong>`→`<b>`, `<em>`→`<i>`, `<strike>`→`<s>` on paste, content load, HTML-mode return and on the sync clone, so saved output never mixes synonym tags). **Every** path that writes user input into the document goes through it — both the paste sanitizer and all modal forms (Image, Gallery, Video, Embed, QuoteCard author, Link, FloatingToolbar). Captions / author names accept inline HTML, but only through `sanitizeInlineHtml`. When adding a module with a URL or rich-text field, use these helpers instead of writing values raw.
 
 ### Lite mode
 
 `liteMode: true` is the comments/forum profile. It is enforced in two places:
-- [Redactix.js:90-91](redactix/Redactix.js#L90) — strips `uploadUrl`/`browseUrl` from the per-instance config so image upload paths are inert.
+- The instance-config assembly in [Redactix.js](redactix/Redactix.js) (`init()`) — strips `uploadUrl`/`browseUrl`/`videoUploadUrl`/`videoBrowseUrl` from the per-instance config so upload paths are inert.
 - The wrapper gets the `redactix-lite-mode` class; CSS hides the toolbar and individual modules check `this.instance.config.liteMode` to disable features (advanced link options, attribute editing, base64 paste, counter, etc.).
 
 When changing module behavior, check whether lite mode needs a branch.
 
 ### Block gap insert handle
 
-The `BlockGap` module ([redactix/modules/BlockGap.js](redactix/modules/BlockGap.js)) draws a Notion-style horizontal line with a centred `+` button between adjacent top-level blocks on hover; click → empty `<p>` is inserted at that gap and focused. It only inspects direct children of `editorEl`, so internal gaps inside callouts / quote-cards aren't covered (those are handled by the in-container block handle's "insert below"). Toggle with `gapInsertHandle: false` in the Redactix constructor — the module short-circuits in `init()` and renders nothing.
+The `BlockGap` module ([redactix/modules/BlockGap.js](redactix/modules/BlockGap.js)) draws a Notion-style horizontal line with a centred `+` button between adjacent blocks on hover; click → empty `<p>` is inserted at that gap and focused. `findGap()` checks the direct children of every "gap-aware" container — the editor itself, each callout (`<aside>`), and each quote-card's inner `<blockquote>` — with inner containers taking priority, so hovering between two paragraphs inside a callout snaps to the inner gap. Toggle with `gapInsertHandle: false` in the Redactix constructor — the module short-circuits in `init()` and renders nothing.
 
 ### Content lifecycle (sync invariant)
 
@@ -51,7 +57,7 @@ The editor stores presentational wrappers (e.g. `.redactix-separator` around `<h
 
 ### Quote cards (single quote model)
 
-Every quote in the editor is `<figure class="quote-card"><blockquote>…</blockquote><figcaption>…</figcaption></figure>`. There is **no** standalone `<blockquote>` and **no** `<cite>` — `QuoteCard.migrate()` runs in `render()` / `setContent()` / `History.applyState()` / paste to convert legacy markup. The blockquote is a real block container: P / H1-H3 / UL / OL are allowed inside; everything else is filtered out by SlashCommands and Markdown when the cursor is inside a quote-card. The figcaption is split into an optional `<img>` (author photo, no width/height — stripped in sync) and an optional `<span>` containing the author name, optionally wrapped in `<a rel="author">`. Lite mode hides the photo entirely and forces `rel="author nofollow noopener" target="_blank"` on the link.
+Every quote in the editor is `<figure class="quote-card"><blockquote>…</blockquote><figcaption>…</figcaption></figure>`. There is **no** standalone `<blockquote>` and **no** `<cite>` — `QuoteCard.migrate()` runs in `render()` / `setContent()` / `History.applyState()` / paste to convert legacy markup. The blockquote is a real block container: P / H1-H3 / UL / OL are allowed inside; everything else is filtered out by SlashCommands and Markdown when the cursor is inside a quote-card. The figcaption is split into an optional `<img>` (author photo, no width/height — stripped in sync) and an optional `<span>` containing the author name. There is no dedicated author-link field — links inside the author name are added inline via the floating toolbar; the author-modal value round-trips through `sanitizeInlineHtml`. Lite mode hides the photo field entirely.
 
 User-supplied `quotePresets` apply their `class` to the outer `<figure>`, not to the inner `<blockquote>` — relevant when scoping CSS.
 
@@ -74,7 +80,7 @@ Each image can carry its own optional link with `target="_blank"` / `rel="nofoll
 
 The module is on by default; no separate flag. Upload uses the existing `uploadUrl`; browse uses the existing `browseUrl`. Lite mode disables it entirely (forum / comment editors don't need galleries).
 
-The paste sanitizer in [Editor.js](redactix/core/Editor.js) whitelists `redactix-gallery` and `redactix-gallery-grid` classes alongside the rest. Inner `<a>` and `<img>` go through the standard attribute sweep — same surface as a single image.
+The paste sanitizer in [Editor.js](redactix/core/Editor.js) whitelists `redactix-gallery` and `redactix-gallery-grid` classes alongside the rest. Inner `<a>` and `<img>` go through the standard attribute sweep — same surface as a single image. The div→p sweep in `sanitizeHtml()` explicitly skips `.redactix-gallery-grid` and `.redactix-embed-frame` (structural divs) — without that exception `setupGalleries()`/`setupEmbeds()` would treat the figures as broken and delete them after paste.
 
 ### Native videos (Video module)
 
@@ -110,14 +116,14 @@ All colors are CSS custom properties on `.redactix-wrapper`. The dark theme is j
 
 ### Image / video upload contract
 
-Both [redactix_images.php](redactix_images.php) (real) and [redactix_images_demo.php](redactix_images_demo.php) (demo — always returns `uploads/default.jpg` for images and `uploads/default.mp4` for videos) implement the same JSON protocol consumed by [redactix/modules/Image.js](redactix/modules/Image.js) and [redactix/modules/Video.js](redactix/modules/Video.js): POST `multipart/form-data`, with `action=browse` / `action=delete` switches plus a `type=image|video` parameter (default `image` — kept for backward compat), and a default upload action that dispatches by the file field name (`image` → image upload, `video` → video upload). Video upload is gated by `$allowVideoUpload = false` in both PHP scripts — flip it to true to test end-to-end. If you change the response shape on the PHP side, update both JS clients and vice versa. The bundled scripts intentionally ship without auth/CSRF — that is a deployment concern flagged in the README.
+Both [redactix_images.php](redactix_images.php) (real) and [redactix_images_demo.php](redactix_images_demo.php) (demo — always returns `uploads/default.jpg` for images and `uploads/default.mp4` for videos) implement the same JSON protocol consumed by [redactix/modules/Image.js](redactix/modules/Image.js) and [redactix/modules/Video.js](redactix/modules/Video.js): POST `multipart/form-data`, with `action=browse` / `action=delete` switches plus a `type=image|video` parameter (default `image` — kept for backward compat), and a default upload action that dispatches by the file field name (`image` → image upload, `video` → video upload). Video upload is gated by `$allowVideoUpload`: `false` in the real script (flip to true to enable), `true` in the demo script so the showcase works out of the box. If you change the response shape on the PHP side, update both JS clients and vice versa. The bundled scripts intentionally ship without auth/CSRF — that is a deployment concern flagged in the README.
 
 ## Conventions
 
 - Source comments are mixed Russian/English — preserve the existing language when editing a region rather than translating it wholesale.
 - No semicolons-vs-not debates: existing code uses semicolons; match it.
 - Prefer adding to existing modules over creating new files for closely related functionality.
-- Versioning: there's no `package.json`. The README badge (currently 1.8.0) is the canonical version reference.
+- Versioning: there's no `package.json`. The version badge at the top of [README.md](README.md) is the canonical version reference — read it from there rather than trusting any number quoted in docs/comments.
 
 ## Testing
 

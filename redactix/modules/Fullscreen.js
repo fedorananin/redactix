@@ -6,6 +6,21 @@ export default class Fullscreen extends Module {
         super(instance);
         this.isFullscreen = false;
         this.originalMaxHeight = null;
+
+        // Если инстанс уничтожают в полноэкранном режиме — снимаем
+        // Escape-слушатель и класс с <body>, иначе страница останется
+        // «залоченной» под fullscreen.
+        if (instance.onDestroy) {
+            instance.onDestroy(() => {
+                if (this.escHandler) {
+                    document.removeEventListener('keydown', this.escHandler);
+                    this.escHandler = null;
+                }
+                if (this.isFullscreen) {
+                    document.body.classList.remove('redactix-fullscreen-active');
+                }
+            });
+        }
     }
 
     getButtons() {

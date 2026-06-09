@@ -42,20 +42,21 @@ A callout can contain any block-level content the editor produces *except* neste
 
 | Tag | Meaning | Notes |
 |---|---|---|
-| `<b>` | Bold | Not `<strong>`. Pasted `<strong>` survives but isn't produced natively. |
-| `<i>` | Italic | Not `<em>`. Same caveat. |
+| `<b>` | Bold | The **only** bold form in output — pasted `<strong>` is automatically converted to `<b>`. |
+| `<i>` | Italic | The only italic form — pasted `<em>` is converted to `<i>`. |
 | `<u>` | Underline | |
-| `<s>` | Strikethrough | |
+| `<s>` | Strikethrough | The only strikethrough form — legacy `<strike>` is converted to `<s>`. |
 | `<code>` | Inline code | Distinct from the block `<pre><code>` form. |
 | `<mark>` | Highlight | |
 | `<span class="spoiler">` | Spoiler | Class is the only valid form; `<span>` without `class="spoiler"` is stripped (only `class="spoiler"` is whitelisted on `<span>`). |
-| `<a href="…" …>` | Link | Allowed attrs: `href`, `title`, `target`, `rel`. |
+| `<a href="…" …>` | Link | Allowed attrs: `href`, `title`, `target`, `rel`, `download`. |
+| `<sub>` / `<sup>` | Subscript / superscript | No toolbar button — survive a paste and round-trip through captions, but aren't produced natively. |
 | `<br>` | Soft line break | Inside paragraphs and inside `<aside>`/`<figcaption>` text. |
 
 ### Link attributes you might see
 
-- `target="_blank"` — opens in new tab.
-- `rel="nofollow"` / `rel="sponsored"` / `rel="ugc"` / `rel="author"` (used inside quote-card figcaption) / combinations like `rel="nofollow noopener noreferrer"`.
+- `target="_blank"` — opens in new tab. Every `target="_blank"` link the editor produces (link modal, image link, gallery item link) automatically carries `rel="noopener noreferrer"` — tab-jacking protection, don't strip it server-side.
+- `rel` is filtered to a whitelist of tokens: `nofollow`, `noopener`, `noreferrer`, `ugc`, `sponsored`, `author`, `external`, `license`, `tag`, `help`, `me`. Typical combinations: `rel="nofollow"`, `rel="nofollow noopener noreferrer"`.
 - `title="…"` — tooltip.
 - In **lite mode** every link is forced to `rel="nofollow noopener noreferrer"` and `target="_blank"` automatically.
 
@@ -70,15 +71,15 @@ A callout can contain any block-level content the editor produces *except* neste
 </figure>
 ```
 
-The `<figcaption>` is **rich text** — inline tags (links, bold, italic, code, etc.) survive the round trip. Plan for that in any renderer that walks captions.
+The `<figcaption>` is **rich text**, limited to a fixed inline whitelist: `<a>`, `<b>`, `<i>`, `<u>`, `<s>`, `<code>`, `<span class="spoiler">`, `<mark>`, `<sub>`, `<sup>`, `<br>` (entered `<strong>`/`<em>`/`<strike>` are accepted and converted to `<b>`/`<i>`/`<s>`). Anything else entered through the caption field is unwrapped to plain text. Plan for that surface in any renderer that walks captions — it applies to every figcaption (images, galleries, embeds, videos) and to the quote-card author `<span>`.
 
 Possible attributes on `<img>`: `src`, `alt`, `title`, `srcset`, `loading="lazy"`. In lite mode `loading="lazy"` is added automatically.
 
-If the user wraps an image in a link, the link sits **inside** the figure, around the img:
+If the user wraps an image in a link, the link sits **inside** the figure, around the img (note the automatic `noopener noreferrer` on `_blank`):
 
 ```html
 <figure>
-  <a href="https://example.com" target="_blank" rel="nofollow">
+  <a href="https://example.com" target="_blank" rel="nofollow noopener noreferrer">
     <img src="/uploads/photo.jpg" alt="…">
   </a>
   <figcaption>Caption</figcaption>
@@ -135,12 +136,12 @@ There is no standalone `<blockquote>` and no `<cite>`. Every quote is a `<figure
   </blockquote>
   <figcaption>
     <img src="/uploads/photo.jpg" alt="">
-    <span>— <a href="https://author.example" rel="author">Author Name</a></span>
+    <span>— <a href="https://author.example">Author Name</a></span>
   </figcaption>
 </figure>
 ```
 
-`<figcaption>` only ever contains an optional `<img>` followed by an optional `<span>`. The `<span>` is rich text — inline formatting and links survive.
+`<figcaption>` only ever contains an optional `<img>` followed by an optional `<span>`. The `<span>` is rich text (same inline whitelist as figcaptions — see [Images](#images)). There is no dedicated "author link" field — links inside the author name are added by the user via the floating toolbar, so they carry whatever `target`/`rel` the user picked there; the editor does **not** emit `rel="author"` on its own.
 
 ### Big preset
 
@@ -162,7 +163,7 @@ If the editor was initialised with `quotePresets`, those custom classes also lan
 </figure>
 ```
 
-Pass `quotePresets: { defaults: false, custom: [...] }` to drop the built-in `big` modifier and replace it with your own. The sanitizer auto-allows your preset classes — no extra setup. See [README → Custom Presets](../README.md#custom-presets) for full details.
+Pass `quotePresets: { defaults: false, custom: [...] }` to drop the built-in `big` modifier and replace it with your own. The sanitizer auto-allows your preset classes — no extra setup. See [README → Custom Presets](README.md#custom-presets) for full details.
 
 ### Drop-in CSS
 
@@ -310,7 +311,7 @@ aside.my-tip {
 }
 ```
 
-Pass `calloutPresets: { defaults: false, custom: [...] }` to drop the built-in warning/danger/information/success entries and replace them with your own. The sanitizer auto-allows your preset classes — no extra setup. See [README → Custom Presets](../README.md#custom-presets) for full details.
+Pass `calloutPresets: { defaults: false, custom: [...] }` to drop the built-in warning/danger/information/success entries and replace them with your own. The sanitizer auto-allows your preset classes — no extra setup. See [README → Custom Presets](README.md#custom-presets) for full details.
 
 ---
 
@@ -338,29 +339,32 @@ All third-party embeds (videos, posts, players) share one shape — `<figure cla
 
 ```html
 <figure class="redactix-embed" data-provider="instagram" data-aspect="auto"
-        data-height="700"
         data-source-url="https://www.instagram.com/p/.../">
   <div class="redactix-embed-frame" style="width:100%;height:700px">
     <iframe src="https://www.instagram.com/p/.../embed/"
             style="display:block;width:100%;height:100%;border:0"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            sandbox="allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin"
             loading="lazy"></iframe>
   </div>
 </figure>
 ```
+
+The initial frame height comes from the provider's default (e.g. 700px for Instagram) and is written inline; the optional [auto-resize runtime](#optional-auto-resize-runtime) then adjusts it to the real content height. A legacy `data-height` attribute may exist in HTML saved by old versions — current versions strip it on save.
 
 ### Custom HTML embed (LinkedIn, Facebook, niche services)
 
 The user pastes raw iframe HTML; the editor strips everything except the `<iframe>`, requires `https://` src, and wraps it in the same shape:
 
 ```html
-<figure class="redactix-embed" data-provider="custom" data-aspect="auto" data-height="500">
+<figure class="redactix-embed" data-provider="custom" data-aspect="auto">
   <div class="redactix-embed-frame" style="width:100%;height:500px">
     <iframe src="https://…" style="display:block;width:100%;height:100%;border:0"
-            sandbox="…" loading="lazy"></iframe>
+            allowfullscreen></iframe>
   </div>
 </figure>
 ```
+
+(For custom embeds the height comes from the pasted iframe's `height` attribute when present, otherwise 500px. Whitelisted iframe attributes: `src`, `width`, `height`, `allow`, `allowfullscreen`, `frameborder`, `scrolling`, `title`, `loading`, `referrerpolicy`, `sandbox`.)
 
 ### Layout is self-contained
 
@@ -399,7 +403,7 @@ figure.redactix-embed > figcaption {
 <figure class="redactix-gallery">
   <div class="redactix-gallery-grid">
     <img src="/uploads/a.jpg" alt="">
-    <a href="https://example.com" target="_blank" rel="nofollow">
+    <a href="https://example.com" target="_blank" rel="nofollow noopener noreferrer">
       <img src="/uploads/b.jpg" alt="">
     </a>
     <img src="/uploads/c.jpg" alt="">
@@ -410,7 +414,7 @@ figure.redactix-embed > figcaption {
 
 The inner `<div class="redactix-gallery-grid">` wraps the image list so the `<figcaption>` is unambiguously separate. Each direct child of the grid is either a bare `<img>` or `<a><img></a>` — mixing both shapes in the same gallery is fine.
 
-Per-image attributes are the same as single images: `src`, `alt`, `title`. Per-image link attributes: `href`, `target="_blank"`, `rel` (only `nofollow` for now). The `figcaption` is rich text (links, bold, italic, code, …).
+Per-image attributes are the same as single images: `src`, `alt`, `title`. Per-image link attributes: `href`, optional `target="_blank"`, `rel` — `nofollow` if ticked, plus automatic `noopener noreferrer` whenever `target="_blank"` is set. The `figcaption` is rich text (same inline whitelist as image captions).
 
 ### Drop-in CSS
 
@@ -453,7 +457,7 @@ If you want strict equal-width tiles instead, swap the flex declaration for `dis
 
 ---
 
-### Native videos
+## Native videos
 
 Same on/off contract as images: the `/video` command is always available; URL inserts work without any extra config; file upload + a "choose from already uploaded" panel light up only when `videoUploadUrl` (and optionally `videoBrowseUrl`) are passed to the editor. The shape is a real HTML5 `<video>`, not an iframe:
 
@@ -469,7 +473,7 @@ For `data-aspect="auto"` no inline `style` is set — the video uses its natural
 
 Allowed attributes on `<video>` are intentionally narrow: `src`, `controls`, `preload="metadata"`, optional `style="aspect-ratio:…"`. No `autoplay`, no `muted`, no `loop`, no `poster` — they're stripped on paste. Same for the `<figure>`: only the `redactix-video` class and `data-aspect` attribute survive.
 
-#### Drop-in CSS
+### Drop-in CSS
 
 Editor scope (inside `Redactix.css`) caps the video at 450px tall so vertical clips don't dominate the editor. On your site there's no such cap — pick whatever feels right:
 
@@ -678,17 +682,37 @@ table tbody tr:hover { background: #f9fafb; }
 
 ---
 
+## Anchors & custom attributes (Attributes dialog)
+
+Outside of lite mode, the block menu (⋮⋮ → ⚙ Attributes) lets the user set two things on **any** block element — and both land in the saved output:
+
+```html
+<h2 id="installation">Installation</h2>
+<p class="lead intro-note">Custom-classed paragraph.</p>
+```
+
+- **`id`** — anchor for in-page links (`#installation`). The editor slugifies the value to `a-z0-9-_` (lowercase, spaces → dashes), so ids are always URL-safe.
+- **`class`** — free-form classes typed by the user (or picked from the `classes` quick-select list passed to the constructor). Unlike pasted content, classes set through this dialog are **not** filtered against the whitelist — they're an intentional authoring feature.
+
+Implications for your site:
+
+- If you sanitise on the server, allow `id` and `class` on block elements — or strip them knowingly.
+- In-page anchor links (`<a href="#installation">`) are valid output; make sure your renderer doesn't rewrite them.
+
+---
+
 ## Sanitiser cheat-sheet
 
 What survives a paste from the outside world (Google Docs, Word, websites):
 
-- **Tags kept:** all of the above. Plus `<strong>`, `<em>` survive but the editor produces `<b>`/`<i>` natively.
+- **Tags kept:** all of the above. Synonym tags are normalised to one canonical form everywhere (paste, content load, HTML mode, save): `<strong>`→`<b>`, `<em>`→`<i>`, `<strike>`→`<s>` — saved output only ever contains the short forms.
 - **Tags stripped:** `<script>`, `<style>`, `<object>`, `<embed>`, `<form>`, `<input>`, `<button>`, `<meta>`, `<colgroup>`. `<iframe>` is stripped **unless** its `src` matches a registered embed provider, in which case it's kept and wrapped in a `figure.redactix-embed`. `<video>` is stripped **unless** it already sits inside a `figure.redactix-video` (i.e. saved Redactix output being pasted back) — and then only `src`, `controls`, `preload` and an `aspect-ratio` inline style survive.
-- **Attributes kept globally:** `href`, `src`, `alt`, `title`, `colspan`, `rowspan`. (Plus modules add `target`, `rel`, `srcset`, `loading` etc. when emitting their own elements.)
-- **Attributes stripped:** `style` (always), event handlers, every other attribute not in the whitelist.
+- **Attributes kept globally:** `href`, `src`, `alt`, `title`, `colspan`, `rowspan`, `download`, plus `rel` / `target` on `<a>` — both filtered through whitelists (`rel` → the token list above, `target` → `_blank`/`_self`/`_parent`/`_top`; `target="_blank"` automatically gains `noopener noreferrer`).
+- **Attributes stripped:** `style` (except the video `aspect-ratio` case above), event handlers, every other attribute not in the whitelist.
+- **URL schemes:** `href`/`src` must be `http(s)`, `mailto`, `tel` or relative; `<img src>` additionally accepts raster `data:image/*` (never `data:image/svg+xml`). `javascript:`, `data:text/html`, `vbscript:` etc. are stripped, including entity-encoded and control-character-obfuscated variants.
 - **Classes whitelisted:** `spoiler`, `quote-card`, `redactix-embed`, `redactix-embed-frame`, `redactix-video`, `redactix-gallery`, `redactix-gallery-grid` — always. Plus the classes of every active preset in `calloutPresets` / `quotePresets` (defaults: `warning`, `danger`, `information`, `success`, `big` — disable with `{ defaults: false }`). Any other class is silently dropped on paste.
-- **`data-emoji`** is allowed only on `<aside>`. **`data-provider`** / **`data-aspect`** / **`data-height`** / **`data-source-url`** are allowed only on `<figure class="redactix-embed">`. **`data-aspect`** is also allowed on `<figure class="redactix-video">`.
-- **`href` / `src` containing `javascript:`** is stripped.
+- **`data-emoji`** is allowed only on `<aside>`. **`data-provider`** / **`data-aspect`** / **`data-source-url`** (and legacy `data-height`, stripped again on save) are allowed only on `<figure class="redactix-embed">`. **`data-aspect`** is also allowed on `<figure class="redactix-video">`.
+- **Modal inputs go through the same sanitisation** — URLs typed into the image / gallery / video / link dialogs are scheme-checked, and caption / author-name fields are filtered to the inline whitelist. There is no path around the sanitiser from inside the editor UI.
 
 So your renderer only ever sees a small, predictable surface.
 
@@ -702,4 +726,4 @@ So your renderer only ever sees a small, predictable surface.
 - [ ] If your articles use Instagram / X / TikTok / Reddit / Bluesky embeds, include `redactix/embed-runtime.js`.
 - [ ] If you want syntax highlighting in code blocks, plug in Prism or highlight.js — they read the `language-*` class automatically.
 - [ ] If you want spoilers click-to-reveal, ship the 3-line listener above.
-- [ ] If you sanitise on the server, allow the tag/attr surface listed in [Sanitiser cheat-sheet](#sanitiser-cheat-sheet).
+- [ ] If you sanitise on the server, allow the tag/attr surface listed in [Sanitiser cheat-sheet](#sanitiser-cheat-sheet) — including `id` / `class` on blocks if your authors use the Attributes dialog.

@@ -6,6 +6,11 @@ export default {
     chars: 'chars',
     words: 'words',
 
+    // Editor
+    editor: {
+        placeholder: 'Start typing...'
+    },
+
     // Modal buttons
     save: 'Save',
     cancel: 'Cancel',
@@ -21,6 +26,7 @@ export default {
         insertEmbed: 'Insert Embed',
         insertTable: 'Insert Table',
         insertCode: 'Insert Code Block',
+        insertSeparator: 'Insert Separator',
         findReplace: 'Find and Replace (Ctrl+F)',
         fullscreen: 'Fullscreen Mode',
         editHtml: 'Edit HTML',
@@ -69,7 +75,9 @@ export default {
         noImages: 'No images uploaded yet',
         imageSelected: 'Image selected',
         closeGallery: 'Close gallery',
-        deleteConfirm: 'Delete'
+        deleteConfirm: 'Delete',
+        deleteTooltip: 'Delete image',
+        confirmDelete: 'Delete {filename}?'
     },
 
     // Gallery module (multiple images grouped under one figure)
@@ -120,7 +128,9 @@ export default {
         closeGallery: 'Close gallery',
         removeVideo: 'Remove Video',
         edit: 'Edit video',
-        menuGroup: 'Video'
+        menuGroup: 'Video',
+        deleteTooltip: 'Delete video',
+        confirmDelete: 'Delete {filename}?'
     },
 
     // Link module

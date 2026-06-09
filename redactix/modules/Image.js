@@ -1,5 +1,6 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
+import { sanitizeUrl, sanitizeImageSrc, sanitizeInlineHtml, composeLinkRel } from '../core/dom-utils.js';
 
 export default class Image extends Module {
     constructor(instance) {
@@ -68,6 +69,10 @@ export default class Image extends Module {
             childList: true,
             subtree: true
         });
+
+        if (this.instance.onDestroy) {
+            this.instance.onDestroy(() => observer.disconnect());
+        }
     }
 
     /**
@@ -189,18 +194,8 @@ export default class Image extends Module {
     initDragDrop() {
         const editor = this.instance.editorEl;
 
-        // Полностью запрещаем нативный HTML5-drag для содержимого
-        // редактора. Иначе браузер по умолчанию умеет таскать <img>
-        // внутри contenteditable и кидать их куда попало (вплоть до
-        // вставки <img> внутрь <h2>). Перетаскивание блоков в Redactix
-        // реализовано через mousedown в BlockControl, нативный
-        // dragstart ему не нужен — поэтому глушим его на корню.
-        // Бонус: после этого editor вообще не получает дальнейших
-        // drag-событий от внутренних элементов, так что подсветку
-        // зоны загрузки и повторную загрузку триггерить нечем.
-        editor.addEventListener('dragstart', (e) => {
-            e.preventDefault();
-        });
+        // Нативный dragstart внутри contenteditable глушится в Editor.js
+        // (bindEvents) безусловно — здесь остаётся только зона загрузки.
 
         editor.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -502,7 +497,7 @@ export default class Image extends Module {
             uploadGroup.className = 'redactix-upload-group';
             uploadGroup.style.marginBottom = '16px';
             uploadGroup.style.padding = '16px';
-            uploadGroup.style.border = '2px dashed #e5e7eb';
+            uploadGroup.style.border = '2px dashed var(--redactix-border)';
             uploadGroup.style.borderRadius = '8px';
             uploadGroup.style.textAlign = 'center';
             uploadGroup.style.transition = 'border-color 0.2s, background-color 0.2s';
@@ -511,13 +506,13 @@ export default class Image extends Module {
             uploadLabel.style.display = 'block';
             uploadLabel.style.cursor = 'pointer';
             uploadLabel.innerHTML = `
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5" style="margin-bottom: 8px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 8px; color: var(--redactix-text-placeholder);">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                     <polyline points="17 8 12 3 7 8"/>
                     <line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
-                <div style="color: #6b7280; font-size: 14px;">${isEditing ? this.t('image.uploadReplace') : this.t('image.uploadClick')}</div>
-                <div style="color: #9ca3af; font-size: 12px; margin-top: 4px;">${this.t('image.uploadFormats')}</div>
+                <div style="color: var(--redactix-text-muted); font-size: 14px;">${isEditing ? this.t('image.uploadReplace') : this.t('image.uploadClick')}</div>
+                <div style="color: var(--redactix-text-placeholder); font-size: 12px; margin-top: 4px;">${this.t('image.uploadFormats')}</div>
             `;
 
             fileInput = document.createElement('input');
@@ -537,19 +532,19 @@ export default class Image extends Module {
             // Drag & drop для зоны загрузки
             uploadGroup.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                uploadGroup.style.borderColor = '#3b82f6';
-                uploadGroup.style.backgroundColor = '#eff6ff';
+                uploadGroup.style.borderColor = 'var(--redactix-primary)';
+                uploadGroup.style.backgroundColor = 'var(--redactix-dragover-bg)';
             });
 
             uploadGroup.addEventListener('dragleave', (e) => {
                 e.preventDefault();
-                uploadGroup.style.borderColor = '#e5e7eb';
+                uploadGroup.style.borderColor = 'var(--redactix-border)';
                 uploadGroup.style.backgroundColor = '';
             });
 
             uploadGroup.addEventListener('drop', (e) => {
                 e.preventDefault();
-                uploadGroup.style.borderColor = '#e5e7eb';
+                uploadGroup.style.borderColor = 'var(--redactix-border)';
                 uploadGroup.style.backgroundColor = '';
 
                 const files = e.dataTransfer.files;
@@ -573,19 +568,19 @@ export default class Image extends Module {
             browseBtn.textContent = this.t('image.chooseFromUploaded');
             browseBtn.style.width = '100%';
             browseBtn.style.padding = '10px';
-            browseBtn.style.background = '#f3f4f6';
-            browseBtn.style.border = '1px solid #e5e7eb';
+            browseBtn.style.background = 'var(--redactix-bg-hover)';
+            browseBtn.style.border = '1px solid var(--redactix-border)';
             browseBtn.style.borderRadius = '6px';
             browseBtn.style.cursor = 'pointer';
             browseBtn.style.fontSize = '14px';
-            browseBtn.style.color = '#374151';
+            browseBtn.style.color = 'var(--redactix-text)';
             browseBtn.style.transition = 'background 0.15s';
 
             browseBtn.addEventListener('mouseenter', () => {
-                browseBtn.style.background = '#e5e7eb';
+                browseBtn.style.background = 'var(--redactix-bg-active)';
             });
             browseBtn.addEventListener('mouseleave', () => {
-                browseBtn.style.background = '#f3f4f6';
+                browseBtn.style.background = 'var(--redactix-bg-hover)';
             });
 
             browseBtn.addEventListener('click', () => {
@@ -606,13 +601,13 @@ export default class Image extends Module {
         if (this.uploadUrl || this.browseUrl) {
             const orDivider = document.createElement('div');
             orDivider.style.textAlign = 'center';
-            orDivider.style.color = '#9ca3af';
+            orDivider.style.color = 'var(--redactix-text-placeholder)';
             orDivider.style.fontSize = '13px';
             orDivider.style.margin = '12px 0';
             orDivider.style.position = 'relative';
             orDivider.innerHTML = `
-                <span style="background: white; padding: 0 12px; position: relative; z-index: 1;">${this.t('image.orEnterUrl')}</span>
-                <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #e5e7eb; z-index: 0;"></div>
+                <span style="background: var(--redactix-bg); padding: 0 12px; position: relative; z-index: 1;">${this.t('image.orEnterUrl')}</span>
+                <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--redactix-bg-active); z-index: 0;"></div>
             `;
             form.appendChild(orDivider);
         }
@@ -657,7 +652,7 @@ export default class Image extends Module {
         // Разделитель - секция ссылки
         const linkSection = document.createElement('div');
         linkSection.className = 'redactix-modal-full-width';
-        linkSection.style.borderTop = '1px solid #e5e7eb';
+        linkSection.style.borderTop = '1px solid var(--redactix-border)';
         linkSection.style.marginTop = '8px';
         linkSection.style.paddingTop = '15px';
 
@@ -729,7 +724,7 @@ export default class Image extends Module {
                 if (!file) return;
 
                 uploadStatus.style.display = 'block';
-                uploadStatus.style.color = '#3b82f6';
+                uploadStatus.style.color = 'var(--redactix-primary)';
                 uploadStatus.innerHTML = `
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 6px; animation: spin 1s linear infinite;">
                         <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32">
@@ -778,12 +773,12 @@ export default class Image extends Module {
                         if (result.caption) captionInput.value = result.caption;
                     } else {
                         // Ошибка от сервера
-                        uploadStatus.style.color = '#ef4444';
+                        uploadStatus.style.color = 'var(--redactix-danger)';
                         uploadStatus.textContent = result.error || 'Upload failed';
                     }
                 } catch (error) {
                     // Сетевая ошибка или ошибка парсинга
-                    uploadStatus.style.color = '#ef4444';
+                    uploadStatus.style.color = 'var(--redactix-danger)';
                     uploadStatus.textContent = error.message || 'Connection error';
                 }
             });
@@ -948,7 +943,9 @@ export default class Image extends Module {
      * Обновление изображения в lite mode
      */
     updateImageLite(existingFigure, existingImg, options) {
-        const { url, alt } = options;
+        const { alt } = options;
+        const url = sanitizeImageSrc(options.url);
+        if (!url) return;
 
         if (existingFigure) {
             let img = existingFigure.querySelector('img');
@@ -987,7 +984,9 @@ export default class Image extends Module {
      * Вставка изображения в lite mode
      */
     insertImageLite(options) {
-        const { url, alt } = options;
+        const { alt } = options;
+        const url = sanitizeImageSrc(options.url);
+        if (!url) return;
 
         // Создаём figure для консистентности с полной версией
         const figure = document.createElement('figure');
@@ -1016,7 +1015,7 @@ export default class Image extends Module {
     openBrowsePanel(container, onSelect) {
         // Очищаем контейнер и показываем загрузку
         container.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: #6b7280;">
+            <div style="text-align: center; padding: 20px; color: var(--redactix-text-muted);">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; display: inline-block;">
                     <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32">
                         <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/>
@@ -1036,19 +1035,19 @@ export default class Image extends Module {
             .then(response => response.json())
             .then(data => {
                 if (!data.success) {
-                    container.innerHTML = `<div style="color: #dc2626; padding: 10px;">Error: ${data.error || 'Failed to load images'}</div>`;
+                    container.innerHTML = `<div style="color: var(--redactix-danger); padding: 10px;">Error: ${data.error || 'Failed to load images'}</div>`;
                     return;
                 }
 
                 if (data.images.length === 0) {
-                    container.innerHTML = `<div style="color: #6b7280; padding: 20px; text-align: center;">${this.t('image.noImages')}</div>`;
+                    container.innerHTML = `<div style="color: var(--redactix-text-muted); padding: 20px; text-align: center;">${this.t('image.noImages')}</div>`;
                     return;
                 }
 
                 this.renderBrowseGrid(container, data.images, data.allowDelete, onSelect);
             })
             .catch(error => {
-                container.innerHTML = `<div style="color: #dc2626; padding: 10px;">Connection error</div>`;
+                container.innerHTML = `<div style="color: var(--redactix-danger); padding: 10px;">Connection error</div>`;
             });
     }
 
@@ -1065,9 +1064,9 @@ export default class Image extends Module {
         grid.style.maxHeight = '250px';
         grid.style.overflowY = 'auto';
         grid.style.padding = '8px';
-        grid.style.background = '#f9fafb';
+        grid.style.background = 'var(--redactix-bg-secondary)';
         grid.style.borderRadius = '8px';
-        grid.style.border = '1px solid #e5e7eb';
+        grid.style.border = '1px solid var(--redactix-border)';
 
         images.forEach(img => {
             const item = document.createElement('div');
@@ -1078,7 +1077,7 @@ export default class Image extends Module {
             item.style.cursor = 'pointer';
             item.style.border = '2px solid transparent';
             item.style.transition = 'border-color 0.15s, transform 0.15s';
-            item.style.background = '#fff';
+            item.style.background = 'var(--redactix-bg)';
 
             // Превью изображения
             const preview = document.createElement('img');
@@ -1093,7 +1092,7 @@ export default class Image extends Module {
 
             // Hover эффект
             item.addEventListener('mouseenter', () => {
-                item.style.borderColor = '#3b82f6';
+                item.style.borderColor = 'var(--redactix-primary)';
                 item.style.transform = 'scale(1.02)';
             });
             item.addEventListener('mouseleave', () => {
@@ -1132,19 +1131,23 @@ export default class Image extends Module {
                 deleteBtn.style.cursor = 'pointer';
                 deleteBtn.style.fontSize = '14px';
                 deleteBtn.style.lineHeight = '1';
-                deleteBtn.style.display = 'none';
-                deleteBtn.title = 'Delete image';
+                deleteBtn.title = this.t('image.deleteTooltip');
 
-                item.addEventListener('mouseenter', () => {
-                    deleteBtn.style.display = 'block';
-                });
-                item.addEventListener('mouseleave', () => {
-                    deleteBtn.style.display = 'none';
-                });
+                // На touch-устройствах hover-а нет — кнопка видна всегда.
+                const hoverable = window.matchMedia && window.matchMedia('(hover: hover)').matches;
+                deleteBtn.style.display = hoverable ? 'none' : 'block';
+                if (hoverable) {
+                    item.addEventListener('mouseenter', () => {
+                        deleteBtn.style.display = 'block';
+                    });
+                    item.addEventListener('mouseleave', () => {
+                        deleteBtn.style.display = 'none';
+                    });
+                }
 
                 deleteBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (confirm(`Delete ${img.filename}?`)) {
+                    if (confirm(this.t('image.confirmDelete', { filename: img.filename }))) {
                         this.deleteImage(img.filename, container, onSelect);
                     }
                 });
@@ -1180,12 +1183,12 @@ export default class Image extends Module {
         closeBtn.style.width = '100%';
         closeBtn.style.marginTop = '8px';
         closeBtn.style.padding = '8px';
-        closeBtn.style.background = '#e5e7eb';
+        closeBtn.style.background = 'var(--redactix-bg-active)';
         closeBtn.style.border = 'none';
         closeBtn.style.borderRadius = '6px';
         closeBtn.style.cursor = 'pointer';
         closeBtn.style.fontSize = '13px';
-        closeBtn.style.color = '#374151';
+        closeBtn.style.color = 'var(--redactix-text)';
 
         closeBtn.addEventListener('click', () => {
             this.restoreBrowseButton(container, onSelect);
@@ -1205,19 +1208,19 @@ export default class Image extends Module {
         browseBtn.textContent = this.t('image.chooseFromUploaded');
         browseBtn.style.width = '100%';
         browseBtn.style.padding = '10px';
-        browseBtn.style.background = '#f3f4f6';
-        browseBtn.style.border = '1px solid #e5e7eb';
+        browseBtn.style.background = 'var(--redactix-bg-hover)';
+        browseBtn.style.border = '1px solid var(--redactix-border)';
         browseBtn.style.borderRadius = '6px';
         browseBtn.style.cursor = 'pointer';
         browseBtn.style.fontSize = '14px';
-        browseBtn.style.color = '#374151';
+        browseBtn.style.color = 'var(--redactix-text)';
         browseBtn.style.transition = 'background 0.15s';
 
         browseBtn.addEventListener('mouseenter', () => {
-            browseBtn.style.background = '#e5e7eb';
+            browseBtn.style.background = 'var(--redactix-bg-active)';
         });
         browseBtn.addEventListener('mouseleave', () => {
-            browseBtn.style.background = '#f3f4f6';
+            browseBtn.style.background = 'var(--redactix-bg-hover)';
         });
 
         browseBtn.addEventListener('click', () => {
@@ -1273,7 +1276,7 @@ export default class Image extends Module {
         textarea.style.width = '100%';
         textarea.style.minHeight = '60px';
         textarea.style.padding = '8px';
-        textarea.style.border = '1px solid #e5e7eb';
+        textarea.style.border = '1px solid var(--redactix-border)';
         textarea.style.borderRadius = '6px';
         textarea.style.fontFamily = 'inherit';
         textarea.style.fontSize = '14px';
@@ -1292,7 +1295,7 @@ export default class Image extends Module {
         select.style.padding = '10px 12px';
         select.style.marginBottom = '16px';
         select.style.boxSizing = 'border-box';
-        select.style.border = '1px solid #e5e7eb';
+        select.style.border = '1px solid var(--redactix-border)';
         select.style.borderRadius = '6px';
         select.style.fontSize = '14px';
 
@@ -1311,7 +1314,16 @@ export default class Image extends Module {
     }
 
     updateImage(existingFigure, existingImg, options) {
-        const { url, alt, title, srcset, loading, caption, linkUrl, isBlank, isNofollow, relExtra } = options;
+        const { alt, title, srcset, loading, isBlank, isNofollow, relExtra } = options;
+
+        // Та же санитизация, что и на paste-пути: src — только http(s)/
+        // относительные/растровые data:, href ссылки — безопасная схема,
+        // rel собирается через composeLinkRel (noopener при _blank).
+        const url = sanitizeImageSrc(options.url);
+        if (!url) return;
+        const linkUrl = options.linkUrl ? sanitizeUrl(options.linkUrl) : null;
+        const caption = sanitizeInlineHtml(options.caption || '');
+        const rel = composeLinkRel({ nofollow: isNofollow, blank: isBlank, extra: relExtra });
 
         if (existingFigure) {
             // Обновляем figure
@@ -1344,11 +1356,7 @@ export default class Image extends Module {
                 }
                 link.href = linkUrl;
                 if (isBlank) link.target = '_blank'; else link.removeAttribute('target');
-                // Собираем rel
-                const relParts = [];
-                if (isNofollow) relParts.push('nofollow');
-                if (relExtra) relParts.push(relExtra);
-                if (relParts.length > 0) link.rel = relParts.join(' '); else link.removeAttribute('rel');
+                if (rel) link.rel = rel; else link.removeAttribute('rel');
             } else if (link) {
                 // Убираем ссылку, оставляем img
                 link.parentNode.insertBefore(img, link);
@@ -1385,11 +1393,7 @@ export default class Image extends Module {
                 const link = oldLink || document.createElement('a');
                 link.href = linkUrl;
                 if (isBlank) link.target = '_blank'; else link.removeAttribute('target');
-                // Собираем rel
-                const relParts = [];
-                if (isNofollow) relParts.push('nofollow');
-                if (relExtra) relParts.push(relExtra);
-                if (relParts.length > 0) link.rel = relParts.join(' '); else link.removeAttribute('rel');
+                if (rel) link.rel = rel; else link.removeAttribute('rel');
                 if (!oldLink) {
                     link.appendChild(existingImg);
                 }
@@ -1415,7 +1419,13 @@ export default class Image extends Module {
     }
 
     insertImage(options) {
-        const { url, alt, srcset, caption, linkUrl, isBlank, isNofollow, relExtra, title, loading } = options;
+        const { alt, srcset, isBlank, isNofollow, relExtra, title, loading } = options;
+
+        // Санитизация — та же, что в updateImage.
+        const url = sanitizeImageSrc(options.url);
+        if (!url) return;
+        const linkUrl = options.linkUrl ? sanitizeUrl(options.linkUrl) : null;
+        const caption = sanitizeInlineHtml(options.caption || '');
 
         // Создаем изображение
         const img = document.createElement('img');
@@ -1432,11 +1442,8 @@ export default class Image extends Module {
             const a = document.createElement('a');
             a.href = linkUrl;
             if (isBlank) a.target = '_blank';
-            // Собираем rel
-            const relParts = [];
-            if (isNofollow) relParts.push('nofollow');
-            if (relExtra) relParts.push(relExtra);
-            if (relParts.length > 0) a.rel = relParts.join(' ');
+            const rel = composeLinkRel({ nofollow: isNofollow, blank: isBlank, extra: relExtra });
+            if (rel) a.rel = rel;
             a.appendChild(img);
             imgOrLink = a;
         }

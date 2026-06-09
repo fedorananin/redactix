@@ -7,8 +7,10 @@ export default class Toolbar {
         this.isSticky = false;
         this.stickyPlaceholder = null;
         
-        // Обновляем состояния кнопок при изменении выделения
-        document.addEventListener('selectionchange', () => {
+        // Обновляем состояния кнопок при изменении выделения.
+        // Глобальный слушатель — регистрируем через instance.listen,
+        // чтобы destroy() его снял.
+        instance.listen(document, 'selectionchange', () => {
             this.updateButtonStates();
         });
         
@@ -34,9 +36,9 @@ export default class Toolbar {
             }
         });
         
-        // Слушаем скролл на window
-        window.addEventListener('scroll', () => this.updateStickyState(), { passive: true });
-        window.addEventListener('resize', () => this.updateStickyState(), { passive: true });
+        // Слушаем скролл на window (снимается в instance.destroy())
+        this.instance.listen(window, 'scroll', () => this.updateStickyState(), { passive: true });
+        this.instance.listen(window, 'resize', () => this.updateStickyState(), { passive: true });
     }
     
     /**
@@ -130,13 +132,23 @@ export default class Toolbar {
         btn.className = 'redactix-btn';
         btn.dataset.command = btnConfig.name;
         
-        // Используем mousedown вместо click, чтобы не терять фокус редактора
-        btn.addEventListener('mousedown', (e) => {
-            e.preventDefault();
+        const run = () => {
             if (btnConfig.action) btnConfig.action();
             this.instance.sync();
             // Обновляем состояние после действия
             setTimeout(() => this.updateButtonStates(), 10);
+        };
+
+        // Используем mousedown вместо click, чтобы не терять фокус редактора
+        btn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            run();
+        });
+
+        // Клавиатурная активация (Tab + Enter/Space): такой click приходит
+        // с detail === 0 и mousedown ему не предшествует.
+        btn.addEventListener('click', (e) => {
+            if (e.detail === 0) run();
         });
 
         this.element.appendChild(btn);

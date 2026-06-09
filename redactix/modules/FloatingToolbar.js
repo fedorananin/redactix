@@ -51,10 +51,7 @@ export default class FloatingToolbar extends Module {
             button.title = btn.title;
             button.dataset.name = btn.name;
             
-            button.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
+            const run = () => {
                 if (btn.command) {
                     this.instance.selection.excludeTrailingSpacesFromSelection();
                     document.execCommand(btn.command);
@@ -63,6 +60,17 @@ export default class FloatingToolbar extends Module {
                 } else if (btn.action) {
                     btn.action();
                 }
+            };
+
+            button.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                run();
+            });
+
+            // Клавиатурная активация (click с detail === 0)
+            button.addEventListener('click', (e) => {
+                if (e.detail === 0) run();
             });
 
             this.toolbar.appendChild(button);
@@ -72,12 +80,13 @@ export default class FloatingToolbar extends Module {
     }
 
     bindEvents() {
-        document.addEventListener('selectionchange', () => {
+        // Глобальные слушатели — через registry, чтобы destroy() их снял.
+        this.instance.listen(document, 'selectionchange', () => {
             this.onSelectionChange();
         });
 
-        document.addEventListener('mousedown', (e) => {
-            if (!this.instance.wrapper.contains(e.target) && 
+        this.instance.listen(document, 'mousedown', (e) => {
+            if (!this.instance.wrapper.contains(e.target) &&
                 !e.target.closest('.redactix-modal-overlay')) {
                 this.hide();
             }
@@ -263,14 +272,15 @@ export default class FloatingToolbar extends Module {
         // Создаем форму
         const form = document.createElement('div');
         
-        // URL
-        const urlGroup = this.createInputGroup(this.t('link.url'), 'text', existingLink ? existingLink.href : 'https://');
+        // URL — читаем атрибут, а не свойство: .href разворачивает
+        // относительные ссылки в абсолютные.
+        const urlGroup = this.createInputGroup(this.t('link.url'), 'text', existingLink ? (existingLink.getAttribute('href') || '') : 'https://');
         const urlInput = urlGroup.querySelector('input');
-        
+
         // Текст ссылки
         const textGroup = this.createInputGroup(this.t('link.linkText'), 'text', selectedText);
         const textInput = textGroup.querySelector('input');
-        
+
         // Title
         const titleGroup = this.createInputGroup(this.t('link.titleAttr'), 'text', existingLink ? existingLink.title || '' : '');
         const titleInput = titleGroup.querySelector('input');
@@ -412,8 +422,8 @@ export default class FloatingToolbar extends Module {
         // Создаем простую форму
         const form = document.createElement('div');
         
-        // URL
-        const urlGroup = this.createInputGroup(this.t('link.url'), 'text', existingLink ? existingLink.href : 'https://');
+        // URL — getAttribute, чтобы относительные ссылки не разворачивались
+        const urlGroup = this.createInputGroup(this.t('link.url'), 'text', existingLink ? (existingLink.getAttribute('href') || '') : 'https://');
         const urlInput = urlGroup.querySelector('input');
         urlInput.placeholder = 'https://example.com';
         

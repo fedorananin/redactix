@@ -67,7 +67,7 @@ export default class BlockControl extends Module {
         });
 
         // Скрываем меню при клике в любом месте
-        document.addEventListener('click', (e) => {
+        this.instance.listen(document, 'click', (e) => {
             if (this.menu && !this.menu.contains(e.target) &&
                 !this.handle.contains(e.target) &&
                 !this.listHandle.contains(e.target) &&
@@ -82,11 +82,21 @@ export default class BlockControl extends Module {
         // capture: true, чтобы ловить и внутренние scrollable-контейнеры
         // (редактор с maxHeight, fullscreen, любой враппер на стороне
         // подключения).
-        window.addEventListener('scroll', () => {
+        this.instance.listen(window, 'scroll', () => {
             if (this.menu && this.menu.style.display === 'block') {
                 this.hideMenu();
             }
         }, { capture: true, passive: true });
+
+        // На touch-устройствах mousemove (основной путь появления ручек)
+        // ненадёжен — показываем ручку для тапнутого блока по клику.
+        // onMouseMove принимает любой объект с clientX/clientY/target.
+        if (window.matchMedia && window.matchMedia('(hover: none)').matches) {
+            this.instance.editorEl.addEventListener('click', (e) => {
+                if (this.isDragging) return;
+                this.onMouseMove(e);
+            });
+        }
 
         // Скрываем ручки, если мышь ушла с редактора
         this.instance.wrapper.addEventListener('mouseleave', (e) => {
@@ -274,6 +284,11 @@ export default class BlockControl extends Module {
         // rounded corners). Position is set with `fixed` against the
         // viewport in showMenu().
         document.body.appendChild(this.menu);
+
+        // Портал живёт вне wrapper'а — убираем его при destroy() вручную.
+        if (this.instance.onDestroy) {
+            this.instance.onDestroy(() => this.menu.remove());
+        }
     }
 
     buildMenu() {
@@ -1426,9 +1441,15 @@ export default class BlockControl extends Module {
             this.dragGhost.style.top = `${e.clientY + 10}px`;
         }
 
-        this.handle.style.display = 'none';
+        // Прячем активную ручку на время elementFromPoint и возвращаем ей
+        // ПРЕЖНЕЕ состояние: раньше тут принудительно ставился 'flex' на
+        // главную ручку, и при перетаскивании за контейнерную/списочную
+        // ручку главная всплывала в устаревшей позиции.
+        const activeHandleEl = this.getActiveHandleEl();
+        const prevHandleDisplay = activeHandleEl.style.display;
+        activeHandleEl.style.display = 'none';
         let elementBelow = document.elementFromPoint(e.clientX, e.clientY);
-        this.handle.style.display = 'flex';
+        activeHandleEl.style.display = prevHandleDisplay;
 
         if (!elementBelow) return;
 
@@ -1740,11 +1761,14 @@ export default class BlockControl extends Module {
             this.dragGhost.style.top = `${touch.clientY + 10}px`;
         }
 
-        // Находим элемент под пальцем
+        // Находим элемент под пальцем (прячем призрак и активную ручку,
+        // возвращая ручке прежнее состояние — см. onDragMove).
+        const activeHandleEl = this.getActiveHandleEl();
+        const prevHandleDisplay = activeHandleEl.style.display;
         this.dragGhost.style.display = 'none';
-        this.handle.style.display = 'none';
+        activeHandleEl.style.display = 'none';
         let elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-        this.handle.style.display = 'flex';
+        activeHandleEl.style.display = prevHandleDisplay;
         this.dragGhost.style.display = 'block';
 
         if (!elementBelow) return;

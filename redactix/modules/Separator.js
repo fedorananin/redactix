@@ -8,17 +8,40 @@ export default class Separator extends Module {
                 name: 'hr',
                 label: '—',
                 icon: Icons.hr,
-                title: 'Insert Separator',
-            action: () => {
-                // Вставляем обертку и параграф
-                const wrapperHtml = '<div class="redactix-separator" contenteditable="false"><hr></div>';
-                document.execCommand('insertHTML', false, wrapperHtml);
-                // insertHTML может не создать параграф после div'а, поэтому проверим
-                // Но лучше просто дать пользователю место для ввода
-                // document.execCommand('insertHTML') с блочным элементом часто разбивает P.
-                this.instance.sync();
-            }
+                title: this.t('toolbar.insertSeparator'),
+                action: () => this.insertSeparator()
             }
         ];
+    }
+
+    /**
+     * Вставка через DOM API (тот же путь, что у SlashCommands и Markdown):
+     * execCommand('insertHTML') с блочным div'ом разбивал текущий параграф
+     * и не оставлял места для ввода после сепаратора.
+     */
+    insertSeparator() {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'redactix-separator';
+        wrapper.contentEditable = 'false';
+        wrapper.appendChild(document.createElement('hr'));
+
+        const nextP = document.createElement('p');
+        nextP.innerHTML = '<br>';
+
+        this.instance.selection.insertNode(wrapper);
+
+        if (wrapper.parentNode) {
+            wrapper.parentNode.insertBefore(nextP, wrapper.nextSibling);
+
+            // Курсор — в параграф после сепаратора
+            const range = document.createRange();
+            range.setStart(nextP, 0);
+            range.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+
+        this.instance.sync();
     }
 }

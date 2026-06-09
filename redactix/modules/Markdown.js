@@ -7,6 +7,9 @@ export default class Markdown extends Module {
     }
 
     handleInput(e) {
+        // Не вмешиваемся в IME-композицию (Space выбирает кандидата)
+        if (e.isComposing) return;
+
         // Реагируем на пробел
         if (e.key !== ' ' && e.keyCode !== 32) return;
 
@@ -28,9 +31,13 @@ export default class Markdown extends Module {
         const insideQuoteCard = this.isInsideQuoteCard(node);
         const insideCallout = !insideQuoteCard && this.isInsideCallout(node);
 
+        // Все шорткаты заякорены на конец строки ($): срабатывают только
+        // когда префикс — единственное содержимое блока. Иначе пробел в
+        // середине предложения, начинающегося с "# ...", повторно
+        // конвертировал бы блок и съедал первые символы.
         const rules = [
-            { regex: /^#\s/, command: 'formatBlock', value: '<h1>' },
-            { regex: /^##\s/, command: 'formatBlock', value: '<h2>' },
+            { regex: /^#\s$/, command: 'formatBlock', value: '<h1>' },
+            { regex: /^##\s$/, command: 'formatBlock', value: '<h2>' },
             { regex: /^###\s$/, command: 'formatBlock', value: '<h3>' },
             { regex: /^\*\s$/, command: 'insertUnorderedList', value: null },
             { regex: /^-\s$/, command: 'insertUnorderedList', value: null },
@@ -181,6 +188,17 @@ export default class Markdown extends Module {
                         const br = document.createElement('br');
                         newEl.appendChild(br);
                         brAdded = true;
+                    }
+
+                    // Callout-контракт: содержимое <aside> заворачивается в
+                    // блочные дети (P/...). normalizeChildren переносит наш
+                    // текстовый узел внутрь нового <p>, ссылка на узел при
+                    // этом остаётся валидной для установки курсора ниже.
+                    if (tagName === 'aside') {
+                        const calloutModule = this.instance.modules.find(m => m.constructor.name === 'Callout');
+                        if (calloutModule) {
+                            calloutModule.normalizeChildren(newEl);
+                        }
                     }
 
                     const newRange = document.createRange();

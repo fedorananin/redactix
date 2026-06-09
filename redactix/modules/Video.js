@@ -1,5 +1,6 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
+import { sanitizeUrl, sanitizeInlineHtml } from '../core/dom-utils.js';
 
 /**
  * Video module.
@@ -137,12 +138,7 @@ export default class Video extends Module {
     initDragDrop() {
         const editor = this.instance.editorEl;
 
-        // Глушим нативный HTML5-drag для содержимого редактора —
-        // в Image-модуле это уже делается, но повторим на случай,
-        // когда Image-модуль выключен (videoUploadUrl без uploadUrl).
-        editor.addEventListener('dragstart', (e) => {
-            e.preventDefault();
-        });
+        // Нативный dragstart глушится безусловно в Editor.js (bindEvents).
 
         editor.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -244,9 +240,10 @@ export default class Video extends Module {
         video.setAttribute('preload', 'metadata');
         figure.appendChild(video);
 
-        if (data.caption) {
+        const safeCaption = sanitizeInlineHtml(data.caption || '');
+        if (safeCaption) {
             const figcaption = document.createElement('figcaption');
-            figcaption.innerHTML = data.caption;
+            figcaption.innerHTML = safeCaption;
             figure.appendChild(figcaption);
         }
 
@@ -319,7 +316,7 @@ export default class Video extends Module {
             uploadGroup.className = 'redactix-upload-group';
             uploadGroup.style.marginBottom = '16px';
             uploadGroup.style.padding = '16px';
-            uploadGroup.style.border = '2px dashed #e5e7eb';
+            uploadGroup.style.border = '2px dashed var(--redactix-border)';
             uploadGroup.style.borderRadius = '8px';
             uploadGroup.style.textAlign = 'center';
             uploadGroup.style.transition = 'border-color 0.2s, background-color 0.2s';
@@ -328,13 +325,13 @@ export default class Video extends Module {
             uploadLabel.style.display = 'block';
             uploadLabel.style.cursor = 'pointer';
             uploadLabel.innerHTML = `
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5" style="margin-bottom: 8px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 8px;">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                     <polyline points="17 8 12 3 7 8"/>
                     <line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
-                <div style="color: #6b7280; font-size: 14px;">${isEditing ? this.t('video.uploadReplace') : this.t('video.uploadClick')}</div>
-                <div style="color: #9ca3af; font-size: 12px; margin-top: 4px;">${this.t('video.uploadFormats')}</div>
+                <div style="color: var(--redactix-text-muted); font-size: 14px;">${isEditing ? this.t('video.uploadReplace') : this.t('video.uploadClick')}</div>
+                <div style="color: var(--redactix-text-placeholder); font-size: 12px; margin-top: 4px;">${this.t('video.uploadFormats')}</div>
             `;
 
             fileInput = document.createElement('input');
@@ -353,17 +350,17 @@ export default class Video extends Module {
 
             uploadGroup.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                uploadGroup.style.borderColor = '#3b82f6';
-                uploadGroup.style.backgroundColor = '#eff6ff';
+                uploadGroup.style.borderColor = 'var(--redactix-primary)';
+                uploadGroup.style.backgroundColor = 'var(--redactix-dragover-bg)';
             });
             uploadGroup.addEventListener('dragleave', (e) => {
                 e.preventDefault();
-                uploadGroup.style.borderColor = '#e5e7eb';
+                uploadGroup.style.borderColor = 'var(--redactix-border)';
                 uploadGroup.style.backgroundColor = '';
             });
             uploadGroup.addEventListener('drop', (e) => {
                 e.preventDefault();
-                uploadGroup.style.borderColor = '#e5e7eb';
+                uploadGroup.style.borderColor = 'var(--redactix-border)';
                 uploadGroup.style.backgroundColor = '';
                 const files = e.dataTransfer.files;
                 if (files.length > 0 && files[0].type.startsWith('video/')) {
@@ -394,13 +391,13 @@ export default class Video extends Module {
         if (this.uploadUrl || this.browseUrl) {
             const orDivider = document.createElement('div');
             orDivider.style.textAlign = 'center';
-            orDivider.style.color = '#9ca3af';
+            orDivider.style.color = 'var(--redactix-text-placeholder)';
             orDivider.style.fontSize = '13px';
             orDivider.style.margin = '12px 0';
             orDivider.style.position = 'relative';
             orDivider.innerHTML = `
-                <span style="background: white; padding: 0 12px; position: relative; z-index: 1;">${this.t('video.orEnterUrl')}</span>
-                <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #e5e7eb; z-index: 0;"></div>
+                <span style="background: var(--redactix-bg); padding: 0 12px; position: relative; z-index: 1;">${this.t('video.orEnterUrl')}</span>
+                <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--redactix-bg-active); z-index: 0;"></div>
             `;
             form.appendChild(orDivider);
         }
@@ -435,7 +432,7 @@ export default class Video extends Module {
                 const file = fileInput.files[0];
                 if (!file) return;
                 uploadStatus.style.display = 'block';
-                uploadStatus.style.color = '#3b82f6';
+                uploadStatus.style.color = 'var(--redactix-primary)';
                 uploadStatus.innerHTML = `
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
                         <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32">
@@ -466,11 +463,11 @@ export default class Video extends Module {
                         urlInput.value = result.src;
                         if (result.caption) captionInput.value = result.caption;
                     } else {
-                        uploadStatus.style.color = '#ef4444';
+                        uploadStatus.style.color = 'var(--redactix-danger)';
                         uploadStatus.textContent = result.error || 'Upload failed';
                     }
                 } catch (error) {
-                    uploadStatus.style.color = '#ef4444';
+                    uploadStatus.style.color = 'var(--redactix-danger)';
                     uploadStatus.textContent = error.message || 'Connection error';
                 }
             });
@@ -521,44 +518,54 @@ export default class Video extends Module {
     }
 
     updateFigure(figure, { url, aspect, caption }) {
+        // src — только безопасные схемы (http(s)/relative); подпись —
+        // через инлайн-санитайзер, как у остальных figcaption-путей.
+        const safeUrl = sanitizeUrl(url);
+        if (!safeUrl) return;
+        const safeCaption = sanitizeInlineHtml(caption || '');
+
         figure.setAttribute('data-aspect', aspect);
         let video = figure.querySelector(':scope > video');
         if (!video) {
             video = document.createElement('video');
             figure.insertBefore(video, figure.firstChild);
         }
-        video.setAttribute('src', url);
+        video.setAttribute('src', safeUrl);
         if (!video.hasAttribute('controls')) video.setAttribute('controls', '');
         if (!video.hasAttribute('preload')) video.setAttribute('preload', 'metadata');
         this.applyAspectStyle(video, aspect);
 
         let figcaption = figure.querySelector(':scope > figcaption');
-        if (caption) {
+        if (safeCaption) {
             if (!figcaption) {
                 figcaption = document.createElement('figcaption');
                 figure.appendChild(figcaption);
             }
-            figcaption.innerHTML = caption;
+            figcaption.innerHTML = safeCaption;
         } else if (figcaption) {
             figcaption.remove();
         }
     }
 
     insertVideo({ url, aspect, caption }) {
+        const safeUrl = sanitizeUrl(url);
+        if (!safeUrl) return;
+        const safeCaption = sanitizeInlineHtml(caption || '');
+
         const figure = document.createElement('figure');
         figure.className = 'redactix-video';
         figure.setAttribute('data-aspect', aspect);
 
         const video = document.createElement('video');
-        video.setAttribute('src', url);
+        video.setAttribute('src', safeUrl);
         video.setAttribute('controls', '');
         video.setAttribute('preload', 'metadata');
         this.applyAspectStyle(video, aspect);
         figure.appendChild(video);
 
-        if (caption) {
+        if (safeCaption) {
             const figcaption = document.createElement('figcaption');
-            figcaption.innerHTML = caption;
+            figcaption.innerHTML = safeCaption;
             figure.appendChild(figcaption);
         }
 
@@ -574,22 +581,22 @@ export default class Video extends Module {
         btn.textContent = this.t('video.chooseFromUploaded');
         btn.style.width = '100%';
         btn.style.padding = '10px';
-        btn.style.background = '#f3f4f6';
-        btn.style.border = '1px solid #e5e7eb';
+        btn.style.background = 'var(--redactix-bg-hover)';
+        btn.style.border = '1px solid var(--redactix-border)';
         btn.style.borderRadius = '6px';
         btn.style.cursor = 'pointer';
         btn.style.fontSize = '14px';
-        btn.style.color = '#374151';
+        btn.style.color = 'var(--redactix-text)';
         btn.style.transition = 'background 0.15s';
-        btn.addEventListener('mouseenter', () => { btn.style.background = '#e5e7eb'; });
-        btn.addEventListener('mouseleave', () => { btn.style.background = '#f3f4f6'; });
+        btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--redactix-bg-active)'; });
+        btn.addEventListener('mouseleave', () => { btn.style.background = 'var(--redactix-bg-hover)'; });
         btn.addEventListener('click', onClick);
         return btn;
     }
 
     openBrowsePanel(container, onSelect) {
         container.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: #6b7280;">
+            <div style="text-align: center; padding: 20px; color: var(--redactix-text-muted);">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block;">
                     <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32">
                         <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/>
@@ -606,12 +613,12 @@ export default class Video extends Module {
             .then(r => r.json())
             .then(data => {
                 if (!data.success) {
-                    container.innerHTML = `<div style="color: #dc2626; padding: 10px;">Error: ${data.error || 'Failed to load videos'}</div>`;
+                    container.innerHTML = `<div style="color: var(--redactix-danger); padding: 10px;">Error: ${data.error || 'Failed to load videos'}</div>`;
                     return;
                 }
                 const videos = data.videos || [];
                 if (videos.length === 0) {
-                    container.innerHTML = `<div style="color: #6b7280; padding: 20px; text-align: center;">${this.t('video.noVideos')}</div>`;
+                    container.innerHTML = `<div style="color: var(--redactix-text-muted); padding: 20px; text-align: center;">${this.t('video.noVideos')}</div>`;
                     const closeBtn = this.makeBrowseCloseButton(container, onSelect);
                     container.appendChild(closeBtn);
                     return;
@@ -619,7 +626,7 @@ export default class Video extends Module {
                 this.renderBrowseGrid(container, videos, !!data.allowDelete, onSelect);
             })
             .catch(() => {
-                container.innerHTML = `<div style="color: #dc2626; padding: 10px;">Connection error</div>`;
+                container.innerHTML = `<div style="color: var(--redactix-danger); padding: 10px;">Connection error</div>`;
             });
     }
 
@@ -633,9 +640,9 @@ export default class Video extends Module {
         grid.style.maxHeight = '260px';
         grid.style.overflowY = 'auto';
         grid.style.padding = '8px';
-        grid.style.background = '#f9fafb';
+        grid.style.background = 'var(--redactix-bg-secondary)';
         grid.style.borderRadius = '8px';
-        grid.style.border = '1px solid #e5e7eb';
+        grid.style.border = '1px solid var(--redactix-border)';
 
         videos.forEach(v => {
             const item = document.createElement('div');
@@ -659,7 +666,7 @@ export default class Video extends Module {
             item.title = `${v.filename}\n${v.size}`;
 
             item.addEventListener('mouseenter', () => {
-                item.style.borderColor = '#3b82f6';
+                item.style.borderColor = 'var(--redactix-primary)';
                 item.style.transform = 'scale(1.02)';
             });
             item.addEventListener('mouseleave', () => {
@@ -692,13 +699,19 @@ export default class Video extends Module {
                 deleteBtn.style.cursor = 'pointer';
                 deleteBtn.style.fontSize = '14px';
                 deleteBtn.style.lineHeight = '1';
-                deleteBtn.style.display = 'none';
-                deleteBtn.title = 'Delete video';
-                item.addEventListener('mouseenter', () => { deleteBtn.style.display = 'block'; });
-                item.addEventListener('mouseleave', () => { deleteBtn.style.display = 'none'; });
+                deleteBtn.title = this.t('video.deleteTooltip');
+
+                // На touch-устройствах hover-а нет — кнопка видна всегда.
+                const hoverable = window.matchMedia && window.matchMedia('(hover: hover)').matches;
+                deleteBtn.style.display = hoverable ? 'none' : 'block';
+                if (hoverable) {
+                    item.addEventListener('mouseenter', () => { deleteBtn.style.display = 'block'; });
+                    item.addEventListener('mouseleave', () => { deleteBtn.style.display = 'none'; });
+                }
+
                 deleteBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (confirm(`Delete ${v.filename}?`)) {
+                    if (confirm(this.t('video.confirmDelete', { filename: v.filename }))) {
                         this.deleteVideo(v.filename, container, onSelect);
                     }
                 });
@@ -730,12 +743,12 @@ export default class Video extends Module {
         closeBtn.style.width = '100%';
         closeBtn.style.marginTop = '8px';
         closeBtn.style.padding = '8px';
-        closeBtn.style.background = '#e5e7eb';
+        closeBtn.style.background = 'var(--redactix-bg-active)';
         closeBtn.style.border = 'none';
         closeBtn.style.borderRadius = '6px';
         closeBtn.style.cursor = 'pointer';
         closeBtn.style.fontSize = '13px';
-        closeBtn.style.color = '#374151';
+        closeBtn.style.color = 'var(--redactix-text)';
         closeBtn.addEventListener('click', () => this.restoreBrowseButton(container, onSelect));
         return closeBtn;
     }
@@ -783,7 +796,7 @@ export default class Video extends Module {
         select.style.width = '100%';
         select.style.padding = '10px 12px';
         select.style.boxSizing = 'border-box';
-        select.style.border = '1px solid #e5e7eb';
+        select.style.border = '1px solid var(--redactix-border)';
         select.style.borderRadius = '6px';
         select.style.fontSize = '14px';
         options.forEach(opt => {

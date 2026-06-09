@@ -1,4 +1,4 @@
-import { isAtomicBlock, isBlockEmpty, sanitizeUrl, sanitizeImageSrc, sanitizeRel, sanitizeTarget } from './dom-utils.js';
+import { isAtomicBlock, isBlockEmpty, sanitizeUrl, sanitizeImageSrc, sanitizeRel, sanitizeTarget, normalizeInlineSynonyms } from './dom-utils.js';
 
 export default class Editor {
     constructor(instance) {
@@ -17,12 +17,12 @@ export default class Editor {
     }
 
     setupPlaceholder() {
-        this.el.dataset.placeholder = 'Start typing...';
+        this.el.dataset.placeholder = this.instance.t('editor.placeholder');
         this.updatePlaceholder();
     }
 
     updatePlaceholder() {
-        const isEmpty = !this.el.textContent.trim() && !this.el.querySelector('img, iframe, hr, table');
+        const isEmpty = !this.el.textContent.trim() && !this.el.querySelector('img, iframe, hr, table, video');
         this.el.classList.toggle('is-empty', isEmpty);
     }
 
@@ -145,6 +145,22 @@ export default class Editor {
             characterData: true
         });
 
+        // Отключаем observer при уничтожении инстанса.
+        if (this.instance.onDestroy) {
+            this.instance.onDestroy(() => this.observer.disconnect());
+        }
+
+        // Полностью запрещаем нативный HTML5-drag для содержимого
+        // редактора: иначе браузер умеет таскать <img> внутри
+        // contenteditable и кидать их куда попало (вплоть до вставки
+        // <img> внутрь <h2>). Перетаскивание блоков реализовано через
+        // mousedown в BlockControl, нативный dragstart ему не нужен.
+        // Раньше это делали Image/Video модули, но только при настроенном
+        // uploadUrl — теперь глушим всегда.
+        this.el.addEventListener('dragstart', (e) => {
+            e.preventDefault();
+        });
+
         // Синхронизация при вводе (как дополнение для мгновенной реакции)
         this.el.addEventListener('input', () => {
             this.ensureEditorStructure();
@@ -163,6 +179,11 @@ export default class Editor {
 
         // Обработка нажатий клавиш
         this.el.addEventListener('keydown', (e) => {
+            // Во время IME-композиции (японский/корейский/китайский ввод,
+            // многие Android-клавиатуры) пробел и Enter управляют выбором
+            // кандидата — кастомные обработчики ломают композицию.
+            if (e.isComposing || e.keyCode === 229) return;
+
             // Shift+Enter inside aside/blockquote — insert <br> explicitly
             if (e.key === 'Enter' && e.shiftKey) {
                 if (this.handleShiftEnter(e)) {
@@ -242,6 +263,12 @@ export default class Editor {
             if (this.instance.runEmbedSetup) {
                 this.instance.runEmbedSetup();
             }
+            if (this.instance.runVideoSetup) {
+                this.instance.runVideoSetup();
+            }
+            if (this.instance.runGallerySetup) {
+                this.instance.runGallerySetup();
+            }
         } else if (text) {
             // Если только текст - вставляем с сохранением переносов строк
             const lines = text.split('\n');
@@ -264,6 +291,12 @@ export default class Editor {
     /**
      * Insert block-level content from a parsed container using DOM API.
      * Avoids insertHTML quirks with block elements inside blocks.
+     *
+     * Insertion host is not always the editor root: when the cursor sits
+     * inside a callout (<aside>) or a quote-card's <blockquote>, pasted
+     * blocks land INSIDE that container (after the current inner block),
+     * not after the container at top level. Disallowed tags get cleaned
+     * up by the migrate/normalize passes that run right after paste.
      */
     insertBlockContent(container) {
         const sel = window.getSelection();
@@ -272,9 +305,20 @@ export default class Editor {
         const range = sel.getRangeAt(0);
         range.deleteContents();
 
-        // Find the top-level block the cursor is in
+        // Контейнеры, внутрь которых разрешена блочная вставка.
+        const isInsertionHost = (el) => {
+            if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+            if (el === this.el) return true;
+            if (el.tagName === 'ASIDE') return true;
+            if (el.tagName === 'BLOCKQUOTE' && el.parentElement &&
+                el.parentElement.tagName === 'FIGURE' &&
+                el.parentElement.classList.contains('quote-card')) return true;
+            return false;
+        };
+
+        // Find the nearest block whose parent is an insertion host.
         let currentBlock = range.startContainer;
-        while (currentBlock && currentBlock !== this.el && currentBlock.parentNode !== this.el) {
+        while (currentBlock && currentBlock !== this.el && !isInsertionHost(currentBlock.parentNode)) {
             currentBlock = currentBlock.parentNode;
         }
 
@@ -305,10 +349,12 @@ export default class Editor {
 
         if (nodesToInsert.length === 0) return;
 
-        // Insert each node after the current block
+        // Insert each node after the current block, inside its host
+        // (editor root, aside, or quote-card blockquote).
+        const host = currentBlock.parentNode;
         let insertionRef = currentBlock.nextSibling;
         for (const node of nodesToInsert) {
-            this.el.insertBefore(node, insertionRef);
+            host.insertBefore(node, insertionRef);
         }
 
         // If current block was empty, remove it (pasted content replaces it)
@@ -319,7 +365,7 @@ export default class Editor {
         // Place cursor at the end of the last inserted node
         const lastInserted = insertionRef
             ? insertionRef.previousSibling
-            : this.el.lastChild;
+            : host.lastChild;
         if (lastInserted) {
             const newRange = document.createRange();
             if (lastInserted.nodeType === Node.ELEMENT_NODE) {
@@ -347,6 +393,17 @@ export default class Editor {
                 wrapper.parentNode.insertBefore(wrapper.firstChild, wrapper);
             }
             wrapper.remove();
+        });
+
+        // Разворачиваем редакторские обёртки сепараторов до голого <hr>.
+        // В сохранённом HTML их нет, но при копировании из живого DOM
+        // редактора они попадают в буфер; без unwrap'а div-зачистка ниже
+        // превратила бы их в <p><hr></p>. wrapSeparators() вернёт обёртку
+        // после вставки.
+        temp.querySelectorAll('div.redactix-separator').forEach(wrapper => {
+            const hr = wrapper.querySelector('hr');
+            if (hr) wrapper.parentNode.replaceChild(hr, wrapper);
+            else wrapper.remove();
         });
 
         // Spare iframes that belong to a known embed provider (or already
@@ -684,9 +741,21 @@ export default class Editor {
             font.parentNode.replaceChild(span, font);
         }
 
-        // Удаляем пустые div и заменяем непустые на p
+        // Канонизируем синонимичные инлайн-теги: <strong>→<b>, <em>→<i>,
+        // <strike>→<s>. В выходном HTML каждая роль представлена ровно
+        // одним тегом.
+        normalizeInlineSynonyms(temp);
+
+        // Удаляем пустые div и заменяем непустые на p.
+        // Структурные div'ы редактора (embed-frame, gallery-grid) трогать
+        // нельзя — без них setupEmbeds()/setupGalleries() сочтут figure
+        // сломанной и удалят её вместе с контентом.
         const divs = Array.from(temp.querySelectorAll('div'));
         divs.forEach(div => {
+            if (div.classList.contains('redactix-embed-frame') ||
+                div.classList.contains('redactix-gallery-grid')) {
+                return;
+            }
             const innerContent = div.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
             if (!innerContent) {
                 div.remove();

@@ -18,8 +18,9 @@ export default class FindReplace extends Module {
         }
         
         // Ctrl+F / Ctrl+H для открытия поиска и замены
-        // Используем e.code для корректной работы с любой раскладкой
-        document.addEventListener('keydown', (e) => {
+        // Используем e.code для корректной работы с любой раскладкой.
+        // Глобальный слушатель — через registry (снимается в destroy()).
+        this.instance.listen(document, 'keydown', (e) => {
             // Ctrl+F или Ctrl+H (работает на любой раскладке)
             if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyF' || e.code === 'KeyH')) {
                 // Проверяем что фокус в нашем редакторе

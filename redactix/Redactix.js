@@ -3,6 +3,7 @@ import Toolbar from './ui/Toolbar.js';
 import Selection from './core/Selection.js';
 import Modal from './ui/Modal.js';
 import I18n from './i18n/index.js';
+import { normalizeInlineSynonyms } from './core/dom-utils.js';
 
 // Импорт модулей (в будущем можно сделать динамическим конфигом)
 import BaseStyles from './modules/BaseStyles.js';
@@ -179,7 +180,68 @@ class RedactixInstance {
         // sync per animation frame.
         this._syncFrame = null;
 
+        // Registry для глобальных (document/window) слушателей и прочих
+        // ресурсов модулей — снимается в destroy(). Слушатели на
+        // элементах внутри wrapper'а регистрировать не нужно: они
+        // умирают вместе с wrapper.remove().
+        this._managedListeners = [];
+        this._destroyCallbacks = [];
+        this.destroyed = false;
+
         this.render();
+    }
+
+    /**
+     * addEventListener с автоматическим снятием в destroy(). Использовать
+     * для целей, переживающих wrapper: document, window.
+     */
+    listen(target, type, handler, options) {
+        target.addEventListener(type, handler, options);
+        this._managedListeners.push({ target, type, handler, options });
+    }
+
+    /**
+     * Зарегистрировать произвольный cleanup (disconnect наблюдателя,
+     * удаление портал-элементов из <body> и т.п.), выполняемый в destroy().
+     */
+    onDestroy(cb) {
+        this._destroyCallbacks.push(cb);
+    }
+
+    /**
+     * Полный демонтаж инстанса: снимает глобальные слушатели и
+     * наблюдатели, удаляет wrapper (вместе с тулбаром, модалкой и
+     * ручками), возвращает исходный textarea на место. После destroy()
+     * textarea можно заново инициализировать новым new Redactix(...).
+     */
+    destroy() {
+        if (this.destroyed) return;
+        this.destroyed = true;
+
+        if (this._syncFrame != null) {
+            cancelAnimationFrame(this._syncFrame);
+            this._syncFrame = null;
+        }
+
+        this._managedListeners.forEach(({ target, type, handler, options }) => {
+            target.removeEventListener(type, handler, options);
+        });
+        this._managedListeners = [];
+
+        this._destroyCallbacks.forEach(cb => {
+            try { cb(); } catch (e) { /* cleanup не должен ронять destroy */ }
+        });
+        this._destroyCallbacks = [];
+
+        if (this.wrapper && this.wrapper.parentNode) {
+            this.wrapper.remove();
+        }
+
+        this.textarea.style.display = '';
+        delete this.textarea.dataset.redactixInit;
+        if (this.textarea.redactix === this) {
+            delete this.textarea.redactix;
+        }
     }
 
     /**
@@ -243,7 +305,9 @@ class RedactixInstance {
         // If textarea is empty, create initial paragraph structure
         this.editorEl.innerHTML = cleanHtml || '<p><br></p>';
 
-        // Post-processing: wrap hr, setup figure, code blocks
+        // Post-processing: normalize inline synonyms (<strong>→<b> и т.п.),
+        // wrap hr, setup figure, code blocks
+        this.normalizeInlineMarkup();
         this.wrapSeparators();
         this.setupFigures();
         this.setupCodeBlocks();
@@ -335,18 +399,29 @@ class RedactixInstance {
         m.setupGalleries(this.editorEl);
     }
 
+    /**
+     * Свести синонимичные инлайн-теги в живом DOM редактора к канонической
+     * форме (<strong>→<b>, <em>→<i>, <strike>→<s>). Вызывается при
+     * загрузке контента (render/setContent) и при возврате из HTML-режима.
+     */
+    normalizeInlineMarkup() {
+        normalizeInlineSynonyms(this.editorEl);
+    }
+
     createCounter() {
         this.counter = document.createElement('div');
         this.counter.className = 'redactix-counter';
         this.wrapper.appendChild(this.counter);
     }
 
-    updateCounter() {
+    updateCounter(preparedClone = null) {
         // В lite mode счётчик не создаётся
         if (!this.counter) return;
 
-        // Получаем текст для подсчёта (без HTML-тегов, но с figcaption)
-        const clone = this.editorEl.cloneNode(true);
+        // Получаем текст для подсчёта (без HTML-тегов, но с figcaption).
+        // _doSync передаёт уже готовый клон (он дальше не используется),
+        // чтобы не клонировать весь DOM второй раз на каждый ввод.
+        const clone = preparedClone || this.editorEl.cloneNode(true);
 
         // Удаляем alt и title атрибуты из изображений, ссылок и фреймов чтобы не считать их
         clone.querySelectorAll('img, a, iframe').forEach(el => {
@@ -390,6 +465,7 @@ class RedactixInstance {
         this.editorEl.innerHTML = cleanHtml;
 
         // Post-processing as during initialization
+        this.normalizeInlineMarkup();
         this.wrapSeparators();
         this.setupFigures();
         this.setupCodeBlocks();
@@ -532,6 +608,11 @@ class RedactixInstance {
         });
         clone.normalize();
 
+        // Финальная гарантия канонических инлайн-тегов: даже если браузер
+        // во время живого ввода породил <strike> (execCommand) или в DOM
+        // как-то просочились <strong>/<em>, в textarea уходят <b>/<i>/<s>.
+        normalizeInlineSynonyms(clone);
+
         // Получаем чистый HTML
         let html = clone.innerHTML;
 
@@ -547,8 +628,9 @@ class RedactixInstance {
         this.textarea.dispatchEvent(new Event('change', { bubbles: true }));
         this.textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
-        // Обновляем счётчик
-        this.updateCounter();
+        // Обновляем счётчик, переиспользуя уже сделанный клон —
+        // он отработал своё (innerHTML прочитан) и может мутироваться.
+        this.updateCounter(clone);
     }
 
     // Change editor theme at runtime

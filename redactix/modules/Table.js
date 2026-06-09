@@ -103,9 +103,9 @@ export default class Table extends Module {
             }
         });
 
-        // Скрываем меню при клике
-        document.addEventListener('click', (e) => {
-            if (this.contextMenu && 
+        // Скрываем меню при клике (через registry — снимается в destroy())
+        this.instance.listen(document, 'click', (e) => {
+            if (this.contextMenu &&
                 !this.contextMenu.contains(e.target) &&
                 !this.cellHandle.contains(e.target) &&
                 !this.rowHandle.contains(e.target)) {

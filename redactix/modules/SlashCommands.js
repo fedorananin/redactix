@@ -181,8 +181,8 @@ export default class SlashCommands extends Module {
             }
         });
 
-        // Close menu on click outside
-        document.addEventListener('click', (e) => {
+        // Close menu on click outside (через registry — снимается в destroy())
+        this.instance.listen(document, 'click', (e) => {
             if (this.isOpen && !this.menu.contains(e.target)) {
                 this.closeMenu();
             }
@@ -677,14 +677,27 @@ export default class SlashCommands extends Module {
 
             block.parentNode.replaceChild(newBlock, block);
 
+            // Callout-контракт: <aside> — блочный контейнер, прямые дети
+            // должны быть P/H1-H3/UL/OL. Нормализуем сразу, иначе до
+            // следующей загрузки aside остаётся «плоским» и Enter/Backspace
+            // работают по запасным веткам Editor.js.
+            let cursorTarget = newBlock;
+            if (tagName.toLowerCase() === 'aside') {
+                const calloutModule = this.instance.modules.find(m => m.constructor.name === 'Callout');
+                if (calloutModule) {
+                    calloutModule.normalizeChildren(newBlock);
+                    cursorTarget = newBlock.firstElementChild || newBlock;
+                }
+            }
+
             // Place cursor in the new block
             const newRange = document.createRange();
-            if (newBlock.firstChild && newBlock.firstChild.nodeType === Node.TEXT_NODE) {
-                newRange.setStart(newBlock.firstChild, 0);
-            } else if (newBlock.firstChild) {
-                newRange.setStartBefore(newBlock.firstChild);
+            if (cursorTarget.firstChild && cursorTarget.firstChild.nodeType === Node.TEXT_NODE) {
+                newRange.setStart(cursorTarget.firstChild, 0);
+            } else if (cursorTarget.firstChild) {
+                newRange.setStartBefore(cursorTarget.firstChild);
             } else {
-                newRange.setStart(newBlock, 0);
+                newRange.setStart(cursorTarget, 0);
             }
             newRange.collapse(true);
             selection.removeAllRanges();

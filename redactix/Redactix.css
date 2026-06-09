@@ -1216,6 +1216,17 @@ textarea.redactix[style*="display: none"] {
     background: var(--redactix-primary);
 }
 
+/* На touch-устройствах hover-а нет — кнопки Edit (embed / video / gallery)
+   видны всегда, иначе до модалки редактирования не добраться. */
+@media (hover: none) {
+    .redactix-editor .redactix-embed-edit-btn,
+    .redactix-editor .redactix-video-edit-btn,
+    .redactix-editor .redactix-gallery-edit-btn {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
 /* Legacy class kept for safety (server-rendered HTML from older versions
    that wasn't run through migration). Will be migrated on next load. */
 .redactix-video-wrapper {
@@ -2157,9 +2168,9 @@ body.redactix-fullscreen-active {
         padding-left: 20px;
     }
 
-    .redactix-block-handle {
-        left: 2px !important;
-    }
+    /* Позиция ручки считается в JS (showHandle) и уже клампится к левому
+       краю; CSS-override с !important ломал позиционирование ручек внутри
+       callout / quote-card, поэтому удалён. */
 
     .redactix-floating-toolbar {
         flex-wrap: wrap;

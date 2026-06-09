@@ -6,6 +6,11 @@ export default {
     chars: 'симв.',
     words: 'слов',
 
+    // Editor
+    editor: {
+        placeholder: 'Начните вводить текст...'
+    },
+
     // Modal buttons
     save: 'Сохранить',
     cancel: 'Отмена',
@@ -21,6 +26,7 @@ export default {
         insertEmbed: 'Вставить embed',
         insertTable: 'Вставить таблицу',
         insertCode: 'Вставить блок кода',
+        insertSeparator: 'Вставить разделитель',
         findReplace: 'Найти и заменить (Ctrl+F)',
         fullscreen: 'Полноэкранный режим',
         editHtml: 'Редактировать HTML',
@@ -69,7 +75,9 @@ export default {
         noImages: 'Нет загруженных изображений',
         imageSelected: 'Изображение выбрано',
         closeGallery: 'Закрыть галерею',
-        deleteConfirm: 'Удалить'
+        deleteConfirm: 'Удалить',
+        deleteTooltip: 'Удалить изображение',
+        confirmDelete: 'Удалить {filename}?'
     },
 
     // Gallery module (несколько фото в одном <figure> с общей подписью)
@@ -120,7 +128,9 @@ export default {
         closeGallery: 'Закрыть галерею',
         removeVideo: 'Удалить видео',
         edit: 'Редактировать видео',
-        menuGroup: 'Видео'
+        menuGroup: 'Видео',
+        deleteTooltip: 'Удалить видео',
+        confirmDelete: 'Удалить {filename}?'
     },
 
     // Link module

@@ -1,5 +1,5 @@
 import Module from '../core/Module.js';
-import { isBlockEmpty } from '../core/dom-utils.js';
+import { isBlockEmpty, sanitizeImageSrc, sanitizeInlineHtml } from '../core/dom-utils.js';
 
 /**
  * QuoteCard module.
@@ -381,10 +381,17 @@ export default class QuoteCard extends Module {
     applyAuthor(card, { photoUrl, photoAlt, authorText }) {
         if (!this.isQuoteCard(card)) return;
 
+        // Поле имени автора принимает HTML (инлайн-ссылки и форматирование
+        // переживают повторное редактирование), поэтому прогоняем его через
+        // инлайн-санитайзер; URL фото — через sanitizeImageSrc. Иначе модалка
+        // была бы обходным путём мимо paste-санитайзера (особенно в lite mode).
+        const safePhotoUrl = photoUrl ? sanitizeImageSrc(photoUrl) : null;
+        const safeAuthor = sanitizeInlineHtml(authorText || '');
+
         let figcaption = card.querySelector(':scope > figcaption');
 
         // If both empty — drop the figcaption entirely
-        if (!photoUrl && !authorText) {
+        if (!safePhotoUrl && !safeAuthor) {
             if (figcaption) figcaption.remove();
             return;
         }
@@ -396,12 +403,12 @@ export default class QuoteCard extends Module {
 
         // --- Image ---
         let img = figcaption.querySelector(':scope > img');
-        if (photoUrl) {
+        if (safePhotoUrl) {
             if (!img) {
                 img = document.createElement('img');
                 figcaption.insertBefore(img, figcaption.firstChild);
             }
-            img.setAttribute('src', photoUrl);
+            img.setAttribute('src', safePhotoUrl);
             if (photoAlt) img.setAttribute('alt', photoAlt);
             else img.removeAttribute('alt');
             // No width/height — required by spec
@@ -414,13 +421,13 @@ export default class QuoteCard extends Module {
 
         // --- Span with author text ---
         let span = figcaption.querySelector(':scope > span');
-        if (authorText) {
+        if (safeAuthor) {
             if (!span) {
                 span = document.createElement('span');
                 figcaption.appendChild(span);
             }
-            if ((span.innerHTML || '') !== authorText) {
-                span.innerHTML = authorText;
+            if ((span.innerHTML || '') !== safeAuthor) {
+                span.innerHTML = safeAuthor;
             }
         } else if (span) {
             span.remove();

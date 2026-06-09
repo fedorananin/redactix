@@ -128,3 +128,97 @@ export function composeLinkRel({ nofollow = false, blank = false, extra = '' } =
     }
     return Array.from(new Set(parts)).join(' ');
 }
+
+// Синонимичные инлайн-теги сводим к одной канонической форме, чтобы в
+// сохранённом HTML не было смеси <b>/<strong>, <i>/<em>, <s>/<strike>.
+// Вызывается на paste, при загрузке контента и на sync-клоне.
+const INLINE_TAG_SYNONYMS = { STRONG: 'b', EM: 'i', STRIKE: 's' };
+
+export function normalizeInlineSynonyms(root) {
+    Object.keys(INLINE_TAG_SYNONYMS).forEach(tag => {
+        root.querySelectorAll(tag).forEach(el => {
+            const repl = document.createElement(INLINE_TAG_SYNONYMS[el.tagName]);
+            // Атрибуты переносим как есть (class/id из Attributes-диалога и т.п.)
+            Array.from(el.attributes).forEach(a => repl.setAttribute(a.name, a.value));
+            while (el.firstChild) repl.appendChild(el.firstChild);
+            el.parentNode.replaceChild(repl, el);
+        });
+    });
+}
+
+// Inline tags allowed inside captions / author names that round-trip
+// through modal inputs as raw HTML.
+const INLINE_HTML_ALLOWED = new Set([
+    'A', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE',
+    'CODE', 'SPAN', 'MARK', 'SUB', 'SUP', 'BR'
+]);
+
+// Sanitize a snippet of inline HTML (figcaption text, quote-card author
+// name, embed/video/gallery captions). Modal inputs accept raw HTML so
+// inline links and formatting survive a re-edit — but the value must not
+// be able to smuggle scripts, block elements or unsafe URLs into the
+// document. Keeps only INLINE_HTML_ALLOWED tags (everything else is
+// unwrapped, its children kept), strips all attributes except a safe
+// href/rel/target/title set on <a> and class="spoiler" on <span>.
+export function sanitizeInlineHtml(html) {
+    if (typeof html !== 'string' || !html.trim()) return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+
+    const clean = (root) => {
+        Array.from(root.children).forEach(child => {
+            clean(child); // depth-first so unwrapped children are already clean
+
+            if (!INLINE_HTML_ALLOWED.has(child.tagName)) {
+                while (child.firstChild) {
+                    child.parentNode.insertBefore(child.firstChild, child);
+                }
+                child.remove();
+                return;
+            }
+
+            Array.from(child.attributes).forEach(attr => {
+                const name = attr.name.toLowerCase();
+                if (child.tagName === 'A' && name === 'href') {
+                    const safe = sanitizeUrl(attr.value);
+                    if (safe === null) child.removeAttribute(attr.name);
+                    return;
+                }
+                if (child.tagName === 'A' && name === 'rel') {
+                    const cleaned = sanitizeRel(attr.value);
+                    if (cleaned) child.setAttribute('rel', cleaned);
+                    else child.removeAttribute('rel');
+                    return;
+                }
+                if (child.tagName === 'A' && name === 'target') {
+                    const cleaned = sanitizeTarget(attr.value);
+                    if (cleaned) child.setAttribute('target', cleaned);
+                    else child.removeAttribute('target');
+                    return;
+                }
+                if (name === 'class' && child.tagName === 'SPAN' &&
+                    attr.value.split(/\s+/).includes('spoiler')) {
+                    child.setAttribute('class', 'spoiler');
+                    return;
+                }
+                if (name === 'title') return;
+                child.removeAttribute(attr.name);
+            });
+
+            // target=_blank without noopener is a tab-jacking vector.
+            if (child.tagName === 'A' && child.getAttribute('target') === '_blank') {
+                const tokens = new Set((child.getAttribute('rel') || '').split(/\s+/).filter(Boolean));
+                tokens.add('noopener');
+                tokens.add('noreferrer');
+                child.setAttribute('rel', Array.from(tokens).join(' '));
+            }
+        });
+    };
+    clean(tmp);
+
+    // <strong>/<em>/<strike> разрешены на входе, но в документ уходят
+    // только канонические <b>/<i>/<s>.
+    normalizeInlineSynonyms(tmp);
+
+    return tmp.innerHTML;
+}

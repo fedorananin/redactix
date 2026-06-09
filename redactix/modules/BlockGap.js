@@ -35,9 +35,10 @@ export default class BlockGap extends Module {
         });
 
         // Editor scroll (maxHeight) and window resize — recompute or hide.
+        // Глобальные слушатели — через registry (снимаются в destroy()).
         this.instance.editorEl.addEventListener('scroll', () => this.hide());
-        window.addEventListener('scroll', () => this.hide(), { passive: true });
-        window.addEventListener('resize', () => this.hide());
+        this.instance.listen(window, 'scroll', () => this.hide(), { passive: true });
+        this.instance.listen(window, 'resize', () => this.hide());
     }
 
     createHandle() {
@@ -65,6 +66,11 @@ export default class BlockGap extends Module {
             e.preventDefault();
             e.stopPropagation();
             this.insertAtCurrentGap();
+        });
+
+        // Клавиатурная активация (click с detail === 0)
+        this.button.addEventListener('click', (e) => {
+            if (e.detail === 0) this.insertAtCurrentGap();
         });
 
         // Whole strip is clickable too — feels good when aiming roughly.

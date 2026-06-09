@@ -1,5 +1,6 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
+import { sanitizeInlineHtml } from '../core/dom-utils.js';
 
 /**
  * Embed module.
@@ -51,7 +52,8 @@ export default class Embed extends Module {
         // Reddit) post their natural height to window via postMessage.
         // We listen, match the source to one of our iframes, and resize
         // the wrapping frame so the embed fits its content automatically.
-        window.addEventListener('message', (e) => this.onProviderMessage(e));
+        // Глобальный слушатель — через registry (снимается в destroy()).
+        this.instance.listen(window, 'message', (e) => this.onProviderMessage(e));
     }
 
     onProviderMessage(e) {
@@ -240,6 +242,10 @@ export default class Embed extends Module {
 
         const { provider, match } = detected;
         const attrs = provider.buildIframe(match, url);
+        // buildIframe может вернуть null (например, Twitch-фолбэк без
+        // распознанного id) — без guard'а populateFigure упал бы на
+        // Object.entries(null).
+        if (!attrs) return null;
         // defaultHeight may be a number or a function (function gets the
         // regex match so e.g. Spotify can return 152 for tracks and 352
         // for albums/playlists).
@@ -307,14 +313,16 @@ export default class Embed extends Module {
         }
 
         // Figcaption — innerHTML round-trip so inline links / formatting
-        // added through the floating toolbar survive a re-edit.
+        // added through the floating toolbar survive a re-edit. Прогоняем
+        // через инлайн-санитайзер: модалка не должна обходить paste-фильтр.
+        const safeCaption = sanitizeInlineHtml(caption || '');
         let figcaption = figure.querySelector(':scope > figcaption');
-        if (caption && caption.trim()) {
+        if (safeCaption) {
             if (!figcaption) {
                 figcaption = document.createElement('figcaption');
                 figure.appendChild(figcaption);
             }
-            figcaption.innerHTML = caption;
+            figcaption.innerHTML = safeCaption;
         } else if (figcaption) {
             figcaption.remove();
         }

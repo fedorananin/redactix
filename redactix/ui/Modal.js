@@ -6,7 +6,19 @@ export default class Modal {
         this.onCancel = null;
         this.wrapper = wrapper; // Reference to redactix-wrapper for theme classes
         this.instance = instance; // Reference to RedactixInstance for i18n
+        this._escHandler = null;
         this.render();
+
+        // Если инстанс уничтожают с открытой модалкой — снимаем
+        // Escape-слушатель с document.
+        if (instance && instance.onDestroy) {
+            instance.onDestroy(() => {
+                if (this._escHandler) {
+                    document.removeEventListener('keydown', this._escHandler);
+                    this._escHandler = null;
+                }
+            });
+        }
     }
     
     /**
@@ -118,17 +130,35 @@ export default class Modal {
         this.container.appendChild(footer);
 
         this.overlay.classList.add('is-open');
+
+        // Закрытие по Escape — слушатель живёт только пока модалка открыта
+        this._escHandler = (e) => {
+            if (e.key === 'Escape') {
+                e.stopPropagation();
+                this.close();
+            }
+        };
+        document.addEventListener('keydown', this._escHandler);
+
+        // Автофокус на первое поле формы
+        const firstField = this.container.querySelector('input, textarea, select');
+        if (firstField) firstField.focus();
     }
 
     close() {
         this.overlay.classList.remove('is-open');
         this.container.innerHTML = '';
-        
+
+        if (this._escHandler) {
+            document.removeEventListener('keydown', this._escHandler);
+            this._escHandler = null;
+        }
+
         // Call onClose callback if defined
         if (this.onClose) {
             this.onClose();
         }
-        
+
         this.onSave = null;
         this.onClose = null;
     }

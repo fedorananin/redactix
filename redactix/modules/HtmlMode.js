@@ -89,6 +89,14 @@ export default class HtmlMode extends Module {
             if (embedModule && embedModule.cleanEmbedsForSync) {
                 embedModule.cleanEmbedsForSync(tempDiv);
             }
+            const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
+            if (videoModule && videoModule.cleanVideosForSync) {
+                videoModule.cleanVideosForSync(tempDiv);
+            }
+            const galleryModule = this.instance.modules.find(m => m.constructor.name === 'Gallery');
+            if (galleryModule && galleryModule.cleanGalleriesForSync) {
+                galleryModule.cleanGalleriesForSync(tempDiv);
+            }
 
             tempDiv.normalize();
 
@@ -124,8 +132,11 @@ export default class HtmlMode extends Module {
             // 2. Обновляем редактор
             const minifiedCode = this.minifyHtmlPreservePre(code);
             editorEl.innerHTML = minifiedCode;
-            
+
             // Восстанавливаем обертки и настройки
+            if (this.instance.normalizeInlineMarkup) {
+                this.instance.normalizeInlineMarkup();
+            }
             if (this.instance.wrapSeparators) {
                 this.instance.wrapSeparators();
             }
@@ -136,7 +147,8 @@ export default class HtmlMode extends Module {
                 this.instance.setupCodeBlocks();
             }
             // Re-attach module-managed setup so quote-cards / callouts /
-            // embeds get their contenteditable, edit buttons, etc. back.
+            // embeds / videos / galleries get their contenteditable,
+            // edit buttons, etc. back.
             if (this.instance.runQuoteCardSetup) {
                 this.instance.runQuoteCardSetup();
             }
@@ -145,6 +157,12 @@ export default class HtmlMode extends Module {
             }
             if (this.instance.runEmbedSetup) {
                 this.instance.runEmbedSetup();
+            }
+            if (this.instance.runVideoSetup) {
+                this.instance.runVideoSetup();
+            }
+            if (this.instance.runGallerySetup) {
+                this.instance.runGallerySetup();
             }
 
             // 3. Убираем редактор кода

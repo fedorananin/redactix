@@ -1,5 +1,6 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
+import { sanitizeUrl, sanitizeImageSrc, sanitizeInlineHtml, composeLinkRel } from '../core/dom-utils.js';
 
 /**
  * Gallery module.
@@ -148,8 +149,8 @@ export default class Gallery extends Module {
         list.style.maxHeight = 'min(60vh, 600px)';
         list.style.overflowY = 'auto';
         list.style.padding = '8px';
-        list.style.background = '#f9fafb';
-        list.style.border = '1px solid #e5e7eb';
+        list.style.background = 'var(--redactix-bg-secondary)';
+        list.style.border = '1px solid var(--redactix-border)';
         list.style.borderRadius = '8px';
         form.appendChild(list);
 
@@ -157,7 +158,7 @@ export default class Gallery extends Module {
             list.innerHTML = '';
             if (state.items.length === 0) {
                 const empty = document.createElement('div');
-                empty.style.color = '#9ca3af';
+                empty.style.color = 'var(--redactix-text-placeholder)';
                 empty.style.textAlign = 'center';
                 empty.style.padding = '24px 8px';
                 empty.style.fontSize = '13px';
@@ -312,8 +313,8 @@ export default class Gallery extends Module {
         row.style.gap = '8px';
         row.style.alignItems = 'center';
         row.style.padding = '6px';
-        row.style.background = '#fff';
-        row.style.border = '1px solid #e5e7eb';
+        row.style.background = 'var(--redactix-bg)';
+        row.style.border = '1px solid var(--redactix-border)';
         row.style.borderRadius = '6px';
         // Row itself stays non-draggable — otherwise the inputs inside
         // can't do native text selection (browser starts a drag instead).
@@ -322,7 +323,7 @@ export default class Gallery extends Module {
         const handle = document.createElement('div');
         handle.textContent = '⋮⋮';
         handle.style.cursor = 'grab';
-        handle.style.color = '#9ca3af';
+        handle.style.color = 'var(--redactix-text-placeholder)';
         handle.style.fontSize = '14px';
         handle.style.textAlign = 'center';
         handle.style.userSelect = 'none';
@@ -336,12 +337,12 @@ export default class Gallery extends Module {
         thumb.style.height = '60px';
         thumb.style.borderRadius = '4px';
         thumb.style.overflow = 'hidden';
-        thumb.style.background = '#f3f4f6';
+        thumb.style.background = 'var(--redactix-bg-hover)';
         thumb.style.display = 'flex';
         thumb.style.alignItems = 'center';
         thumb.style.justifyContent = 'center';
         if (item._uploading) {
-            thumb.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"><animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/></circle></svg>`;
+            thumb.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"><animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/></circle></svg>`;
         } else if (item.url) {
             const img = document.createElement('img');
             img.src = item.url;
@@ -367,7 +368,7 @@ export default class Gallery extends Module {
         linkChecks.style.display = 'flex';
         linkChecks.style.gap = '12px';
         linkChecks.style.fontSize = '12px';
-        linkChecks.style.color = '#6b7280';
+        linkChecks.style.color = 'var(--redactix-text-muted)';
 
         const blankLabel = document.createElement('label');
         blankLabel.style.display = 'inline-flex';
@@ -405,8 +406,8 @@ export default class Gallery extends Module {
         removeBtn.title = this.t('gallery.removeItem');
         removeBtn.style.width = '28px';
         removeBtn.style.height = '28px';
-        removeBtn.style.background = '#fee2e2';
-        removeBtn.style.color = '#dc2626';
+        removeBtn.style.background = 'var(--redactix-danger-light)';
+        removeBtn.style.color = 'var(--redactix-danger)';
         removeBtn.style.border = 'none';
         removeBtn.style.borderRadius = '4px';
         removeBtn.style.cursor = 'pointer';
@@ -442,14 +443,14 @@ export default class Gallery extends Module {
         row.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            row.style.borderColor = '#3b82f6';
+            row.style.borderColor = 'var(--redactix-primary)';
         });
         row.addEventListener('dragleave', () => {
-            row.style.borderColor = '#e5e7eb';
+            row.style.borderColor = 'var(--redactix-border)';
         });
         row.addEventListener('drop', (e) => {
             e.preventDefault();
-            row.style.borderColor = '#e5e7eb';
+            row.style.borderColor = 'var(--redactix-border)';
             const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
             if (Number.isFinite(from) && from !== index) {
                 const [moved] = state.items.splice(from, 1);
@@ -516,7 +517,7 @@ export default class Gallery extends Module {
         input.placeholder = placeholder;
         input.style.padding = '4px 6px';
         input.style.fontSize = '12px';
-        input.style.border = '1px solid #e5e7eb';
+        input.style.border = '1px solid var(--redactix-border)';
         input.style.borderRadius = '4px';
         input.style.boxSizing = 'border-box';
         input.addEventListener('input', () => onChange(input.value));
@@ -528,15 +529,15 @@ export default class Gallery extends Module {
         btn.type = 'button';
         btn.textContent = label;
         btn.style.padding = '8px 14px';
-        btn.style.background = '#f3f4f6';
-        btn.style.border = '1px solid #e5e7eb';
+        btn.style.background = 'var(--redactix-bg-hover)';
+        btn.style.border = '1px solid var(--redactix-border)';
         btn.style.borderRadius = '6px';
         btn.style.cursor = 'pointer';
         btn.style.fontSize = '13px';
-        btn.style.color = '#374151';
+        btn.style.color = 'var(--redactix-text)';
         btn.style.transition = 'background 0.15s';
-        btn.addEventListener('mouseenter', () => { btn.style.background = '#e5e7eb'; });
-        btn.addEventListener('mouseleave', () => { btn.style.background = '#f3f4f6'; });
+        btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--redactix-bg-active)'; });
+        btn.addEventListener('mouseleave', () => { btn.style.background = 'var(--redactix-bg-hover)'; });
         btn.addEventListener('click', onClick);
         return btn;
     }
@@ -600,14 +601,21 @@ export default class Gallery extends Module {
         const grid = document.createElement('div');
         grid.className = 'redactix-gallery-grid';
         items.forEach(item => {
+            // Санитизация — та же поверхность, что и у одиночной картинки:
+            // src через sanitizeImageSrc, href через sanitizeUrl, rel через
+            // composeLinkRel (noopener при _blank).
+            const src = sanitizeImageSrc(item.url);
+            if (!src) return;
             const img = document.createElement('img');
-            img.setAttribute('src', item.url);
+            img.setAttribute('src', src);
             if (item.alt) img.setAttribute('alt', item.alt);
-            if (item.linkUrl) {
+            const linkUrl = item.linkUrl ? sanitizeUrl(item.linkUrl) : null;
+            if (linkUrl) {
                 const a = document.createElement('a');
-                a.setAttribute('href', item.linkUrl);
+                a.setAttribute('href', linkUrl);
                 if (item.isBlank) a.setAttribute('target', '_blank');
-                if (item.isNofollow) a.setAttribute('rel', 'nofollow');
+                const rel = composeLinkRel({ nofollow: item.isNofollow, blank: item.isBlank });
+                if (rel) a.setAttribute('rel', rel);
                 a.appendChild(img);
                 grid.appendChild(a);
             } else {
@@ -616,10 +624,11 @@ export default class Gallery extends Module {
         });
         figure.appendChild(grid);
 
-        if (caption && caption.trim()) {
+        const safeCaption = sanitizeInlineHtml(caption || '');
+        if (safeCaption) {
             const figcaption = document.createElement('figcaption');
             figcaption.setAttribute('contenteditable', 'true');
-            figcaption.innerHTML = caption;
+            figcaption.innerHTML = safeCaption;
             figure.appendChild(figcaption);
         }
     }
@@ -628,7 +637,7 @@ export default class Gallery extends Module {
 
     openBrowsePanel(container, onSelect) {
         container.innerHTML = `
-            <div style="text-align: center; padding: 16px; color: #6b7280; font-size: 13px;">
+            <div style="text-align: center; padding: 16px; color: var(--redactix-text-muted); font-size: 13px;">
                 ${this.t('gallery.loadingImages')}
             </div>
         `;
@@ -639,17 +648,17 @@ export default class Gallery extends Module {
             .then(r => r.json())
             .then(data => {
                 if (!data.success) {
-                    container.innerHTML = `<div style="color:#dc2626;padding:8px;font-size:13px;">${data.error || 'Failed to load images'}</div>`;
+                    container.innerHTML = `<div style="color:var(--redactix-danger);padding:8px;font-size:13px;">${data.error || 'Failed to load images'}</div>`;
                     return;
                 }
                 if (!data.images || data.images.length === 0) {
-                    container.innerHTML = `<div style="color:#6b7280;padding:16px;text-align:center;font-size:13px;">${this.t('gallery.noImages')}</div>`;
+                    container.innerHTML = `<div style="color:var(--redactix-text-muted);padding:16px;text-align:center;font-size:13px;">${this.t('gallery.noImages')}</div>`;
                     return;
                 }
                 this.renderBrowseGrid(container, data.images, onSelect);
             })
             .catch(() => {
-                container.innerHTML = `<div style="color:#dc2626;padding:8px;font-size:13px;">Connection error</div>`;
+                container.innerHTML = `<div style="color:var(--redactix-danger);padding:8px;font-size:13px;">Connection error</div>`;
             });
     }
 
@@ -662,9 +671,9 @@ export default class Gallery extends Module {
         grid.style.maxHeight = '180px';
         grid.style.overflowY = 'auto';
         grid.style.padding = '8px';
-        grid.style.background = '#f9fafb';
+        grid.style.background = 'var(--redactix-bg-secondary)';
         grid.style.borderRadius = '6px';
-        grid.style.border = '1px solid #e5e7eb';
+        grid.style.border = '1px solid var(--redactix-border)';
 
         images.forEach(img => {
             const tile = document.createElement('div');
@@ -681,7 +690,7 @@ export default class Gallery extends Module {
             preview.style.objectFit = 'cover';
             tile.title = img.filename;
             tile.appendChild(preview);
-            tile.addEventListener('mouseenter', () => { tile.style.borderColor = '#3b82f6'; });
+            tile.addEventListener('mouseenter', () => { tile.style.borderColor = 'var(--redactix-primary)'; });
             tile.addEventListener('mouseleave', () => { tile.style.borderColor = 'transparent'; });
             tile.addEventListener('click', () => onSelect(img));
             grid.appendChild(tile);
