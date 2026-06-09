@@ -42,7 +42,18 @@
     --redactix-code-editor-gutter: #252526;
     --redactix-code-editor-text: #d4d4d4;
     --redactix-code-editor-line: #858585;
-    --redactix-code-editor-selection: #264f78;
+    /* Полупрозрачный: выделение рисуется в textarea ПОВЕРХ подсвеченного
+       backdrop'а — непрозрачный фон закрыл бы текст под выделением */
+    --redactix-code-editor-selection: rgba(58, 110, 165, 0.45);
+
+    /* Токены подсветки синтаксиса в HTML-режиме (палитра VS Code Dark;
+       код-редактор всегда тёмный, поэтому без override в темах) */
+    --redactix-code-token-tag: #569cd6;
+    --redactix-code-token-attr: #9cdcfe;
+    --redactix-code-token-value: #ce9178;
+    --redactix-code-token-punct: #808080;
+    --redactix-code-token-comment: #6a9955;
+    --redactix-code-token-entity: #d7ba7d;
 
     /* Pre blocks */
     --redactix-pre-bg: #1f2937;
@@ -1565,7 +1576,13 @@ textarea.redactix[style*="display: none"] {
 
 .redactix-code-lines {
     flex-shrink: 0;
+    /* ВАЖНО: padding-top обязан совпадать с padding-top у
+       .redactix-code-textarea и .redactix-code-backdrop (16px) — раньше
+       у textarea было 24px, и номера висели "между строк" со сдвигом 8px */
     padding-top: 16px;
+    /* Фон гаттера должен тянуться на всю высоту контента и во fullscreen
+       (см. комментарий у .redactix-code-main) */
+    min-height: max-content;
     background: var(--redactix-code-editor-gutter);
     color: var(--redactix-code-editor-line);
     text-align: right;
@@ -1579,16 +1596,92 @@ textarea.redactix[style*="display: none"] {
     line-height: 21px;
 }
 
-.redactix-code-textarea {
+.redactix-code-line-number:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+    cursor: default;
+}
+
+/* Колонка кода: подсвеченный backdrop позади, прозрачная textarea сверху.
+   Метрики текста (шрифт / размер / line-height / паддинги / white-space /
+   tab-size) у textarea и backdrop обязаны совпадать попиксельно. */
+.redactix-code-main {
+    position: relative;
     flex: 1;
+    min-width: 0;
+    /* Во fullscreen .redactix-code-editor имеет фиксированную высоту и
+       скроллится; flex-stretch дал бы колонке высоту видимой области
+       вместо высоты контента — и backdrop обрезался бы ровно по экрану */
+    min-height: max-content;
+}
+
+.redactix-code-backdrop {
+    position: absolute;
+    /* Без bottom: 0 — высота определяется собственным контентом, а не
+       контейнером. Иначе при любом несоответствии высот подсветка
+       клипается, а прозрачный текст textarea продолжается дальше. */
+    top: 0;
+    left: 0;
+    right: 0;
+    box-sizing: border-box;
     margin: 0;
     padding: 16px;
-    padding-top: 24px !important;
+    overflow: hidden;
+    pointer-events: none;
+    background: transparent;
+    color: var(--redactix-code-editor-text);
+    font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace;
+    font-size: 14px;
+    line-height: 21px;
+    white-space: pre;
+    tab-size: 2;
+    border-radius: 0;
+    border: none;
+}
+
+.redactix-code-backdrop > code {
+    display: block;
+    font: inherit;
+    background: none;
+    padding: 0;
+    color: inherit;
+}
+
+/* Токены подсветки */
+.redactix-code-backdrop .rx-tok-tag     { color: var(--redactix-code-token-tag); }
+.redactix-code-backdrop .rx-tok-attr    { color: var(--redactix-code-token-attr); }
+.redactix-code-backdrop .rx-tok-value   { color: var(--redactix-code-token-value); }
+.redactix-code-backdrop .rx-tok-punct   { color: var(--redactix-code-token-punct); }
+.redactix-code-backdrop .rx-tok-comment { color: var(--redactix-code-token-comment); font-style: italic; }
+.redactix-code-backdrop .rx-tok-entity  { color: var(--redactix-code-token-entity); }
+
+/* Полоса подсветки строки при наведении на её номер */
+.redactix-code-line-highlight {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.08);
+    border-left: 2px solid var(--redactix-primary);
+    pointer-events: none;
+}
+
+.redactix-code-textarea {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 16px;
     border: none;
     outline: none;
     resize: none;
-    background: var(--redactix-code-editor-bg);
-    color: var(--redactix-code-editor-text);
+    /* Текст прозрачный — реальное отображение рисует backdrop с
+       подсветкой; каретка остаётся видимой */
+    background: transparent;
+    color: transparent;
+    caret-color: var(--redactix-code-editor-text);
     font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace;
     font-size: 14px;
     line-height: 21px;
@@ -1600,6 +1693,7 @@ textarea.redactix[style*="display: none"] {
 
 .redactix-code-textarea::selection {
     background: var(--redactix-code-editor-selection);
+    color: transparent;
 }
 
 /* Скроллбар для редактора кода */
@@ -1671,9 +1765,8 @@ body.redactix-fullscreen-active {
     overflow-y: auto;
 }
 
-.redactix-fullscreen .redactix-code-textarea {
+.redactix-fullscreen .redactix-code-main {
     flex: 1;
-    overflow-y: auto !important;
 }
 
 /* Счётчик в полноэкранном режиме */
@@ -2117,7 +2210,8 @@ body.redactix-fullscreen-active {
     direction: ltr;
 }
 
-.redactix-wrapper.redactix-rtl .redactix-code-textarea {
+.redactix-wrapper.redactix-rtl .redactix-code-textarea,
+.redactix-wrapper.redactix-rtl .redactix-code-backdrop {
     direction: ltr;
     text-align: left;
 }

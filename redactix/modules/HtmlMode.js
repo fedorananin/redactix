@@ -1,4 +1,4 @@
-import Module from '../core/Module.js';
+﻿import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
 
 export default class HtmlMode extends Module {
@@ -8,6 +8,21 @@ export default class HtmlMode extends Module {
         this.editorContainer = null;
         this.textarea = null;
         this.lineNumbers = null;
+
+        // Подсветка синтаксиса: прозрачная textarea лежит поверх <pre>
+        // с раскрашенной копией текста (overlay-паттерн). textarea
+        // остаётся источником правды — каретка, выделение и undo нативные.
+        this.codeMain = null;       // обёртка textarea + backdrop
+        this.backdrop = null;       // <pre> с подсветкой
+        this.backdropCode = null;   // <code> внутри backdrop
+        this.lineHighlight = null;  // полоса подсветки строки при hover на номер
+        this._redrawFrame = null;   // rAF-коалесинг перерисовки
+
+        // Метрики строки. Должны совпадать с CSS (.redactix-code-editor:
+        // line-height 21px; паддинг 16px у textarea, backdrop и колонки
+        // номеров) — на этом держится точное соответствие номера и строки.
+        this.LINE_HEIGHT = 21;
+        this.PAD_TOP = 16;
     }
 
     getButtons() {
@@ -121,7 +136,7 @@ export default class HtmlMode extends Module {
 
             // 6. Фокус на textarea
             this.textarea.focus();
-            this.updateLineNumbers();
+            this.redraw();
 
         } else {
             // --- ВОЗВРАТ В ВИЗУАЛЬНЫЙ РЕЖИМ ---
@@ -166,12 +181,20 @@ export default class HtmlMode extends Module {
             }
 
             // 3. Убираем редактор кода
+            if (this._redrawFrame != null) {
+                cancelAnimationFrame(this._redrawFrame);
+                this._redrawFrame = null;
+            }
             if (this.editorContainer && this.editorContainer.parentNode) {
                 this.editorContainer.parentNode.removeChild(this.editorContainer);
             }
             this.editorContainer = null;
             this.textarea = null;
             this.lineNumbers = null;
+            this.codeMain = null;
+            this.backdrop = null;
+            this.backdropCode = null;
+            this.lineHighlight = null;
 
             // 4. Показываем визуальный редактор
             editorEl.style.display = 'block';
@@ -193,11 +216,24 @@ export default class HtmlMode extends Module {
         // Основной контейнер
         this.editorContainer = document.createElement('div');
         this.editorContainer.className = 'redactix-code-editor';
-        
+
         // Номера строк
         this.lineNumbers = document.createElement('div');
         this.lineNumbers.className = 'redactix-code-lines';
-        
+
+        // Колонка кода: подсвеченный backdrop позади + прозрачная textarea сверху
+        this.codeMain = document.createElement('div');
+        this.codeMain.className = 'redactix-code-main';
+
+        this.lineHighlight = document.createElement('div');
+        this.lineHighlight.className = 'redactix-code-line-highlight';
+
+        this.backdrop = document.createElement('pre');
+        this.backdrop.className = 'redactix-code-backdrop';
+        this.backdrop.setAttribute('aria-hidden', 'true');
+        this.backdropCode = document.createElement('code');
+        this.backdrop.appendChild(this.backdropCode);
+
         // Textarea для редактирования
         this.textarea = document.createElement('textarea');
         this.textarea.className = 'redactix-code-textarea';
@@ -206,34 +242,183 @@ export default class HtmlMode extends Module {
         this.textarea.autocomplete = 'off';
         this.textarea.autocorrect = 'off';
         this.textarea.autocapitalize = 'off';
-        
-        // Принудительно задаём line-height через style для синхронизации с номерами строк
-        this.textarea.style.lineHeight = '21px';
-        
+        // Жёстко выключаем мягкий перенос: одна логическая строка = одна
+        // визуальная = один номер. Без этого номера строк "уезжают" на
+        // длинных строках (одна строка занимает две визуальные).
+        this.textarea.setAttribute('wrap', 'off');
+
         // Обработчики событий
-        this.textarea.addEventListener('input', () => this.updateLineNumbers());
+        this.textarea.addEventListener('input', () => this.scheduleRedraw());
         this.textarea.addEventListener('keydown', (e) => this.handleKeydown(e));
-        
+        // Скролл textarea зеркалится на подсвеченный слой через transform —
+        // в отличие от scrollLeft/scrollTop это работает независимо от
+        // того, есть ли у backdrop'а собственная переполненная область
+        // (по вертикали её нет: высота backdrop'а равна контенту).
+        this.textarea.addEventListener('scroll', () => this.syncBackdropScroll());
+
+        // Hover по номеру строки — подсветка соответствующей строки кода
+        this.lineNumbers.addEventListener('mouseover', (e) => {
+            const num = e.target.closest('.redactix-code-line-number');
+            if (num) this.showLineHighlight(parseInt(num.dataset.line, 10));
+        });
+        this.lineNumbers.addEventListener('mouseleave', () => this.hideLineHighlight());
+
+        // Порядок отрисовки: полоса подсветки → подсвеченный код → textarea
+        this.codeMain.appendChild(this.lineHighlight);
+        this.codeMain.appendChild(this.backdrop);
+        this.codeMain.appendChild(this.textarea);
+
         this.editorContainer.appendChild(this.lineNumbers);
-        this.editorContainer.appendChild(this.textarea);
-        
+        this.editorContainer.appendChild(this.codeMain);
+
+        this.redraw();
+    }
+
+    /**
+     * Полная перерисовка: номера строк + подсветка. Дёргается с rAF-
+     * коалесингом на input, синхронно — из handleKeydown (ручные правки
+     * value) и при создании редактора.
+     */
+    redraw() {
         this.updateLineNumbers();
+        this.updateHighlight();
+    }
+
+    scheduleRedraw() {
+        if (this._redrawFrame != null) return;
+        this._redrawFrame = requestAnimationFrame(() => {
+            this._redrawFrame = null;
+            if (this.textarea) this.redraw();
+        });
     }
 
     updateLineNumbers() {
         const lines = this.textarea.value.split('\n');
         const lineCount = lines.length;
-        
+
         let numbersHtml = '';
         for (let i = 1; i <= lineCount; i++) {
-            numbersHtml += `<div class="redactix-code-line-number">${i}</div>`;
+            numbersHtml += `<div class="redactix-code-line-number" data-line="${i - 1}">${i}</div>`;
         }
-        
+
         this.lineNumbers.innerHTML = numbersHtml;
-        
-        // Автовысота textarea
+
+        // Автовысота textarea (wrap выключен — высота детерминирована
+        // числом строк)
         this.textarea.style.height = 'auto';
         this.textarea.style.height = Math.max(300, this.textarea.scrollHeight) + 'px';
+
+        // Компенсация горизонтального скроллбара: он отъедает внутреннюю
+        // высоту, и textarea получает возможность прокрутиться по
+        // вертикали на его толщину. Браузер делает это сам при движении
+        // каретки — и выделение/каретка уезжают относительно подсветки.
+        // Добавляем толщину скроллбара к высоте, чтобы вертикального
+        // скролла не существовало в принципе.
+        const deficit = this.textarea.scrollHeight - this.textarea.clientHeight;
+        if (deficit > 0) {
+            this.textarea.style.height = (this.textarea.offsetHeight + deficit) + 'px';
+        }
+    }
+
+    /**
+     * Сдвиг подсвеченного слоя вслед за скроллом textarea (горизонтальным —
+     * длинные строки; вертикальный в норме невозможен, но зеркалим и его
+     * на случай переходных состояний).
+     */
+    syncBackdropScroll() {
+        if (!this.backdropCode || !this.textarea) return;
+        this.backdropCode.style.transform =
+            `translate(${-this.textarea.scrollLeft}px, ${-this.textarea.scrollTop}px)`;
+    }
+
+    // ---------- Подсветка синтаксиса (свой токенайзер, без зависимостей) ----------
+
+    /**
+     * Перерисовать подсвеченную копию в backdrop. Завершающий \n нужен,
+     * чтобы <pre> не схлопнул последнюю пустую строку (textarea её
+     * показывает, и высоты должны совпадать).
+     */
+    updateHighlight() {
+        if (!this.backdropCode) return;
+        this.backdropCode.innerHTML = this.highlightHtml(this.textarea.value) + '\n';
+        this.syncBackdropScroll();
+    }
+
+    escapeToken(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    /**
+     * HTML-токенайзер: комментарии, doctype, теги (имя / атрибуты /
+     * значения), сущности в тексте. Принимает сырой код, возвращает
+     * безопасный HTML со span'ами rx-tok-*.
+     */
+    highlightHtml(code) {
+        let out = '';
+        let lastIndex = 0;
+        const re = /<!--[\s\S]*?(?:-->|$)|<!DOCTYPE[^>]*>?|<\/?[a-zA-Z][^>]*(?:>|$)/gi;
+        let m;
+        while ((m = re.exec(code)) !== null) {
+            out += this.highlightText(code.slice(lastIndex, m.index));
+            const tok = m[0];
+            if (tok.startsWith('<!--')) {
+                out += `<span class="rx-tok-comment">${this.escapeToken(tok)}</span>`;
+            } else if (/^<!doctype/i.test(tok)) {
+                out += `<span class="rx-tok-punct">${this.escapeToken(tok)}</span>`;
+            } else {
+                out += this.highlightTag(tok);
+            }
+            lastIndex = m.index + tok.length;
+        }
+        out += this.highlightText(code.slice(lastIndex));
+        return out;
+    }
+
+    /** Текст между тегами: подсвечиваем только HTML-сущности. */
+    highlightText(raw) {
+        if (!raw) return '';
+        const escaped = this.escapeToken(raw);
+        // После эскейпа исходное "&nbsp;" выглядит как "&amp;nbsp;"
+        return escaped.replace(/&amp;(#?[a-zA-Z0-9]{1,32});/g,
+            '<span class="rx-tok-entity">&amp;$1;</span>');
+    }
+
+    /** Один тег: <(/)имя атрибут="значение" ... (/)> */
+    highlightTag(rawTag) {
+        const m = rawTag.match(/^(<\/?)([a-zA-Z][\w:-]*)([\s\S]*?)(\/?>?)$/);
+        if (!m) return this.escapeToken(rawTag);
+        const [, open, name, attrs, close] = m;
+
+        let out = `<span class="rx-tok-punct">${this.escapeToken(open)}</span>` +
+            `<span class="rx-tok-tag">${this.escapeToken(name)}</span>`;
+
+        // Атрибуты: имя(=значение)? — всё, что между ними (пробелы), как есть
+        let i = 0;
+        const attrRe = /([a-zA-Z_:@][\w:.-]*)(?:(\s*=\s*)("[^"]*"?|'[^']*'?|[^\s"'=<>`]+))?/g;
+        let am;
+        while ((am = attrRe.exec(attrs)) !== null) {
+            out += this.escapeToken(attrs.slice(i, am.index));
+            out += `<span class="rx-tok-attr">${this.escapeToken(am[1])}</span>`;
+            if (am[2]) out += `<span class="rx-tok-punct">${this.escapeToken(am[2])}</span>`;
+            if (am[3]) out += `<span class="rx-tok-value">${this.escapeToken(am[3])}</span>`;
+            i = am.index + am[0].length;
+        }
+        out += this.escapeToken(attrs.slice(i));
+        out += `<span class="rx-tok-punct">${this.escapeToken(close)}</span>`;
+        return out;
+    }
+
+    // ---------- Hover-подсветка строки ----------
+
+    showLineHighlight(lineIndex) {
+        if (!this.lineHighlight || !Number.isFinite(lineIndex)) return;
+        this.lineHighlight.style.top = `${this.PAD_TOP + lineIndex * this.LINE_HEIGHT}px`;
+        this.lineHighlight.style.height = `${this.LINE_HEIGHT}px`;
+        this.lineHighlight.style.display = 'block';
+    }
+
+    hideLineHighlight() {
+        if (this.lineHighlight) this.lineHighlight.style.display = 'none';
     }
 
     handleKeydown(e) {
@@ -259,8 +444,8 @@ export default class HtmlMode extends Module {
                 this.textarea.value = value.substring(0, start) + '  ' + value.substring(end);
                 this.textarea.selectionStart = this.textarea.selectionEnd = start + 2;
             }
-            
-            this.updateLineNumbers();
+
+            this.redraw();
         }
         
         // Enter - сохранить отступ предыдущей строки
@@ -281,8 +466,8 @@ export default class HtmlMode extends Module {
             // Вставляем перенос с тем же отступом
             this.textarea.value = value.substring(0, start) + '\n' + indent + value.substring(start);
             this.textarea.selectionStart = this.textarea.selectionEnd = start + 1 + indent.length;
-            
-            this.updateLineNumbers();
+
+            this.redraw();
         }
     }
 
