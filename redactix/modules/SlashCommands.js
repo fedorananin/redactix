@@ -579,6 +579,11 @@ export default class SlashCommands extends Module {
         this.selectedIndex = 0;
     }
 
+    /** Закрыть slash-меню (вызывается при входе в HTML-режим). */
+    hideUI() {
+        if (this.isOpen) this.closeMenu();
+    }
+
     /**
      * Update menu position based on cursor
      */

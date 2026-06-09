@@ -32,6 +32,7 @@ Every feature is a class extending `Module`. A module receives the `RedactixInst
 - Read config via `this.instance.config` (this includes `liteMode`, `uploadUrl`, `browseUrl`, `videoUploadUrl`, `videoBrowseUrl`, `allowVideoDelete`, `calloutPresets`, `quotePresets`, `predefinedClasses`, `maxHeight`, `theme`, `gapInsertHandle`, `i18n`).
 - Return toolbar buttons from `getButtons()` (`{ name, icon, title, action, active? }`).
 - Translate strings via `this.t('namespace.key')`.
+- Override `hideUI()` if the module renders floating overlays positioned over the editor (block handles, gap "+", menus, panels). HtmlMode calls it on every module when the visual editor is hidden — otherwise stale absolutely-positioned overlays linger on top of the code editor.
 
 To add a new feature: create a file in [redactix/modules/](redactix/modules/), extend `Module`, then add the class to the `modulesConfig` array in [Redactix.js](redactix/Redactix.js).
 

@@ -122,19 +122,30 @@ export default class HtmlMode extends Module {
             // 2. Создаём контейнер редактора кода
             this.createCodeEditor(prettyHtml);
 
-            // 3. Скрываем визуальный редактор, показываем редактор кода
+            // 3. Прячем плавающие оверлеи остальных модулей (ручки блоков,
+            // "+" между блоками, табличные ручки, floating toolbar, поиск).
+            // Они абсолютно позиционированы в wrapper'е и иначе остаются
+            // висеть поверх кода: mousemove по скрытому editorEl больше не
+            // приходит, и спрятать их некому.
+            this.instance.modules.forEach(m => {
+                if (m !== this && typeof m.hideUI === 'function') {
+                    m.hideUI();
+                }
+            });
+
+            // 4. Скрываем визуальный редактор, показываем редактор кода
             editorEl.style.display = 'none';
             wrapper.appendChild(this.editorContainer);
 
-            // 4. Отключаем кнопки тулбара
+            // 5. Отключаем кнопки тулбара
             this.disableToolbar(true);
             
-            // 5. Скрываем счётчик символов
+            // 6. Скрываем счётчик символов
             if (this.instance.counter) {
                 this.instance.counter.style.display = 'none';
             }
 
-            // 6. Фокус на textarea
+            // 7. Фокус на textarea
             this.textarea.focus();
             this.redraw();
 

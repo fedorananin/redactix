@@ -918,6 +918,18 @@ export default class BlockControl extends Module {
         this.containerHandle.style.display = 'none';
     }
 
+    /** Спрятать все оверлеи модуля (вызывается при входе в HTML-режим). */
+    hideUI() {
+        this.hideHandle();
+        this.hideListHandle();
+        this.hideContainerHandle();
+        this.hideMenu();
+        this.hideEmojiInput();
+        this.currentBlock = null;
+        this.currentList = null;
+        this.currentContainer = null;
+    }
+
     onHandleClick(e) {
         e.stopPropagation();
         e.preventDefault();

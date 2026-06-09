@@ -182,6 +182,11 @@ export default class BlockGap extends Module {
         this.currentGap = null;
     }
 
+    /** Спрятать "+" между блоками (вызывается при входе в HTML-режим). */
+    hideUI() {
+        this.hide();
+    }
+
     insertAtCurrentGap() {
         if (!this.currentGap) return;
         const { after } = this.currentGap;

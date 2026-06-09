@@ -96,6 +96,11 @@ export default class FindReplace extends Module {
         this.instance.editorEl.focus();
     }
 
+    /** Закрыть панель поиска (вызывается при входе в HTML-режим). */
+    hideUI() {
+        if (this.isOpen) this.close();
+    }
+
     createPanel() {
         this.panel = document.createElement('div');
         this.panel.className = 'redactix-find-panel';

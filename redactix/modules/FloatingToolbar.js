@@ -148,6 +148,15 @@ export default class FloatingToolbar extends Module {
         this.isVisible = false;
     }
 
+    /** Спрятать плавающий тулбар (вызывается при входе в HTML-режим). */
+    hideUI() {
+        if (this.hideTimeout) {
+            clearTimeout(this.hideTimeout);
+            this.hideTimeout = null;
+        }
+        this.hide();
+    }
+
     updatePosition() {
         const selection = window.getSelection();
         if (!selection.rangeCount) return;

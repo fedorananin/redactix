@@ -138,6 +138,13 @@ export default class Table extends Module {
         this.rowHandle.style.display = 'none';
     }
 
+    /** Спрятать ручки и контекстное меню (вызывается при входе в HTML-режим). */
+    hideUI() {
+        this.hideHandles();
+        this.hideContextMenu();
+        this.currentCell = null;
+    }
+
     showContextMenuAtHandle(handle, type) {
         const handleRect = handle.getBoundingClientRect();
         const wrapperRect = this.instance.wrapper.getBoundingClientRect();
