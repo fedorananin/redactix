@@ -5,8 +5,8 @@ export default class Editor {
         this.instance = instance;
         this.el = instance.editorEl;
 
-        // Дефолтный параграф-разделитель — глобальная настройка документа,
-        // ставим один раз на всю страницу даже при нескольких инстансах.
+        // Default paragraph separator — global document setting,
+        // set once for the entire page even with multiple instances.
         if (!Editor._documentDefaultsApplied) {
             try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) {}
             Editor._documentDefaultsApplied = true;
@@ -26,16 +26,16 @@ export default class Editor {
         this.el.classList.toggle('is-empty', isEmpty);
     }
 
-    // Гарантирует правильную структуру редактора (минимум один параграф)
+    // Guarantees proper structure of the editor (at least one paragraph)
     ensureEditorStructure() {
-        // Если редактор полностью пуст или содержит только <br>
+        // If the editor is completely empty or contains only <br>
         const content = this.el.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
 
         if (!content) {
-            // Создаём пустой параграф
+            // Create an empty paragraph
             this.el.innerHTML = '<p><br></p>';
 
-            // Ставим курсор в параграф
+            // Place cursor in the paragraph
             const p = this.el.querySelector('p');
             if (p) {
                 const range = document.createRange();
@@ -48,19 +48,19 @@ export default class Editor {
             return;
         }
 
-        // Проверяем: если остался один пустой блочный элемент (не P) — заменяем на P
-        // Это случается когда пользователь выделяет всё и удаляет
+        // Check: if one empty block element remains (not P) — replace with P
+        // This happens when the user selects all and deletes
         if (this.el.children.length === 1) {
             const child = this.el.children[0];
             const checkContent = child.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
 
             if (!checkContent && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'ASIDE'].includes(child.tagName)) {
-                // Заменяем пустой заголовок/цитату на параграф
+                // Replace empty heading/quote with a paragraph
                 const p = document.createElement('p');
                 p.innerHTML = '<br>';
                 this.el.replaceChild(p, child);
 
-                // Ставим курсор
+                // Place cursor
                 const range = document.createRange();
                 const sel = window.getSelection();
                 range.setStart(p, 0);
@@ -71,8 +71,8 @@ export default class Editor {
             }
         }
 
-        // Если есть "голый" текст напрямую в редакторе (не в блочном элементе)
-        // Это может произойти после удаления всего и начала ввода
+        // If there is "naked" text directly in the editor (not in a block element)
+        // This can happen after deleting everything and starting input
         const firstChild = this.el.firstChild;
         if (firstChild && firstChild.nodeType === Node.TEXT_NODE && firstChild.textContent.trim()) {
             // Save cursor position before wrapping
@@ -85,10 +85,10 @@ export default class Editor {
                 savedOffset = range.startOffset;
             }
 
-            // Оборачиваем в параграф
+            // Wrap in a paragraph
             const p = document.createElement('p');
 
-            // Собираем все текстовые узлы и inline элементы в начале
+            // Collect all text nodes and inline elements at the beginning
             while (this.el.firstChild &&
                 (this.el.firstChild.nodeType === Node.TEXT_NODE ||
                     (this.el.firstChild.nodeType === Node.ELEMENT_NODE &&
@@ -133,7 +133,7 @@ export default class Editor {
     }
 
     bindEvents() {
-        // Observer для любых изменений DOM (самый надежный способ синхронизации)
+        // Observer for any DOM changes (the most reliable synchronization method)
         this.observer = new MutationObserver((mutations) => {
             this.instance.sync();
             this.updatePlaceholder();
@@ -145,43 +145,42 @@ export default class Editor {
             characterData: true
         });
 
-        // Отключаем observer при уничтожении инстанса.
+        // Disconnect observer when the instance is destroyed.
         if (this.instance.onDestroy) {
             this.instance.onDestroy(() => this.observer.disconnect());
         }
 
-        // Полностью запрещаем нативный HTML5-drag для содержимого
-        // редактора: иначе браузер умеет таскать <img> внутри
-        // contenteditable и кидать их куда попало (вплоть до вставки
-        // <img> внутрь <h2>). Перетаскивание блоков реализовано через
-        // mousedown в BlockControl, нативный dragstart ему не нужен.
-        // Раньше это делали Image/Video модули, но только при настроенном
-        // uploadUrl — теперь глушим всегда.
+        // Completely disable native HTML5 drag for the editor's content:
+        // otherwise, the browser can drag <img> inside contenteditable
+        // and drop them anywhere (up to inserting <img> inside <h2>).
+        // Block dragging is implemented via mousedown in BlockControl,
+        // native dragstart is not needed. Previously this was done by
+        // Image/Video modules, but only with configured uploadUrl — now disabled always.
         this.el.addEventListener('dragstart', (e) => {
             e.preventDefault();
         });
 
-        // Синхронизация при вводе (как дополнение для мгновенной реакции)
+        // Synchronization on input (as an addition for instant feedback)
         this.el.addEventListener('input', () => {
             this.ensureEditorStructure();
             this.instance.sync();
             this.updatePlaceholder();
         });
 
-        // ensureTrailingParagraph теперь вызывается из RedactixInstance._doSync —
-        // любая структурная правка автоматически получает посадочный <p> в конце.
+        // ensureTrailingParagraph is now called from RedactixInstance._doSync —
+        // any structural edit automatically gets a landing <p> at the end.
 
-        // Обработка paste
+        // Paste handling
         this.el.addEventListener('paste', (e) => {
             e.preventDefault();
             this.handlePaste(e);
         });
 
-        // Обработка нажатий клавиш
+        // Keydown handling
         this.el.addEventListener('keydown', (e) => {
-            // Во время IME-композиции (японский/корейский/китайский ввод,
-            // многие Android-клавиатуры) пробел и Enter управляют выбором
-            // кандидата — кастомные обработчики ломают композицию.
+            // During IME composition (Japanese/Korean/Chinese input,
+            // many Android keyboards) space and Enter control candidate selection —
+            // custom handlers break composition.
             if (e.isComposing || e.keyCode === 229) return;
 
             // Shift+Enter inside aside/blockquote — insert <br> explicitly
@@ -191,14 +190,14 @@ export default class Editor {
                 }
             }
 
-            // Enter в пустых блоках для выхода из списков/цитат
+            // Enter in empty blocks to exit lists/quotes
             if (e.key === 'Enter' && !e.shiftKey) {
                 if (this.handleEnterKey(e)) {
                     return;
                 }
             }
 
-            // Backspace в начале блока для преобразования
+            // Backspace at the beginning of a block to convert
             if (e.key === 'Backspace') {
                 if (this.handleBackspace(e)) {
                     return;
@@ -214,7 +213,7 @@ export default class Editor {
                 }
             }
 
-            // Пробел - умная обработка
+            // Space - smart handling
             if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 e.preventDefault();
                 this.handleSpace();
@@ -225,12 +224,12 @@ export default class Editor {
     handlePaste(e) {
         const clipboardData = e.clipboardData || window.clipboardData;
 
-        // Пытаемся получить HTML
+        // Try to get HTML
         let html = clipboardData.getData('text/html');
         let text = clipboardData.getData('text/plain');
 
         if (html) {
-            // Санитизация HTML
+            // Sanitizing HTML
             html = this.sanitizeHtml(html);
 
             // Parse into temp element to check structure
@@ -248,7 +247,7 @@ export default class Editor {
                 this.insertBlockContent(temp);
             }
 
-            // Настраиваем вставленные figure
+            // Setup inserted figure tags
             if (this.instance.setupFigures) {
                 this.instance.setupFigures();
             }
@@ -270,7 +269,7 @@ export default class Editor {
                 this.instance.runGallerySetup();
             }
         } else if (text) {
-            // Если только текст - вставляем с сохранением переносов строк
+            // If only text - insert preserving line breaks
             const lines = text.split('\n');
             if (lines.length > 1) {
                 const html = lines.map(line => {
@@ -305,7 +304,7 @@ export default class Editor {
         const range = sel.getRangeAt(0);
         range.deleteContents();
 
-        // Контейнеры, внутрь которых разрешена блочная вставка.
+        // Containers inside which block insertion is allowed.
         const isInsertionHost = (el) => {
             if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
             if (el === this.el) return true;
@@ -381,25 +380,25 @@ export default class Editor {
     }
 
     sanitizeHtml(html) {
-        // Создаём временный элемент для парсинга
+        // Create temporary element for parsing
         const temp = document.createElement('div');
         temp.innerHTML = html;
 
-        // Удаляем служебные обёртки Google Docs (b с id="docs-internal-guid-...")
+        // Remove Google Docs helper wrappers (b with id="docs-internal-guid-...")
         const googleWrappers = temp.querySelectorAll('b[id^="docs-internal-guid"]');
         googleWrappers.forEach(wrapper => {
-            // Разворачиваем содержимое, убирая обёртку
+            // Unwrap content, removing the wrapper
             while (wrapper.firstChild) {
                 wrapper.parentNode.insertBefore(wrapper.firstChild, wrapper);
             }
             wrapper.remove();
         });
 
-        // Разворачиваем редакторские обёртки сепараторов до голого <hr>.
-        // В сохранённом HTML их нет, но при копировании из живого DOM
-        // редактора они попадают в буфер; без unwrap'а div-зачистка ниже
-        // превратила бы их в <p><hr></p>. wrapSeparators() вернёт обёртку
-        // после вставки.
+        // Unwrap editor separator wrappers to bare <hr>.
+        // They are not in the saved HTML, but when copying from the editor's
+        // live DOM they end up in the buffer; without unwrap, the div cleanup below
+        // would turn them into <p><hr></p>. wrapSeparators() will restore the wrapper
+        // after insertion.
         temp.querySelectorAll('div.redactix-separator').forEach(wrapper => {
             const hr = wrapper.querySelector('hr');
             if (hr) wrapper.parentNode.replaceChild(hr, wrapper);
@@ -464,7 +463,7 @@ export default class Editor {
             });
         }
 
-        // Удаляем опасные и ненужные теги
+        // Remove dangerous and unnecessary tags
         const dangerousTags = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'meta', 'colgroup'];
         dangerousTags.forEach(tag => {
             const elements = Array.from(temp.getElementsByTagName(tag));
@@ -481,28 +480,28 @@ export default class Editor {
             if (video.parentNode) video.parentNode.removeChild(video);
         });
 
-        // Конвертируем стилизованные span в семантические теги (до удаления стилей!)
-        // Google Docs использует inline стили вместо тегов b/i/u
+        // Convert styled spans into semantic tags (before style removal!)
+        // Google Docs uses inline styles instead of b/i/u tags
         const styledSpans = Array.from(temp.querySelectorAll('span[style]'));
         styledSpans.forEach(span => {
             const style = span.getAttribute('style') || '';
             let wrapper = null;
 
-            // Проверяем стили и создаём соответствующие теги
-            // Порядок важен: сначала внешние, потом внутренние
+            // Check styles and create corresponding tags
+            // Order is important: outer first, then inner
             const isBold = /font-weight:\s*(bold|700|800|900)/i.test(style);
             const isItalic = /font-style:\s*italic/i.test(style);
             const isUnderline = /text-decoration:[^;]*underline/i.test(style);
             const isStrike = /text-decoration:[^;]*line-through/i.test(style);
 
             if (isBold || isItalic || isUnderline || isStrike) {
-                // Собираем содержимое span
+                // Collect span content
                 const content = document.createDocumentFragment();
                 while (span.firstChild) {
                     content.appendChild(span.firstChild);
                 }
 
-                // Оборачиваем в теги (от внешнего к внутреннему)
+                // Wrap in tags (from outer to inner)
                 let result = content;
 
                 if (isStrike) {
@@ -530,17 +529,17 @@ export default class Editor {
             }
         });
 
-        // Удаляем все атрибуты, кроме разрешённых.
-        // rel/target/download разрешены, но фильтруются по whitelist
-        // (sanitizeRel / sanitizeTarget ниже). href/src проверяются на
-        // допустимую схему через sanitizeUrl — отсекает javascript:, data:
-        // (кроме растровых картинок) и прочее.
+        // Remove all attributes except allowed ones.
+        // rel/target/download are allowed but filtered by whitelist
+        // (sanitizeRel / sanitizeTarget below). href/src are checked for
+        // allowed schema via sanitizeUrl — cuts off javascript:, data:
+        // (except raster images) and others.
         const allowedAttributes = ['href', 'src', 'alt', 'title', 'colspan', 'rowspan', 'rel', 'target', 'download'];
-        // Разрешённые классы. Структурные имена редактора зашиты, а
-        // классы коллаут/цитат-пресетов берутся из конфига — так у юзера,
-        // отключившего дефолтные пресеты, при вставке не выживут
-        // соответствующие классы; и наоборот, кастомные классы
-        // (calloutPresets / quotePresets) пройдут без явного whitelist'а.
+        // Allowed classes. Editor structural names are hardcoded, and
+        // callout/quote preset classes are taken from config — so that if a user
+        // disabled default presets, corresponding classes won't survive pasting;
+        // and vice versa, custom classes (calloutPresets / quotePresets)
+        // will pass without explicit whitelisting.
         const allowedClasses = ['spoiler', 'quote-card',
             'redactix-embed', 'redactix-embed-frame',
             'redactix-video', 'redactix-gallery', 'redactix-gallery-grid'];
@@ -595,10 +594,10 @@ export default class Editor {
                     }
                 }
 
-                // Проверяем схему href / src — пропускаем только http(s),
-                // mailto, tel, относительные и (для src картинок) data:image/*
-                // (кроме svg+xml). Всё остальное — javascript:, data:text/html,
-                // vbscript: и так далее — выкидываем.
+                // Check href / src scheme — allow only http(s),
+                // mailto, tel, relative and (for image src) data:image/*
+                // (except svg+xml). Everything else — javascript:, data:text/html,
+                // vbscript: and so on — is discarded.
                 const nameLower = attr.name.toLowerCase();
                 if (nameLower === 'href') {
                     const safe = sanitizeUrl(attr.value);
@@ -616,8 +615,8 @@ export default class Editor {
                     const cleaned = sanitizeTarget(attr.value);
                     if (cleaned) {
                         el.setAttribute('target', cleaned);
-                        // target=_blank без noopener/noreferrer — вектор tab-jacking,
-                        // дочиняем rel автоматически.
+                        // target=_blank without noopener/noreferrer — tab-jacking vector,
+                        // fix rel automatically.
                         if (cleaned === '_blank') {
                             const existing = sanitizeRel(el.getAttribute('rel') || '');
                             const tokens = new Set(existing ? existing.split(/\s+/) : []);
@@ -631,31 +630,31 @@ export default class Editor {
                 }
             });
 
-            // Удаляем inline стили — кроме <video> внутри figure.redactix-video,
-            // у которого мы выше уже оставили только aspect-ratio.
+            // Remove inline styles — except for <video> inside figure.redactix-video,
+            // for which we have already left only aspect-ratio above.
             if (!(el.tagName === 'VIDEO' && safeVideos.has(el))) {
                 el.removeAttribute('style');
             }
         }
 
-        // Упрощаем структуру списков: если li содержит только один p — разворачиваем
+        // Simplify list structure: if li contains only one p — unwrap
         const listItems = Array.from(temp.querySelectorAll('li'));
         listItems.forEach(li => {
             const children = Array.from(li.children);
             const paragraphs = children.filter(c => c.tagName === 'P');
 
-            // Если внутри li только параграфы (и возможно br)
+            // If there are only paragraphs (and possibly br) inside li
             if (paragraphs.length > 0 && children.every(c => c.tagName === 'P' || c.tagName === 'BR')) {
                 // Разворачиваем содержимое параграфов в li
                 const fragment = document.createDocumentFragment();
 
                 children.forEach((child, index) => {
                     if (child.tagName === 'P') {
-                        // Переносим содержимое p
+                        // Transfer p content
                         while (child.firstChild) {
                             fragment.appendChild(child.firstChild);
                         }
-                        // Добавляем br между параграфами (кроме последнего)
+                        // Add br between paragraphs (except the last one)
                         if (index < children.length - 1) {
                             fragment.appendChild(document.createElement('br'));
                         }
@@ -667,36 +666,36 @@ export default class Editor {
             }
         });
 
-        // Исправляем неправильную вложенность блочных элементов (проблема Google Docs)
-        // Например: <h1><p>текст</p></h1> -> <h1>текст</h1>
+        // Fix incorrect nesting of block elements (Google Docs issue)
+        // For example: <h1><p>text</p></h1> -> <h1>text</h1>
         const blockTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'BLOCKQUOTE', 'ASIDE'];
         blockTags.forEach(tag => {
             const elements = Array.from(temp.querySelectorAll(tag));
             elements.forEach(el => {
-                // Если внутри блочного элемента есть другие блочные элементы
+                // If there are other block elements inside the block element
                 const nestedBlocks = el.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div');
                 if (nestedBlocks.length > 0) {
-                    // Собираем содержимое вложенных блоков
+                    // Collect nested blocks content
                     const fragment = document.createDocumentFragment();
 
                     Array.from(el.childNodes).forEach(child => {
                         if (child.nodeType === Node.ELEMENT_NODE &&
                             ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV'].includes(child.tagName)) {
-                            // Это вложенный блочный элемент — вытаскиваем его содержимое
-                            // или сам элемент, если родитель — заголовок, а вложенный — p
+                            // This is a nested block element — extract its content
+                            // or the element itself, if the parent is a heading and the nested is p
                             if (blockTags.slice(0, 6).includes(el.tagName) && child.tagName === 'P') {
-                                // Заголовок содержит p — берём только содержимое p
+                                // Heading contains p — take only p content
                                 while (child.firstChild) {
                                     fragment.appendChild(child.firstChild);
                                 }
                             } else {
-                                // Вытаскиваем блок наружу
+                                // Pull block outside
                                 fragment.appendChild(child.cloneNode(true));
                             }
                         } else if (child.nodeType === Node.ELEMENT_NODE && child.tagName === 'BR') {
-                            // Пропускаем лишние br между блоками
+                            // Skip extra br between blocks
                         } else if (child.nodeType === Node.TEXT_NODE && !child.textContent.trim()) {
-                            // Пропускаем пустые текстовые узлы
+                            // Skip empty text nodes
                         } else {
                             fragment.appendChild(child.cloneNode(true));
                         }
@@ -707,7 +706,7 @@ export default class Editor {
                     el.appendChild(fragment);
                 }
 
-                // Если после очистки элемент пустой или содержит только br — удаляем
+                // If after cleanup the element is empty or contains only br — remove
                 const innerContent = el.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
                 if (!innerContent) {
                     el.remove();
@@ -715,11 +714,11 @@ export default class Editor {
             });
         });
 
-        // Очищаем пустые span и font
+        // Clean up empty span and font tags
         const emptyTags = temp.querySelectorAll('span:empty, font:empty');
         emptyTags.forEach(el => el.remove());
 
-        // Разворачиваем span без атрибутов (бесполезные обёртки)
+        // Unwrap span tags without attributes (useless wrappers)
         const spans = Array.from(temp.querySelectorAll('span'));
         spans.forEach(span => {
             if (span.attributes.length === 0) {
@@ -730,7 +729,7 @@ export default class Editor {
             }
         });
 
-        // Заменяем font на span
+        // Replace font with span
         const fonts = temp.getElementsByTagName('font');
         while (fonts.length > 0) {
             const font = fonts[0];
@@ -741,15 +740,15 @@ export default class Editor {
             font.parentNode.replaceChild(span, font);
         }
 
-        // Канонизируем синонимичные инлайн-теги: <strong>→<b>, <em>→<i>,
-        // <strike>→<s>. В выходном HTML каждая роль представлена ровно
-        // одним тегом.
+        // Canonicalize synonymous inline tags: <strong>→<b>, <em>→<i>,
+        // <strike>→<s>. In the output HTML each role is represented by exactly
+        // one tag.
         normalizeInlineSynonyms(temp);
 
-        // Удаляем пустые div и заменяем непустые на p.
-        // Структурные div'ы редактора (embed-frame, gallery-grid) трогать
-        // нельзя — без них setupEmbeds()/setupGalleries() сочтут figure
-        // сломанной и удалят её вместе с контентом.
+        // Remove empty divs and replace non-empty ones with p.
+        // Structural editor divs (embed-frame, gallery-grid) must not
+        // be touched — without them setupEmbeds()/setupGalleries() will consider the figure
+        // broken and remove it along with the content.
         const divs = Array.from(temp.querySelectorAll('div'));
         divs.forEach(div => {
             if (div.classList.contains('redactix-embed-frame') ||
@@ -767,13 +766,13 @@ export default class Editor {
             }
         });
 
-        // Оборачиваем img в figure (если ещё не обёрнуты)
+        // Wrap img in figure (if not already wrapped)
         const images = Array.from(temp.querySelectorAll('img'));
         images.forEach(img => {
-            // Пропускаем если уже внутри figure
+            // Skip if already inside figure
             if (img.closest('figure')) return;
 
-            // Убираем style у img
+            // Remove style on img
             img.removeAttribute('style');
 
             const figure = document.createElement('figure');
@@ -782,7 +781,7 @@ export default class Editor {
 
             const parent = img.parentNode;
 
-            // Если img внутри p или div и есть куда выносить — выносим figure на уровень выше
+            // If img is inside p or div and there is room to move — extract figure one level up
             if ((parent.tagName === 'P' || parent.tagName === 'DIV') && parent.parentNode) {
                 parent.parentNode.insertBefore(figure, parent);
             } else {
@@ -793,12 +792,12 @@ export default class Editor {
             figure.appendChild(figcaption);
         });
 
-        // Убираем пустые атрибуты class
+        // Remove empty class attributes
         temp.querySelectorAll('[class=""]').forEach(el => {
             el.removeAttribute('class');
         });
 
-        // Убираем Microsoft Office мусор
+        // Remove Microsoft Office garbage
         html = temp.innerHTML;
         html = html.replace(/<!--\[if[\s\S]*?\]>[\s\S]*?<!\[endif\]-->/gi, '');
         html = html.replace(/<!--[\s\S]*?-->/g, '');
@@ -900,7 +899,7 @@ export default class Editor {
             inlineEditable = inlineEditable.parentNode;
         }
 
-        // Находим блочный элемент
+        // Find block element
         while (block && block !== this.el) {
             if (block.nodeType === Node.ELEMENT_NODE) {
                 const tag = block.tagName;
@@ -975,28 +974,28 @@ export default class Editor {
             return false;
         }
 
-        // Проверяем что блок пустой (общий случай для LI и т.п.)
+        // Check that the block is empty (general case for LI etc.)
         const isEmpty = isBlockEmpty(block, 'img, iframe');
 
-        // Выход из списка на пустом LI
+        // Exit from the list on empty LI
         if (block.tagName === 'LI' && isEmpty) {
             e.preventDefault();
 
             const list = block.parentElement;
             const nextSibling = block.nextElementSibling;
 
-            // Проверяем, вложенный ли это список
-            // 1. Стандартная вложенность: родитель списка это LI
+            // Check if this is a nested list
+            // 1. Standard nesting: the list parent is LI
             const parentLi = list.parentElement.closest('li');
-            // 2. Нестандартная (ошибочная) вложенность: список внутри списка
+            // 2. Non-standard (incorrect) nesting: list inside a list
             const parentIsList = ['UL', 'OL'].includes(list.parentElement.tagName);
 
             const isNested = !!parentLi || parentIsList;
 
             if (isNested) {
-                // Это вложенный список - нужно выйти на уровень выше
+                // This is a nested list - we need to exit to a higher level
 
-                // Определяем куда переносить элемент
+                // Determine where to move the element
                 let targetList;
                 let referenceNode;
 
@@ -1004,17 +1003,17 @@ export default class Editor {
                     targetList = parentLi.parentElement;
                     referenceNode = parentLi;
                 } else {
-                    // Если список был вложен неправильно (напрямую в UL/OL)
+                    // If the list was nested incorrectly (directly in UL/OL)
                     targetList = list.parentElement;
                     referenceNode = list;
                 }
 
-                // Создаём новый LI для родительского списка
+                // Create a new LI for the parent list
                 const newLi = document.createElement('li');
 
-                // Если есть элементы после текущего LI во вложенном списке
+                // If there are elements after the current LI in the nested list
                 if (nextSibling) {
-                    // Создаём новый вложенный список для оставшихся элементов
+                    // Create a new nested list for the remaining elements
                     const newNestedList = document.createElement(list.tagName);
                     let current = nextSibling;
                     while (current) {
@@ -1022,7 +1021,7 @@ export default class Editor {
                         newNestedList.appendChild(current);
                         current = next;
                     }
-                    // Добавляем текстовый узел перед вложенным списком для позиционирования курсора
+                    // Add text node before the nested list for cursor positioning
                     const textNode = document.createTextNode('');
                     newLi.appendChild(textNode);
                     newLi.appendChild(newNestedList);
@@ -1030,22 +1029,22 @@ export default class Editor {
                     newLi.innerHTML = '<br>';
                 }
 
-                // Вставляем новый LI после родительского элемента (LI или вложенного списка)
+                // Insert new LI after the parent element (LI or nested list)
                 if (referenceNode.nextSibling) {
                     targetList.insertBefore(newLi, referenceNode.nextSibling);
                 } else {
                     targetList.appendChild(newLi);
                 }
 
-                // Удаляем пустой LI из вложенного списка
+                // Remove empty LI from the nested list
                 block.remove();
 
-                // Если вложенный список стал пустым - удаляем его
+                // If the nested list became empty - remove it
                 if (list.children.length === 0) {
                     list.remove();
                 }
 
-                // Ставим курсор в новый LI
+                // Place cursor in the new LI
                 const newRange = document.createRange();
                 newRange.setStart(newLi, 0);
                 newRange.collapse(true);
@@ -1056,13 +1055,13 @@ export default class Editor {
                 return true;
             }
 
-            // Это список верхнего уровня - выходим в параграф
+            // This is a top-level list - exit to a paragraph
             const p = document.createElement('p');
             p.innerHTML = '<br>';
 
-            // Если есть элементы после текущего - нужно разбить список
+            // If there are elements after the current one - list needs to be split
             if (nextSibling) {
-                // Создаём новый список для оставшихся элементов
+                // Create a new list for the remaining elements
                 const newList = document.createElement(list.tagName);
                 let current = nextSibling;
                 while (current) {
@@ -1071,23 +1070,23 @@ export default class Editor {
                     current = next;
                 }
 
-                // Вставляем параграф и новый список после текущего списка
+                // Insert paragraph and new list after the current list
                 list.parentNode.insertBefore(p, list.nextSibling);
                 p.parentNode.insertBefore(newList, p.nextSibling);
             } else {
-                // Просто вставляем параграф после списка
+                // Just insert paragraph after the list
                 list.parentNode.insertBefore(p, list.nextSibling);
             }
 
-            // Удаляем пустой LI
+            // Remove empty LI
             block.remove();
 
-            // Если список стал пустым - удаляем
+            // If the list became empty - remove it
             if (list.children.length === 0) {
                 list.remove();
             }
 
-            // Ставим курсор в новый параграф
+            // Place cursor in the new paragraph
             const newRange = document.createRange();
             newRange.setStart(p, 0);
             newRange.collapse(true);
@@ -1107,7 +1106,7 @@ export default class Editor {
 
         const range = selection.getRangeAt(0);
 
-        // Проверяем что курсор в начале
+        // Check that cursor is at the beginning
         if (range.startOffset !== 0) return false;
 
         let block = range.startContainer;
@@ -1124,7 +1123,7 @@ export default class Editor {
 
         if (!block || block === this.el) return false;
 
-        // Проверяем что курсор в самом начале блока
+        // Check that cursor is at the very beginning of the block
         let node = range.startContainer;
         while (node && node !== block) {
             if (node.previousSibling) return false;
@@ -1230,7 +1229,7 @@ export default class Editor {
         }
         if (block.tagName === 'P') return false;
 
-        // Преобразуем заголовок в параграф
+        // Convert heading to paragraph
         if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(block.tagName)) {
             e.preventDefault();
 
@@ -1457,9 +1456,9 @@ export default class Editor {
         const selection = window.getSelection();
         if (!selection.rangeCount) return;
 
-        // Если есть выделение — заменяем его пробелом (раньше handleSpace
-        // молча выходил, потому что e.preventDefault уже отработал, и
-        // пробел просто "съедался"). Вставка как обычный текстовый узел.
+        // If there is a selection — replace it with a space (previously handleSpace
+        // exited silently because e.preventDefault had already run, and the
+        // space was just "eaten"). Insertion as a regular text node.
         if (!selection.isCollapsed) {
             const liveRange = selection.getRangeAt(0);
             liveRange.deleteContents();
@@ -1481,14 +1480,14 @@ export default class Editor {
         let offset = range.endOffset;
         let targetTag = null;
 
-        // Проверяем предыдущий символ для двойных пробелов
+        // Check previous character for double spaces
         let prevChar = '';
         if (node.nodeType === Node.TEXT_NODE && offset > 0) {
             prevChar = node.textContent[offset - 1];
         }
         const charToInsert = (prevChar === ' ') ? '\u00A0' : ' ';
 
-        // Логика выхода из форматирования
+        // Formatting exit logic
         const isAtEnd = (n, off) => {
             if (n.nodeType === Node.TEXT_NODE) return off === n.textContent.length;
             return off === n.childNodes.length;
@@ -1523,7 +1522,7 @@ export default class Editor {
             return;
         }
 
-        // Стандартная вставка
+        // Standard insertion
         const textNode = range.startContainer;
         if (textNode.nodeType === Node.TEXT_NODE) {
             const text = textNode.data;

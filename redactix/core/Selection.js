@@ -5,7 +5,7 @@ export default class Selection {
     }
 
     /**
-     * Сохраняет текущее выделение (Range)
+     * Saves the current selection (Range)
      */
     save() {
         const sel = window.getSelection();
@@ -15,7 +15,7 @@ export default class Selection {
     }
 
     /**
-     * Восстанавливает сохраненное выделение
+     * Restores the saved selection
      */
     restore() {
         if (this.savedRange) {
@@ -26,7 +26,7 @@ export default class Selection {
     }
 
     /**
-     * Возвращает текущий Range
+     * Returns the current Range
      */
     getRange() {
         const sel = window.getSelection();
@@ -34,7 +34,7 @@ export default class Selection {
     }
 
     /**
-     * Вставляет узел в текущую позицию курсора
+     * Inserts a node at the current cursor position
      * @param {Node} node 
      */
     insertNode(node) {
@@ -69,10 +69,10 @@ export default class Selection {
         }
 
         if (isBlockElement) {
-            // Для блочных элементов: вставляем на уровне блока
+            // For block elements: insert at block level
             let block = range.startContainer;
             
-            // Находим ближайший блочный родитель
+            // Find the nearest block parent
             while (block && block !== this.editor.el) {
                 if (block.nodeType === Node.ELEMENT_NODE && 
                     ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'FIGURE', 'PRE', 'ASIDE'].includes(block.tagName)) {
@@ -82,23 +82,23 @@ export default class Selection {
             }
 
             if (block && block !== this.editor.el && block.parentNode) {
-                // Проверяем, пустой ли текущий блок
+                // Check if the current block is empty
                 const isEmpty = block.textContent.trim() === '' && 
                     !block.querySelector('img, iframe, video, audio, table');
                 
-                // Вставляем после текущего блока
+                // Insert after the current block
                 block.parentNode.insertBefore(node, block.nextSibling);
                 
-                // Удаляем пустой блок
+                // Remove empty block
                 if (isEmpty) {
                     block.remove();
                 }
             } else {
-                // Если не нашли блок, вставляем в конец редактора
+                // If block not found, append to the end of the editor
                 this.editor.el.appendChild(node);
             }
 
-            // Перемещаем курсор после вставленного элемента
+            // Move cursor after the inserted element
             const newRange = document.createRange();
             newRange.setStartAfter(node);
             newRange.setEndAfter(node);
@@ -107,11 +107,11 @@ export default class Selection {
             sel.removeAllRanges();
             sel.addRange(newRange);
         } else {
-            // Для инлайн-элементов: стандартное поведение
+            // For inline elements: standard behavior
             range.deleteContents();
             range.insertNode(node);
             
-            // Перемещаем курсор после вставленного элемента
+            // Move cursor after the inserted element
             range.setStartAfter(node);
             range.setEndAfter(node); 
             
@@ -122,7 +122,7 @@ export default class Selection {
     }
 
     /**
-     * Исключает завершающие пробелы из выделения
+     * Excludes trailing spaces from selection
      */
     excludeTrailingSpacesFromSelection() {
         const sel = window.getSelection();
@@ -137,7 +137,7 @@ export default class Selection {
             
             const startOffset = (range.startContainer === range.endContainer) ? range.startOffset : 0;
 
-            // Проверяем пробелы (обычные и неразрывные)
+            // Check spaces (normal and non-breaking)
             while (endOffset > startOffset && /[\s\u00A0]/.test(text[endOffset - 1])) {
                 endOffset--;
             }

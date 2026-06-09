@@ -4,15 +4,15 @@ import Icons from '../ui/Icons.js';
 export default class BlockControl extends Module {
     constructor(instance) {
         super(instance);
-        this.handle = null;        // Основная ручка (для блоков и LI)
-        this.listHandle = null;    // Ручка для UL/OL целиком
+        this.handle = null;        // Main handle (for blocks and LI)
+        this.listHandle = null;    // Handle for the entire UL/OL
         this.menu = null;
         this.currentBlock = null;
-        this.currentList = null;   // Текущий список для listHandle
+        this.currentList = null;   // Current list for listHandle
         this.isDragging = false;
         this.dragPlaceholder = null;
         this.dragGhost = null;
-        this.activeHandle = null;  // Какая ручка активна
+        this.activeHandle = null;  // Which handle is active
         this.liteMode = instance.config.liteMode || false; // Lite mode
         this.emojiInput = null;    // Emoji input popup for callouts
 
@@ -35,10 +35,10 @@ export default class BlockControl extends Module {
         this.createContainerHandle();
         this.createMenu();
 
-        // Слушаем движения мыши по редактору для отображения ручки
+        // Listen to mouse movements on the editor to display the handle
         this.instance.editorEl.addEventListener('mousemove', (e) => this.onMouseMove(e));
 
-        // Обновляем позиции ручек при скролле editor'а (для maxHeight)
+        // Update handle positions when scrolling the editor (for maxHeight)
         this.instance.editorEl.addEventListener('scroll', () => {
             if (this.currentBlock && this.handle.style.display !== 'none') {
                 this.showHandle(this.currentBlock);
@@ -66,7 +66,7 @@ export default class BlockControl extends Module {
             }
         });
 
-        // Скрываем меню при клике в любом месте
+        // Hide the menu when clicking anywhere
         this.instance.listen(document, 'click', (e) => {
             if (this.menu && !this.menu.contains(e.target) &&
                 !this.handle.contains(e.target) &&
@@ -76,21 +76,21 @@ export default class BlockControl extends Module {
             }
         });
 
-        // Меню portal'нуто в <body> и спозиционировано через `fixed`,
-        // поэтому при скролле страницы / редактора оно остаётся на
-        // месте, а ручка уезжает. Закрываем его на любой скролл —
-        // capture: true, чтобы ловить и внутренние scrollable-контейнеры
-        // (редактор с maxHeight, fullscreen, любой враппер на стороне
-        // подключения).
+        // The menu is portaled to <body> and positioned via `fixed`,
+        // so when scrolling the page / editor it stays in place
+        // while the handle moves. We close it on any scroll —
+        // capture: true to catch inner scrollable containers as well
+        // (editor with maxHeight, fullscreen, any wrapper on the
+        // integration side).
         this.instance.listen(window, 'scroll', () => {
             if (this.menu && this.menu.style.display === 'block') {
                 this.hideMenu();
             }
         }, { capture: true, passive: true });
 
-        // На touch-устройствах mousemove (основной путь появления ручек)
-        // ненадёжен — показываем ручку для тапнутого блока по клику.
-        // onMouseMove принимает любой объект с clientX/clientY/target.
+        // On touch devices mousemove (the main path for handles appearing)
+        // is unreliable — we show the handle for the tapped block on click.
+        // onMouseMove accepts any object with clientX/clientY/target.
         if (window.matchMedia && window.matchMedia('(hover: none)').matches) {
             this.instance.editorEl.addEventListener('click', (e) => {
                 if (this.isDragging) return;
@@ -98,9 +98,9 @@ export default class BlockControl extends Module {
             });
         }
 
-        // Скрываем ручки, если мышь ушла с редактора
+        // Hide handles if the mouse leaves the editor
         this.instance.wrapper.addEventListener('mouseleave', (e) => {
-            // Проверяем, что мышь не перешла на ручки или меню
+            // Check that the mouse has not moved to the handles or menu
             const relatedTarget = e.relatedTarget;
             if (relatedTarget && (
                 this.handle.contains(relatedTarget) ||
@@ -118,7 +118,7 @@ export default class BlockControl extends Module {
             }
         });
 
-        // Предотвращаем скрытие ручки когда мышь на ней
+        // Prevent hiding the handle when the mouse is on it
         this.handle.addEventListener('mouseenter', () => {
             this.handle.style.display = 'flex';
         });
@@ -131,17 +131,17 @@ export default class BlockControl extends Module {
             this.containerHandle.style.display = 'flex';
         });
 
-        // Когда мышь уходит с ручки - проверяем куда
+        // When the mouse leaves the handle - check where it goes
         this.handle.addEventListener('mouseleave', (e) => {
             const relatedTarget = e.relatedTarget;
-            // Если перешли на редактор или текущий блок - не скрываем
+            // If moved to the editor or the current block - do not hide
             if (relatedTarget && (
                 this.instance.editorEl.contains(relatedTarget) ||
                 (this.menu && this.menu.contains(relatedTarget))
             )) {
                 return;
             }
-            // Иначе скрываем, если меню не открыто
+            // Otherwise hide if the menu is not open
             if (!this.menu || this.menu.style.display === 'none') {
                 this.hideHandle();
             }
@@ -196,7 +196,7 @@ export default class BlockControl extends Module {
             this.onHandleClick(e);
         });
 
-        // Touch события для мобильных
+        // Touch events for mobile
         this.handle.addEventListener('touchstart', (e) => {
             this.activeHandle = 'block';
             this.onTouchStart(e);
@@ -227,7 +227,7 @@ export default class BlockControl extends Module {
             this.onHandleClick(e);
         });
 
-        // Touch события для мобильных
+        // Touch events for mobile
         this.listHandle.addEventListener('touchstart', (e) => {
             this.activeHandle = 'list';
             this.currentBlock = this.currentList;
@@ -285,7 +285,7 @@ export default class BlockControl extends Module {
         // viewport in showMenu().
         document.body.appendChild(this.menu);
 
-        // Портал живёт вне wrapper'а — убираем его при destroy() вручную.
+        // The portal lives outside the wrapper — remove it manually during destroy().
         if (this.instance.onDestroy) {
             this.instance.onDestroy(() => this.menu.remove());
         }
@@ -312,7 +312,7 @@ export default class BlockControl extends Module {
             : null;
         const isInnerBlock = !!(ancestorAside || ancestorCard);
 
-        // Группа: Преобразование блока (только текстовые типы, не для callout/quote-card)
+        // Group: Block transformation (only text types, not for callout/quote-card)
         if (['P', 'H1', 'H2', 'H3', 'ASIDE'].includes(tag)) {
             const transformGroup = this.createMenuGroup(this.t('blockControl.transformTo'));
             const transforms = [
@@ -338,7 +338,7 @@ export default class BlockControl extends Module {
             this.menu.appendChild(this.createMenuDivider());
         }
 
-        // Группа: Пресеты для Callout (aside)
+        // Group: Callout presets (aside)
         if (tag === 'ASIDE') {
             const presetGroup = this.createMenuGroup(this.t('blockControl.calloutStyle'));
             const currentClass = this.getCurrentPresetClass(this.calloutPresets);
@@ -380,12 +380,12 @@ export default class BlockControl extends Module {
             this.menu.appendChild(this.createMenuDivider());
         }
 
-        // Группа: настройки цитаты-карточки (figure.quote-card)
+        // Group: quote-card settings (figure.quote-card)
         if (isQuoteCard) {
             const quoteCardModule = this.instance.modules.find(m => m.constructor.name === 'QuoteCard');
             const card = this.currentBlock;
 
-            // Стили цитаты — пресеты применяются к figure
+            // Quote styles — presets are applied to figure
             const presetGroup = this.createMenuGroup(this.t('blockControl.quoteStyle'));
             const currentClass = this.getCurrentPresetClass(this.quotePresets);
 
@@ -439,7 +439,7 @@ export default class BlockControl extends Module {
             }
         }
 
-        // Группа: редактирование embed (figure.redactix-embed)
+        // Group: editing embed (figure.redactix-embed)
         if (tag === 'FIGURE' && this.currentBlock.classList.contains('redactix-embed') && !this.liteMode) {
             const embedModule = this.instance.modules.find(m => m.constructor.name === 'Embed');
             if (embedModule) {
@@ -452,7 +452,7 @@ export default class BlockControl extends Module {
             }
         }
 
-        // Группа: редактирование видео (figure.redactix-video)
+        // Group: editing video (figure.redactix-video)
         if (tag === 'FIGURE' && this.currentBlock.classList.contains('redactix-video')) {
             const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
             if (videoModule) {
@@ -465,7 +465,7 @@ export default class BlockControl extends Module {
             }
         }
 
-        // Группа: редактирование фото-галереи (figure.redactix-gallery)
+        // Group: editing photo gallery (figure.redactix-gallery)
         if (tag === 'FIGURE' && this.currentBlock.classList.contains('redactix-gallery') && !this.liteMode) {
             const galleryModule = this.instance.modules.find(m => m.constructor.name === 'Gallery');
             if (galleryModule) {
@@ -478,7 +478,7 @@ export default class BlockControl extends Module {
             }
         }
 
-        // Группа: Преобразование списка
+        // Group: List transformation
         if (tag === 'LI' || tag === 'UL' || tag === 'OL') {
             const listGroup = this.createMenuGroup(this.t('blockControl.listType'));
             const currentListType = tag === 'LI' ? parentTag : tag;
@@ -498,7 +498,7 @@ export default class BlockControl extends Module {
             this.menu.appendChild(this.createMenuDivider());
         }
 
-        // Группа: Действия
+        // Group: Actions
         const actionsGroup = this.createMenuGroup(this.t('blockControl.actions'));
 
         actionsGroup.appendChild(this.createMenuItem('⊕', this.t('blockControl.insertBlockBelow'), () => {
@@ -509,13 +509,13 @@ export default class BlockControl extends Module {
             this.duplicateBlock();
         }));
 
-        // Атрибуты не показываем в lite mode
+        // Do not show attributes in lite mode
         if (!this.liteMode) {
             actionsGroup.appendChild(this.createMenuItem('⚙', this.t('blockControl.attributes'), () => {
                 const attributesModule = this.instance.modules.find(m => m.constructor.name === 'Attributes');
                 if (attributesModule) {
                     let target = this.currentBlock;
-                    // Если это обертка разделителя, редактируем сам HR
+                    // If this is a separator wrapper, edit the HR itself
                     if (target.classList.contains('redactix-separator')) {
                         const hr = target.querySelector('hr');
                         if (hr) target = hr;
@@ -580,10 +580,10 @@ export default class BlockControl extends Module {
             return;
         }
 
-        // Если курсор над редактором (например в паддинге слева),
-        // пробуем найти контент по оси Y. Перебираем несколько X-точек,
-        // чтобы поймать центрированные блоки (max-width embeds, big quote
-        // cards, etc.), которые не лежат у левого края.
+        // If the cursor is over the editor (for example, in the left padding),
+        // we try to find content along the Y axis. We iterate through several X-points
+        // to catch centered blocks (max-width embeds, big quote
+        // cards, etc.) that do not align with the left edge.
         if (target === this.instance.editorEl) {
             const editorRect = this.instance.editorEl.getBoundingClientRect();
             const xs = [
@@ -692,7 +692,7 @@ export default class BlockControl extends Module {
             return;
         }
 
-        // Поднимаемся вверх до блочного элемента.
+        // Walk up to the block element.
         // figcaption is part of its <figure> — never treat it as a separate
         // draggable block.
         while (target && target !== this.instance.editorEl) {
@@ -707,25 +707,25 @@ export default class BlockControl extends Module {
             target = target.parentNode;
         }
 
-        // Для списков: показываем две ручки - для LI и для UL/OL
+        // For lists: show two handles - for LI and for UL/OL
         if (target && target.tagName === 'LI') {
-            // Нашли LI - показываем ручку для него
+            // Found LI - show handle for it
             this.currentBlock = target;
             this.showHandle(target);
 
-            // Также показываем ручку для родительского списка
+            // Also show handle for parent list
             const parentList = target.parentElement;
             if (parentList && (parentList.tagName === 'UL' || parentList.tagName === 'OL')) {
-                // Показываем ручку списка всегда (даже для вложенных)
+                // Always show list handle (even for nested ones)
                 this.currentList = parentList;
                 this.showListHandle(parentList);
             }
         } else if (target && (target.tagName === 'UL' || target.tagName === 'OL')) {
-            // Навели на сам список (не на LI внутри)
+            // Hovered on the list itself (not on inner LI)
             const listItems = Array.from(target.children).filter(child => child.tagName === 'LI');
             const mouseY = e.clientY;
 
-            // Ищем LI под курсором
+            // Look for LI under cursor
             const closestLi = listItems.find(li => {
                 const r = li.getBoundingClientRect();
                 return mouseY >= r.top && mouseY <= r.bottom;
@@ -738,14 +738,14 @@ export default class BlockControl extends Module {
                 this.currentList = target;
                 this.showListHandle(target);
             } else {
-                // Нет LI под курсором - показываем только ручку списка
+                // No LI under cursor - show only list handle
                 this.currentBlock = target;
                 this.currentList = target;
                 this.showHandle(target);
                 this.hideListHandle();
             }
         } else if (target && target !== this.instance.editorEl) {
-            // Обычный блок
+            // Standard block
             this.currentBlock = target;
             this.showHandle(target);
             this.hideListHandle();
@@ -791,7 +791,7 @@ export default class BlockControl extends Module {
             leftPos = (rect.left - wrapperRect.left) - 30;
         }
 
-        // Ограничиваем минимальную позицию, чтобы не уезжало за край
+        // Clamp minimum position so it doesn't move off screen
         if (leftPos < 2) leftPos = 2;
 
         if (block.tagName === 'UL' || block.tagName === 'OL') {
@@ -824,10 +824,10 @@ export default class BlockControl extends Module {
             offset = paddingTop + (lineHeight - handleHeight) / 2;
         }
 
-        // Позиция относительно wrapper (ручки абсолютно позиционированы в wrapper)
+        // Position relative to wrapper (handles are absolutely positioned in wrapper)
         const top = rect.top - wrapperRect.top + offset;
 
-        // Проверяем, виден ли блок в области editor'а (для maxHeight режима)
+        // Check if the block is visible in the editor area (for maxHeight mode)
         const isVisible = rect.bottom > editorRect.top && rect.top < editorRect.bottom;
 
         if (isVisible) {
@@ -866,13 +866,13 @@ export default class BlockControl extends Module {
             leftPos = (rect.left - wrapperRect.left) - 30;
         }
 
-        // Ограничиваем минимум
+        // Clamp minimum
         if (leftPos < 2) leftPos = 2;
 
-        // Позиция относительно wrapper
+        // Position relative to wrapper
         const top = rect.top - wrapperRect.top + 2;
 
-        // Проверяем, виден ли список в области editor'а
+        // Check if the list is visible in the editor area
         const isVisible = rect.bottom > editorRect.top && rect.top < editorRect.bottom;
 
         if (isVisible) {
@@ -918,7 +918,7 @@ export default class BlockControl extends Module {
         this.containerHandle.style.display = 'none';
     }
 
-    /** Спрятать все оверлеи модуля (вызывается при входе в HTML-режим). */
+    /** Hide all module overlays (called when entering HTML mode). */
     hideUI() {
         this.hideHandle();
         this.hideListHandle();
@@ -934,7 +934,7 @@ export default class BlockControl extends Module {
         e.stopPropagation();
         e.preventDefault();
 
-        // Если меню уже открыто - закрываем
+        // If the menu is already open, close it
         if (this.menu.style.display === 'block') {
             this.hideMenu();
             return;
@@ -995,7 +995,7 @@ export default class BlockControl extends Module {
             const parent = this.currentBlock.parentElement;
             this.currentBlock.remove();
 
-            // Если удалили последний LI в списке - удаляем и список
+            // If the last LI in the list is deleted, remove the list as well
             if (parent && (parent.tagName === 'UL' || parent.tagName === 'OL')) {
                 if (parent.children.length === 0) {
                     parent.remove();
@@ -1039,7 +1039,7 @@ export default class BlockControl extends Module {
                 this.currentBlock.parentNode.appendChild(newEl);
             }
 
-            // Ставим курсор в новый элемент
+            // Place the cursor in the new element
             const range = document.createRange();
             const sel = window.getSelection();
             range.setStart(newEl, 0);
@@ -1080,7 +1080,7 @@ export default class BlockControl extends Module {
 
         this.beginHistoryBatch();
 
-        // Находим список
+        // Find the list
         let list = this.currentBlock;
         if (list.tagName === 'LI') {
             list = list.parentElement;
@@ -1088,15 +1088,15 @@ export default class BlockControl extends Module {
 
         if (!list || (list.tagName !== 'UL' && list.tagName !== 'OL')) return;
 
-        // Создаем новый список
+        // Create a new list
         const newList = document.createElement(newListTag);
 
-        // Переносим все LI
+        // Transfer all LIs
         while (list.firstChild) {
             newList.appendChild(list.firstChild);
         }
 
-        // Копируем классы
+        // Copy classes
         if (list.className) {
             newList.className = list.className;
         }
@@ -1120,23 +1120,23 @@ export default class BlockControl extends Module {
         if (!list || (list.tagName !== 'UL' && list.tagName !== 'OL')) return;
 
         if (targetLi) {
-            // Преобразуем только один LI в параграф
+            // Transform only one LI to a paragraph
             const p = document.createElement('p');
             while (targetLi.firstChild) {
                 p.appendChild(targetLi.firstChild);
             }
             if (!p.innerHTML.trim()) p.innerHTML = '<br>';
 
-            // Вставляем после списка
+            // Insert after the list
             list.parentNode.insertBefore(p, list.nextSibling);
             targetLi.remove();
 
-            // Если список опустел - удаляем
+            // If the list is empty, delete it
             if (list.children.length === 0) {
                 list.remove();
             }
         } else {
-            // Преобразуем весь список
+            // Transform the entire list
             const fragment = document.createDocumentFragment();
             Array.from(list.children).forEach(li => {
                 if (li.tagName === 'LI') {
@@ -1382,19 +1382,19 @@ export default class BlockControl extends Module {
 
         this.beginHistoryBatch();
 
-        // Убираем все классы пресетов
+        // Remove all preset classes
         presets.forEach(preset => {
             if (preset.class) {
                 this.currentBlock.classList.remove(preset.class);
             }
         });
 
-        // Добавляем новый класс если не null
+        // Add new class if not null
         if (newClass) {
             this.currentBlock.classList.add(newClass);
         }
 
-        // Убираем пустой атрибут class
+        // Remove empty class attribute
         if (this.currentBlock.classList.length === 0) {
             this.currentBlock.removeAttribute('class');
         }
@@ -1412,24 +1412,24 @@ export default class BlockControl extends Module {
     }
 
     onDragStart(e) {
-        // Проверяем что это не правый клик (для меню)
+        // Check that this is not a right click (for menu)
         if (e.button !== 0) return;
 
         e.preventDefault();
         e.stopPropagation();
 
-        // Начинаем batch-операцию (сохраняет состояние ДО изменений)
+        // Start batch operation (saves state BEFORE changes)
         this.beginHistoryBatch();
 
         this.isDragging = true;
         this.getActiveHandleEl().classList.add('dragging');
         this.currentBlock.classList.add('redactix-block-dragging');
 
-        // Создаем placeholder
+        // Create placeholder
         this.dragPlaceholder = document.createElement('div');
         this.dragPlaceholder.className = 'redactix-drag-placeholder';
 
-        // Создаем призрак для визуализации перетаскивания
+        // Create ghost element for drag visualization
         this.dragGhost = document.createElement('div');
         this.dragGhost.className = 'redactix-drag-ghost';
         this.dragGhost.textContent = this.currentBlock.textContent.substring(0, 50) + (this.currentBlock.textContent.length > 50 ? '...' : '');
@@ -1453,10 +1453,10 @@ export default class BlockControl extends Module {
             this.dragGhost.style.top = `${e.clientY + 10}px`;
         }
 
-        // Прячем активную ручку на время elementFromPoint и возвращаем ей
-        // ПРЕЖНЕЕ состояние: раньше тут принудительно ставился 'flex' на
-        // главную ручку, и при перетаскивании за контейнерную/списочную
-        // ручку главная всплывала в устаревшей позиции.
+        // Hide active handle during elementFromPoint and return its
+        // PREVIOUS state: previously 'flex' was forced on
+        // the main handle, and when dragging by the container/list
+        // handle the main one popped up in the outdated position.
         const activeHandleEl = this.getActiveHandleEl();
         const prevHandleDisplay = activeHandleEl.style.display;
         activeHandleEl.style.display = 'none';
@@ -1472,7 +1472,7 @@ export default class BlockControl extends Module {
         // can only contain <img> and <span>, never a draggable block.
         if (elementBelow.closest && elementBelow.closest('figure.quote-card > figcaption')) return;
 
-        // Ищем целевой блок. figcaption is transparent for drop targeting —
+        // Find target block. figcaption is transparent for drop targeting —
         // we never want to insert siblings between figure and its figcaption.
         let targetBlock = elementBelow;
         while (targetBlock && targetBlock !== this.instance.editorEl) {
@@ -1514,11 +1514,11 @@ export default class BlockControl extends Module {
             const targetCard = this.getContainerAncestor(targetBlock);
             if (sourceCard !== targetCard) return;
 
-            // Правила перемещения:
+            // Movement rules:
             if (currentTag === 'LI') {
-                // LI можно перемещать только к другим LI внутри списков
+                // LI can only be moved to other LIs inside lists
                 if (targetTag === 'LI') {
-                    // Перемещение LI к другому LI - вставляем в тот же список
+                    // Move LI to another LI - insert into the same list
                     const rect = targetBlock.getBoundingClientRect();
                     const offset = e.clientY - rect.top;
 
@@ -1530,7 +1530,7 @@ export default class BlockControl extends Module {
                     this.showHandle(this.currentBlock);
                     return;
                 } else if (targetTag === 'UL' || targetTag === 'OL') {
-                    // Если навели на сам список - находим ближайший LI или вставляем в конец
+                    // If hovered on the list itself - find the nearest LI or append to the end
                     const items = targetBlock.querySelectorAll(':scope > li');
                     if (items.length === 0) {
                         targetBlock.appendChild(this.currentBlock);
@@ -1538,13 +1538,13 @@ export default class BlockControl extends Module {
                     }
                     return;
                 } else {
-                    // LI нельзя тащить к обычным блокам
+                    // LI cannot be dragged to standard blocks
                     return;
                 }
             } else if (currentTag === 'UL' || currentTag === 'OL') {
-                // UL/OL можно перемещать к другим блочным элементам (не внутрь списков)
+                // UL/OL can be moved to other block elements (not inside lists)
                 if (targetTag === 'LI') {
-                    // Вставляем список рядом с родительским списком LI
+                    // Insert the list next to the parent list of LI
                     const parentList = targetBlock.parentElement;
                     if (parentList) {
                         const rect = parentList.getBoundingClientRect();
@@ -1559,7 +1559,7 @@ export default class BlockControl extends Module {
                     }
                     return;
                 } else if (targetTag === 'UL' || targetTag === 'OL') {
-                    // Список к списку - вставляем рядом
+                    // List to list - insert next to it
                     const rect = targetBlock.getBoundingClientRect();
                     const offset = e.clientY - rect.top;
 
@@ -1571,12 +1571,12 @@ export default class BlockControl extends Module {
                     this.showHandle(this.currentBlock);
                     return;
                 }
-                // Иначе - к обычным блокам, продолжаем ниже
+                // Otherwise - to standard blocks, continue below
             } else {
-                // Обычные блоки нельзя тащить внутрь списков
+                // Standard blocks cannot be dragged inside lists
                 if (targetTag === 'LI') return;
                 if (targetTag === 'UL' || targetTag === 'OL') {
-                    // Ставим рядом со списками, а не внутрь
+                    // Place next to lists, not inside
                     const rect = targetBlock.getBoundingClientRect();
                     const offset = e.clientY - rect.top;
 
@@ -1589,7 +1589,7 @@ export default class BlockControl extends Module {
                     return;
                 }
 
-                // Проверяем что цель не внутри списка
+                // Check that the target is not inside a list
                 if (targetBlock.parentNode &&
                     (targetBlock.parentNode.tagName === 'UL' ||
                         targetBlock.parentNode.tagName === 'OL' ||
@@ -1598,7 +1598,7 @@ export default class BlockControl extends Module {
                 }
             }
 
-            // Финальная проверка - не вставляем в список
+            // Final check - do not insert into list
             if (targetBlock.parentNode &&
                 (targetBlock.parentNode.tagName === 'UL' ||
                     targetBlock.parentNode.tagName === 'OL')) {
@@ -1643,11 +1643,11 @@ export default class BlockControl extends Module {
 
         this.instance.sync();
 
-        // Завершаем batch-операцию
+        // End batch operation
         this.endHistoryBatch();
     }
 
-    // Вспомогательные методы для работы с историей
+    // Helper methods for working with history
     getHistoryModule() {
         return this.instance.modules.find(m => m.constructor.name === 'History');
     }
@@ -1678,10 +1678,10 @@ export default class BlockControl extends Module {
         this.touchStartTime = Date.now();
         this.touchMoved = false;
 
-        // Таймер для определения long press (открытие меню)
+        // Timer for detecting long press (opening the menu)
         this.touchHoldTimer = setTimeout(() => {
             if (!this.touchMoved) {
-                // Long press - открываем меню
+                // Long press - open the menu
                 this.onHandleClick(e);
             }
         }, 500);
@@ -1706,22 +1706,22 @@ export default class BlockControl extends Module {
         const deltaX = Math.abs(touch.clientX - this.touchStartX);
         const deltaY = Math.abs(touch.clientY - this.touchStartY);
 
-        // Если движение достаточно значительное - начинаем drag
+        // If the movement is significant enough - start drag
         if (deltaX > 10 || deltaY > 10) {
             this.touchMoved = true;
 
-            // Отменяем таймер long press
+            // Cancel long press timer
             if (this.touchHoldTimer) {
                 clearTimeout(this.touchHoldTimer);
                 this.touchHoldTimer = null;
             }
 
-            // Если ещё не начали drag - начинаем
+            // If drag has not started yet - start it
             if (!this.isDragging) {
                 this.startTouchDrag(e);
             }
 
-            // Выполняем drag move
+            // Perform drag move
             this.onTouchDragMove(e);
         }
 
@@ -1729,18 +1729,18 @@ export default class BlockControl extends Module {
     }
 
     onTouchEnd(e) {
-        // Отменяем таймер long press
+        // Cancel long press timer
         if (this.touchHoldTimer) {
             clearTimeout(this.touchHoldTimer);
             this.touchHoldTimer = null;
         }
 
-        // Если был короткий tap без движения - открываем меню
+        // If there was a short tap without movement - open the menu
         if (!this.touchMoved && Date.now() - this.touchStartTime < 300) {
             this.onHandleClick(e);
         }
 
-        // Если был drag - завершаем
+        // If there was a drag - end it
         if (this.isDragging) {
             this.onDragEnd();
         }
@@ -1753,11 +1753,11 @@ export default class BlockControl extends Module {
         this.getActiveHandleEl().classList.add('dragging');
         this.currentBlock.classList.add('redactix-block-dragging');
 
-        // Создаем placeholder
+        // Create placeholder
         this.dragPlaceholder = document.createElement('div');
         this.dragPlaceholder.className = 'redactix-drag-placeholder';
 
-        // Создаем призрак для визуализации перетаскивания
+        // Create ghost element for drag visualization
         this.dragGhost = document.createElement('div');
         this.dragGhost.className = 'redactix-drag-ghost';
         this.dragGhost.textContent = this.currentBlock.textContent.substring(0, 50) + (this.currentBlock.textContent.length > 50 ? '...' : '');
@@ -1773,8 +1773,8 @@ export default class BlockControl extends Module {
             this.dragGhost.style.top = `${touch.clientY + 10}px`;
         }
 
-        // Находим элемент под пальцем (прячем призрак и активную ручку,
-        // возвращая ручке прежнее состояние — см. onDragMove).
+        // Find element under finger (hide ghost and active handle,
+        // returning the handle to its previous state — see onDragMove).
         const activeHandleEl = this.getActiveHandleEl();
         const prevHandleDisplay = activeHandleEl.style.display;
         this.dragGhost.style.display = 'none';
@@ -1791,7 +1791,7 @@ export default class BlockControl extends Module {
         // Hard-refuse drops aimed at a quote-card figcaption.
         if (elementBelow.closest && elementBelow.closest('figure.quote-card > figcaption')) return;
 
-        // Ищем целевой блок. figcaption is transparent for drop targeting —
+        // Find target block. figcaption is transparent for drop targeting —
         // we never want to insert siblings between figure and its figcaption.
         let targetBlock = elementBelow;
         while (targetBlock && targetBlock !== this.instance.editorEl) {
@@ -1827,7 +1827,7 @@ export default class BlockControl extends Module {
             const targetCard = this.getContainerAncestor(targetBlock);
             if (sourceCard !== targetCard) return;
 
-            // Применяем те же правила что и для мыши
+            // Apply the same rules as for mouse
             if (currentTag === 'LI' && targetTag !== 'LI') return;
             if (currentTag !== 'LI' && (targetTag === 'LI' || targetTag === 'UL' || targetTag === 'OL')) {
                 if (targetTag === 'UL' || targetTag === 'OL') {

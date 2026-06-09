@@ -5,7 +5,7 @@ import Modal from './ui/Modal.js';
 import I18n from './i18n/index.js';
 import { normalizeInlineSynonyms } from './core/dom-utils.js';
 
-// Импорт модулей (в будущем можно сделать динамическим конфигом)
+// Import modules (can be a dynamic config in the future)
 import BaseStyles from './modules/BaseStyles.js';
 import BlockStyles from './modules/BlockStyles.js';
 import List from './modules/List.js';
@@ -38,13 +38,13 @@ export default class Redactix {
         // empty array).
         this.predefinedClasses = options.classes || null;
 
-        // Пресеты для callout и цитат. Принимают две формы:
-        //   1) Массив пользовательских пресетов — расширяет дефолтные:
+        // Presets for callout and quotes. Accept two shapes:
+        //   1) Array of custom presets — extends defaults:
         //        calloutPresets: [{ name, label, class }, …]
-        //   2) Объект { defaults?, custom? } — полный контроль:
+        //   2) Object { defaults?, custom? } — full control:
         //        calloutPresets: { defaults: false, custom: [...] }
-        // Резолв в итоговый плоский массив (без plug "none" — его добавит
-        // BlockControl сам) делает resolvePresets() ниже.
+        // Resolving to the final flat array (without the "none" plug — BlockControl
+        // will add it itself) is done by resolvePresets() below.
         this.calloutPresets = this.resolvePresets(options.calloutPresets, [
             { name: 'warning', label: 'Warning', class: 'warning' },
             { name: 'danger', label: 'Danger', class: 'danger' },
@@ -55,28 +55,28 @@ export default class Redactix {
             { name: 'big', label: 'Big', class: 'big' }
         ]);
 
-        // URL для загрузки изображений (если указан - включается drag&drop, paste и upload)
+        // URL for uploading images (if specified - drag&drop, paste and upload are enabled)
         this.uploadUrl = options.uploadUrl || null;
 
-        // URL для просмотра загруженных изображений
+        // URL for browsing uploaded images
         this.browseUrl = options.browseUrl || null;
 
-        // Разрешить удаление изображений через браузер
+        // Allow deleting images via browser
         this.allowImageDelete = options.allowImageDelete || false;
 
-        // Видео-модуль работает по той же логике, что и Image: всегда
-        // включён, всегда умеет вставлять по внешнему URL. Загрузка файлов
-        // на сервер появляется только если задан videoUploadUrl;
-        // галерея загруженных — videoBrowseUrl.
+        // Video module works by the same logic as Image: always
+        // enabled, always can insert via external URL. File upload
+        // to server appears only if videoUploadUrl is set;
+        // browser gallery — videoBrowseUrl.
         this.videoUploadUrl = options.videoUploadUrl || null;
         this.videoBrowseUrl = options.videoBrowseUrl || null;
         this.allowVideoDelete = options.allowVideoDelete || false;
 
-        // Максимальная высота редактора (например: '500px', '50vh')
+        // Max height of the editor (e.g., '500px', '50vh')
         this.maxHeight = options.maxHeight || null;
 
-        // Lite mode - упрощённый редактор для комментариев
-        // Отключает: fullscreen, html mode, find/replace, атрибуты, загрузку фото, расширенные настройки
+        // Lite mode - simplified editor for comments
+        // Disables: fullscreen, html mode, find/replace, attributes, photo upload, advanced settings
         this.liteMode = options.liteMode || false;
 
         // Hover-gap "+" between blocks. Default on; pass false to disable
@@ -94,7 +94,7 @@ export default class Redactix {
 
         this.elements = document.querySelectorAll(this.selector);
         this.instances = [];
-        // Список классов модулей для подключения
+        // List of module classes to connect
         this.modulesConfig = [History, BaseStyles, BlockStyles, List, Link, Image, Gallery, Video, QuoteCard, Callout, Table, Embed, Separator, Code, Markdown, FindReplace, HtmlMode, Fullscreen, Attributes, BlockControl, BlockGap, FloatingToolbar, SlashCommands];
 
         this.init();
@@ -122,21 +122,21 @@ export default class Redactix {
         }
 
         this.elements.forEach(el => {
-            // Пропускаем, если уже инициализирован
+            // Skip if already initialized
             if (el.dataset.redactixInit) return;
 
-            // Формируем конфиг для инстанса
+            // Build config for instance
             const instanceConfig = {
                 modulesConfig: this.modulesConfig,
                 predefinedClasses: this.predefinedClasses,
                 calloutPresets: this.calloutPresets,
                 quotePresets: this.quotePresets,
-                uploadUrl: this.liteMode ? null : this.uploadUrl, // В lite mode отключаем загрузку
-                browseUrl: this.liteMode ? null : this.browseUrl, // В lite mode отключаем галерею
+                uploadUrl: this.liteMode ? null : this.uploadUrl, // In lite mode disable upload
+                browseUrl: this.liteMode ? null : this.browseUrl, // In lite mode disable gallery
                 allowImageDelete: this.allowImageDelete,
-                // В lite mode оставляем модуль видео работать (URL-only,
-                // как и Image), но загрузку файлов и галерею отключаем —
-                // комментаторам ни к чему файловые загрузки на сервер.
+                // In lite mode keep video module working (URL-only,
+                // same as Image), but disable file upload and gallery —
+                // commenters do not need file uploads to the server.
                 videoUploadUrl: this.liteMode ? null : this.videoUploadUrl,
                 videoBrowseUrl: this.liteMode ? null : this.videoBrowseUrl,
                 allowVideoDelete: this.allowVideoDelete,
@@ -147,12 +147,12 @@ export default class Redactix {
                 i18n: this.i18n // Pass i18n instance to each editor instance
             };
 
-            // Передаем this (экземпляр Redactix с конфигами)
+            // Pass this (Redactix instance with configs)
             const instance = new RedactixInstance(el, instanceConfig);
             this.instances.push(instance);
             el.dataset.redactixInit = "true";
 
-            // Сохраняем ссылку на инстанс в textarea для внешнего доступа
+            // Save link to the instance in textarea for external access
             el.redactix = instance;
         });
     }
@@ -161,7 +161,7 @@ export default class Redactix {
 class RedactixInstance {
     constructor(textarea, config) {
         this.textarea = textarea;
-        this.config = config; // Сохраняем весь конфиг
+        this.config = config; // Save entire config
         this.wrapper = null;
         this.editorEl = null;
 
@@ -180,10 +180,10 @@ class RedactixInstance {
         // sync per animation frame.
         this._syncFrame = null;
 
-        // Registry для глобальных (document/window) слушателей и прочих
-        // ресурсов модулей — снимается в destroy(). Слушатели на
-        // элементах внутри wrapper'а регистрировать не нужно: они
-        // умирают вместе с wrapper.remove().
+        // Registry for global (document/window) listeners and other
+        // module resources — released in destroy(). Listeners on
+        // elements inside the wrapper do not need to be registered: they
+        // die together with wrapper.remove().
         this._managedListeners = [];
         this._destroyCallbacks = [];
         this.destroyed = false;
@@ -192,8 +192,8 @@ class RedactixInstance {
     }
 
     /**
-     * addEventListener с автоматическим снятием в destroy(). Использовать
-     * для целей, переживающих wrapper: document, window.
+     * addEventListener with automatic removal in destroy(). Use
+     * for objects that outlive the wrapper: document, window.
      */
     listen(target, type, handler, options) {
         target.addEventListener(type, handler, options);
@@ -201,18 +201,18 @@ class RedactixInstance {
     }
 
     /**
-     * Зарегистрировать произвольный cleanup (disconnect наблюдателя,
-     * удаление портал-элементов из <body> и т.п.), выполняемый в destroy().
+     * Register a custom cleanup (observer disconnect,
+     * removal of portal elements from <body>, etc.) to be executed in destroy().
      */
     onDestroy(cb) {
         this._destroyCallbacks.push(cb);
     }
 
     /**
-     * Полный демонтаж инстанса: снимает глобальные слушатели и
-     * наблюдатели, удаляет wrapper (вместе с тулбаром, модалкой и
-     * ручками), возвращает исходный textarea на место. После destroy()
-     * textarea можно заново инициализировать новым new Redactix(...).
+     * Full teardown of the instance: removes global listeners and
+     * observers, deletes the wrapper (along with toolbar, modal and
+     * handles), returns the original textarea to its place. After destroy()
+     * the textarea can be re-initialized with a new new Redactix(...).
      */
     destroy() {
         if (this.destroyed) return;
@@ -229,7 +229,7 @@ class RedactixInstance {
         this._managedListeners = [];
 
         this._destroyCallbacks.forEach(cb => {
-            try { cb(); } catch (e) { /* cleanup не должен ронять destroy */ }
+            try { cb(); } catch (e) { /* cleanup should not crash destroy */ }
         });
         this._destroyCallbacks = [];
 
@@ -255,49 +255,49 @@ class RedactixInstance {
     }
 
     render() {
-        // 1. Создаем обертку
+        // 1. Create wrapper
         this.wrapper = document.createElement('div');
         this.wrapper.className = 'redactix-wrapper';
 
-        // Добавляем класс для lite mode
+        // Add class for lite mode
         if (this.config.liteMode) {
             this.wrapper.classList.add('redactix-lite-mode');
         }
 
-        // Добавляем класс темы
+        // Add theme class
         if (this.config.theme === 'dark') {
             this.wrapper.classList.add('redactix-dark');
         } else if (this.config.theme === 'auto') {
             this.wrapper.classList.add('redactix-auto');
         }
 
-        // Добавляем RTL поддержку для арабского и других RTL языков
+        // Add RTL support for Arabic and other RTL languages
         if (this.i18n.isRTL()) {
             this.wrapper.classList.add('redactix-rtl');
             this.wrapper.setAttribute('dir', 'rtl');
         }
 
-        // 2. Вставляем обертку перед textarea
+        // 2. Insert wrapper before textarea
         this.textarea.parentNode.insertBefore(this.wrapper, this.textarea);
 
-        // 3. Создаем тулбар
+        // 3. Create toolbar
         this.toolbar = new Toolbar(this);
         this.wrapper.appendChild(this.toolbar.getElement());
 
-        // 4. Создаем область редактирования
+        // 4. Create editing area
         this.editorEl = document.createElement('div');
         this.editorEl.className = 'redactix-editor';
         this.editorEl.contentEditable = true;
 
-        // Применяем максимальную высоту если указана
+        // Apply max height if specified
         if (this.config.maxHeight) {
             this.editorEl.style.maxHeight = this.config.maxHeight;
             this.editorEl.style.overflowY = 'auto';
             this.wrapper.classList.add('redactix-has-max-height');
         }
 
-        // Чистим исходный HTML от лишних пробелов и переносов строк между тегами
-        // Это уберет отступы кода, но сохранит контент
+        // Clean original HTML from extra spaces and line breaks between tags
+        // This will remove code indentations but preserve content
         const cleanHtml = this.textarea.value
             .replace(/>\s+</g, '><') // Убираем пробелы между тегами
             .trim();
@@ -314,33 +314,33 @@ class RedactixInstance {
 
         this.wrapper.appendChild(this.editorEl);
 
-        // 5. Создаём счётчик символов/слов (не в lite mode)
+        // 5. Create character/word counter (not in lite mode)
         if (!this.config.liteMode) {
             this.createCounter();
         }
 
-        // 6. Прячем textarea
+        // 6. Hide textarea
         this.textarea.style.display = 'none';
 
-        // 7. Инициализируем ядро
+        // 7. Initialize core
         this.core = new Editor(this);
         this.selection = new Selection(this.core);
         this.modal = new Modal(this.wrapper, this);
 
-        // 8. Инициализируем модули
+        // 8. Initialize modules
         this.initModules();
 
-        // 9. Миграция legacy <blockquote> → <figure class="quote-card">,
+        // 9. Migration of legacy <blockquote> → <figure class="quote-card">,
         // <aside>plain text</aside> → <aside><p>...</p></aside>,
         // .redactix-video-wrapper → figure.redactix-embed.
-        // Делается после initModules(), потому что нужны экземпляры модулей.
+        // Done after initModules() because module instances are required.
         this.runQuoteCardSetup();
         this.runCalloutSetup();
         this.runEmbedSetup();
         this.runVideoSetup();
         this.runGallerySetup();
 
-        // 10. Обновляем счётчик (не в lite mode)
+        // 10. Update counter (not in lite mode)
         if (!this.config.liteMode) {
             this.updateCounter();
         }
@@ -400,9 +400,9 @@ class RedactixInstance {
     }
 
     /**
-     * Свести синонимичные инлайн-теги в живом DOM редактора к канонической
-     * форме (<strong>→<b>, <em>→<i>, <strike>→<s>). Вызывается при
-     * загрузке контента (render/setContent) и при возврате из HTML-режима.
+     * Normalize synonymous inline tags in the editor's live DOM to canonical
+     * form (<strong>→<b>, <em>→<i>, <strike>→<s>). Called on
+     * content load (render/setContent) and on return from HTML mode.
      */
     normalizeInlineMarkup() {
         normalizeInlineSynonyms(this.editorEl);
@@ -415,15 +415,15 @@ class RedactixInstance {
     }
 
     updateCounter(preparedClone = null) {
-        // В lite mode счётчик не создаётся
+        // In lite mode counter is not created
         if (!this.counter) return;
 
-        // Получаем текст для подсчёта (без HTML-тегов, но с figcaption).
-        // _doSync передаёт уже готовый клон (он дальше не используется),
-        // чтобы не клонировать весь DOM второй раз на каждый ввод.
+        // Get text for counting (without HTML tags, but with figcaption).
+        // _doSync passes a ready-made clone (it is not used further)
+        // to avoid cloning the entire DOM a second time on every input.
         const clone = preparedClone || this.editorEl.cloneNode(true);
 
-        // Удаляем alt и title атрибуты из изображений, ссылок и фреймов чтобы не считать их
+        // Remove alt and title attributes from images, links and frames so they are not counted
         clone.querySelectorAll('img, a, iframe').forEach(el => {
             el.removeAttribute('alt');
             el.removeAttribute('title');
@@ -431,9 +431,9 @@ class RedactixInstance {
 
         const text = clone.innerText || '';
 
-        // Подсчёт символов (без пробелов в начале/конце)
+        // Count characters (without spaces at start/end)
         const chars = text.trim().length;
-        // Подсчёт слов
+        // Count words
         const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
 
         this.counter.textContent = `${chars} ${this.t('counter.chars')} | ${words} ${this.t('counter.words')}`;
@@ -446,22 +446,22 @@ class RedactixInstance {
             this.modules.push(moduleInstance);
         });
 
-        // После инициализации всех модулей, просим тулбар отрисовать кнопки
+        // After initializing all modules, ask toolbar to render buttons
         this.toolbar.addButtonsFromModules(this.modules);
     }
 
-    // Получить чистый HTML контент (без служебных обёрток)
+    // Get clean HTML content (without utility wrappers)
     getContent() {
         this.syncImmediate();
         return this.textarea.value;
     }
 
-    // Установить HTML контент в редактор
+    // Set HTML content into editor
     setContent(html) {
-        // Чистим HTML от лишних пробелов между тегами
+        // Clean HTML from extra spaces between tags
         const cleanHtml = html.replace(/>\s+</g, '><').trim();
 
-        // Устанавливаем в визуальный редактор
+        // Set to visual editor
         this.editorEl.innerHTML = cleanHtml;
 
         // Post-processing as during initialization
@@ -475,11 +475,11 @@ class RedactixInstance {
         this.runVideoSetup();
         this.runGallerySetup();
 
-        // Синхронизируем с textarea (немедленно — внешний код,
-        // вызвавший setContent, часто читает textarea сразу же).
+        // Sync with textarea (immediately — external code
+        // calling setContent often reads textarea right away).
         this.syncImmediate();
 
-        // Уведомляем модуль истории о новом контенте (сброс истории)
+        // Notify history module of new content (reset history)
         const historyModule = this.modules.find(m => m.constructor.name === 'History');
         if (historyModule && historyModule.reset) {
             historyModule.reset();
@@ -524,18 +524,18 @@ class RedactixInstance {
             this.core.ensureTrailingParagraph();
         }
 
-        // Создаем клон для очистки служебных элементов перед сохранением
+        // Create clone to clean utility elements before saving
         const clone = this.editorEl.cloneNode(true);
 
-        // Убираем обертки сепараторов
+        // Remove separator wrappers
         clone.querySelectorAll('.redactix-separator').forEach(wrapper => {
             const hr = wrapper.querySelector('hr');
             if (hr) {
-                // Убираем служебный атрибут contenteditable (если он есть в HTML)
+                // Remove utility contenteditable attribute (if present in HTML)
                 hr.removeAttribute('contenteditable');
                 wrapper.parentNode.replaceChild(hr, wrapper);
             } else {
-                // Если внутри пусто, просто удаляем обертку
+                // If empty inside, just remove wrapper
                 wrapper.remove();
             }
         });
@@ -591,17 +591,17 @@ class RedactixInstance {
             }
         });
 
-        // Убираем служебные атрибуты contenteditable у всех элементов
+        // Remove utility contenteditable attributes from all elements
         clone.querySelectorAll('[contenteditable]').forEach(el => {
             el.removeAttribute('contenteditable');
         });
 
-        // Убираем contenteditable у pre
+        // Remove contenteditable from pre
         clone.querySelectorAll('pre').forEach(pre => {
             pre.removeAttribute('contenteditable');
         });
 
-        // Убираем подсветку поиска
+        // Remove search highlights
         clone.querySelectorAll('.redactix-find-highlight').forEach(mark => {
             const text = document.createTextNode(mark.textContent);
             mark.parentNode.replaceChild(text, mark);
@@ -613,18 +613,18 @@ class RedactixInstance {
         // как-то просочились <strong>/<em>, в textarea уходят <b>/<i>/<s>.
         normalizeInlineSynonyms(clone);
 
-        // Получаем чистый HTML
+        // Get clean HTML
         let html = clone.innerHTML;
 
-        // Убираем лишние пробелы между тегами (сжимаем)
+        // Remove extra spaces between tags (minify)
         // html = html.replace(/>\s+</g, '><').trim(); 
-        // Примечание: выше строка может быть опасной для pre тегов, 
-        // пока оставим как есть или используем более аккуратную очистку.
-        // Оставим просто копирование innerHTML, но без оберток.
+        // Note: the line above might be dangerous for pre tags,
+        // let's leave it as is for now or use a more accurate cleaning.
+        // Let's just leave innerHTML copy, but without wrappers.
 
         this.textarea.value = html;
 
-        // Триггерим событие change на textarea, чтобы внешние скрипты знали об изменении
+        // Trigger change event on textarea so external scripts know about the change
         this.textarea.dispatchEvent(new Event('change', { bubbles: true }));
         this.textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
@@ -657,7 +657,7 @@ class RedactixInstance {
             const wrapper = document.createElement('div');
             wrapper.className = 'redactix-separator';
             wrapper.contentEditable = false;
-            wrapper.innerHTML = ''; // Очистим, если вдруг что-то попало
+            wrapper.innerHTML = ''; // Clear if something got in
 
             hr.parentNode.replaceChild(wrapper, hr);
             wrapper.appendChild(hr);
@@ -665,7 +665,7 @@ class RedactixInstance {
     }
 
     setupFigures() {
-        // Настраиваем contenteditable для figure и figcaption
+        // Setup contenteditable for figure and figcaption
         this.editorEl.querySelectorAll('figure').forEach(figure => {
             // Пропускаем video wrapper, quote-card, redactix-embed и
             // redactix-video — все они управляются собственными модулями.
@@ -679,7 +679,7 @@ class RedactixInstance {
 
             let figcaption = figure.querySelector('figcaption');
             if (!figcaption) {
-                // Создаём пустой figcaption для возможности ввода
+                // Create empty figcaption for input possibility
                 figcaption = document.createElement('figcaption');
                 figcaption.innerHTML = '<br>';
                 figure.appendChild(figcaption);

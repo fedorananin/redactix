@@ -21,10 +21,10 @@ const DEFAULT_LOCALE = 'en';
  */
 class I18n {
     constructor(locale = DEFAULT_LOCALE) {
-        // Нормализуем locale: если запрошенный недоступен, и locale,
-        // и переводы откатываются к дефолту согласованно. Иначе isRTL()
-        // мог бы вернуть true для неизвестного кода, пока переводы
-        // показываются по-английски.
+        // Normalize locale: if the requested one is unavailable, both locale
+        // and translations roll back to the default consistently. Otherwise, isRTL()
+        // could return true for an unknown code while translations
+        // are shown in English.
         if (locales[locale]) {
             this.locale = locale;
             this.translations = locales[locale];

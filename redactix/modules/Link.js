@@ -3,26 +3,26 @@ import Icons from '../ui/Icons.js';
 import { sanitizeUrl, composeLinkRel } from '../core/dom-utils.js';
 
 export default class Link extends Module {
-    // Кнопка убрана - ссылки через floating toolbar
+    // Button removed - links via floating toolbar
     getButtons() {
         return [];
     }
 
     openModal() {
-        // 1. Сохраняем выделение, чтобы не потерять место вставки
+        // 1. Save selection to not lose insertion point
         this.instance.selection.save();
 
         const range = this.instance.selection.getRange();
         const selectedText = range ? range.toString() : '';
 
-        // 2. Создаем форму
+        // 2. Create form
         const form = document.createElement('div');
         
         // URL
         const urlGroup = this.createInputGroup(this.t('link.url'), 'text', 'https://');
         const urlInput = urlGroup.querySelector('input');
         
-        // Text (если текст не выделен, даем возможность его ввести)
+        // Text (if text is not selected, allow entering it)
         const textGroup = this.createInputGroup(this.t('link.linkText'), 'text', selectedText);
         const textInput = textGroup.querySelector('input');
         
@@ -53,7 +53,7 @@ export default class Link extends Module {
 
         form.append(urlGroup, textGroup, checksDiv);
 
-        // 3. Открываем модалку
+        // 3. Open modal
         this.instance.modal.open({
             title: this.t('link.title'),
             body: form,
@@ -82,7 +82,7 @@ export default class Link extends Module {
     }
 
     insertLink(url, text, isBlank, isNofollow) {
-        // Валидируем схему URL — отсекает javascript:, data:text/html и т.п.
+        // Validate URL schema - filters out javascript:, data:text/html, etc.
         const safeUrl = sanitizeUrl(url);
         if (!safeUrl) return;
 
@@ -90,8 +90,8 @@ export default class Link extends Module {
         a.href = safeUrl;
         a.textContent = text;
         if (isBlank) a.target = '_blank';
-        // composeLinkRel сам добавит noopener+noreferrer когда target=_blank
-        // (защита от tab-jacking) и nofollow, если запрошено.
+        // composeLinkRel will add noopener+noreferrer when target=_blank
+        // (tab-jacking protection) and nofollow, if requested.
         const rel = composeLinkRel({ nofollow: isNofollow, blank: isBlank });
         if (rel) a.rel = rel;
 

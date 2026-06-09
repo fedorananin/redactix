@@ -13,21 +13,21 @@ export default class History extends Module {
     }
 
     init() {
-        // Сохраняем начальное состояние
+        // Save initial state
         this.lastSavedContent = this.instance.editorEl.innerHTML;
         this.undoStack.push({
             html: this.lastSavedContent,
             selection: null
         });
 
-        // Слушаем изменения для записи в историю
+        // Listen for changes to write to history
         this.instance.editorEl.addEventListener('input', () => {
             if (!this.isUndoRedo && !this.batchInProgress) {
                 this.debounceSave();
             }
         });
 
-        // Обработка Ctrl+Z и Ctrl+Y (используем e.code для независимости от раскладки)
+        // Handle Ctrl+Z and Ctrl+Y (use e.code to be layout-independent)
         this.instance.editorEl.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) {
                 e.preventDefault();
@@ -52,12 +52,12 @@ export default class History extends Module {
     saveState(force = false) {
         const currentContent = this.instance.editorEl.innerHTML;
         
-        // Не сохраняем если контент не изменился (если не принудительно)
+        // Do not save if content hasn't changed (unless forced)
         if (!force && currentContent === this.lastSavedContent) {
             return;
         }
 
-        // Сохраняем позицию курсора
+        // Save cursor position
         const selectionData = this.saveSelection();
 
         this.undoStack.push({
@@ -65,12 +65,12 @@ export default class History extends Module {
             selection: selectionData
         });
 
-        // Ограничиваем размер истории
+        // Limit history size
         if (this.undoStack.length > this.maxHistory) {
             this.undoStack.shift();
         }
 
-        // Очищаем redo при новом изменении
+        // Clear redo on new change
         this.redoStack = [];
         
         this.lastSavedContent = currentContent;
@@ -82,7 +82,7 @@ export default class History extends Module {
 
         const range = selection.getRangeAt(0);
         
-        // Сохраняем позицию как путь к узлу
+        // Save position as node path
         return {
             startPath: this.getNodePath(range.startContainer),
             startOffset: range.startOffset,
@@ -109,7 +109,7 @@ export default class History extends Module {
             selection.removeAllRanges();
             selection.addRange(range);
         } catch (e) {
-            // Позиция курсора может быть невалидной после undo/redo
+            // Cursor position might be invalid after undo/redo
         }
     }
 
@@ -145,15 +145,15 @@ export default class History extends Module {
     undo() {
         if (this.undoStack.length <= 1) return;
 
-        // Сохраняем текущее состояние в redo
+        // Save current state to redo
         const currentState = {
             html: this.instance.editorEl.innerHTML,
             selection: this.saveSelection()
         };
         this.redoStack.push(currentState);
 
-        // Восстанавливаем предыдущее состояние
-        this.undoStack.pop(); // Убираем текущее
+        // Restore previous state
+        this.undoStack.pop(); // Remove current
         const prevState = this.undoStack[this.undoStack.length - 1];
 
         this.applyState(prevState);
@@ -162,14 +162,14 @@ export default class History extends Module {
     redo() {
         if (this.redoStack.length === 0) return;
 
-        // Сохраняем текущее состояние
+        // Save current state
         const currentState = {
             html: this.instance.editorEl.innerHTML,
             selection: this.saveSelection()
         };
         this.undoStack.push(currentState);
 
-        // Восстанавливаем следующее состояние
+        // Restore next state
         const nextState = this.redoStack.pop();
         this.applyState(nextState);
     }
@@ -180,7 +180,7 @@ export default class History extends Module {
         this.instance.editorEl.innerHTML = state.html;
         this.lastSavedContent = state.html;
         
-        // Восстанавливаем обёртки и настройки
+        // Restore wrappers and settings
         if (this.instance.wrapSeparators) {
             this.instance.wrapSeparators();
         }
@@ -206,16 +206,16 @@ export default class History extends Module {
             this.instance.runGallerySetup();
         }
 
-        // Восстанавливаем позицию курсора
+        // Restore cursor position
         this.restoreSelection(state.selection);
         
-        // Синхронизируем с textarea
+        // Sync with textarea
         this.instance.sync();
         
         this.isUndoRedo = false;
     }
 
-    // Принудительное сохранение состояния (вызывается из других модулей)
+    // Force save state (called from other modules)
     forceSave() {
         if (this.debounceTimer) {
             clearTimeout(this.debounceTimer);
@@ -223,24 +223,24 @@ export default class History extends Module {
         this.saveState();
     }
 
-    // Начать групповую операцию (сохраняет состояние ДО изменений)
+    // Begin batch operation (saves state BEFORE changes)
     beginBatch() {
         if (this.debounceTimer) {
             clearTimeout(this.debounceTimer);
         }
         this.batchInProgress = true;
-        // Сохраняем текущее состояние как точку возврата
+        // Save current state as return point
         this.saveState(true);
     }
 
-    // Завершить групповую операцию (обновляет lastSavedContent)
+    // End batch operation (updates lastSavedContent)
     endBatch() {
         this.batchInProgress = false;
-        // Обновляем lastSavedContent чтобы следующие изменения сравнивались с новым состоянием
+        // Update lastSavedContent so subsequent changes are compared to the new state
         this.lastSavedContent = this.instance.editorEl.innerHTML;
     }
 
-    // Сброс истории (при setContent)
+    // Reset history (on setContent)
     reset() {
         this.undoStack = [];
         this.redoStack = [];

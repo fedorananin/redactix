@@ -381,10 +381,10 @@ export default class QuoteCard extends Module {
     applyAuthor(card, { photoUrl, photoAlt, authorText }) {
         if (!this.isQuoteCard(card)) return;
 
-        // Поле имени автора принимает HTML (инлайн-ссылки и форматирование
-        // переживают повторное редактирование), поэтому прогоняем его через
-        // инлайн-санитайзер; URL фото — через sanitizeImageSrc. Иначе модалка
-        // была бы обходным путём мимо paste-санитайзера (особенно в lite mode).
+        // The author name field accepts HTML (inline links and formatting
+        // survive repeated editing), so we pass it through
+        // the inline sanitizer; photo URL - via sanitizeImageSrc. Otherwise the modal
+        // would be a workaround around the paste sanitizer (especially in lite mode).
         const safePhotoUrl = photoUrl ? sanitizeImageSrc(photoUrl) : null;
         const safeAuthor = sanitizeInlineHtml(authorText || '');
 

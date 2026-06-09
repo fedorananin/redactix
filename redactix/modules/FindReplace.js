@@ -12,25 +12,25 @@ export default class FindReplace extends Module {
     }
 
     init() {
-        // В lite mode полностью отключаем поиск и замену
+        // In lite mode, completely disable search and replace
         if (this.instance.config.liteMode) {
             return;
         }
         
-        // Ctrl+F / Ctrl+H для открытия поиска и замены
-        // Используем e.code для корректной работы с любой раскладкой.
-        // Глобальный слушатель — через registry (снимается в destroy()).
+        // Ctrl+F / Ctrl+H to open search and replace
+        // Use e.code to work correctly with any keyboard layout.
+        // Global listener — via registry (removed in destroy()).
         this.instance.listen(document, 'keydown', (e) => {
-            // Ctrl+F или Ctrl+H (работает на любой раскладке)
+            // Ctrl+F or Ctrl+H (works on any keyboard layout)
             if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyF' || e.code === 'KeyH')) {
-                // Проверяем что фокус в нашем редакторе
+                // Check that focus is in our editor
                 if (this.instance.wrapper.contains(document.activeElement) || 
                     this.instance.editorEl.contains(document.activeElement)) {
                     e.preventDefault();
                     this.open();
                 }
             }
-            // Escape для закрытия
+            // Escape to close
             if (e.key === 'Escape' && this.isOpen) {
                 this.close();
             }
@@ -38,7 +38,7 @@ export default class FindReplace extends Module {
     }
 
     getButtons() {
-        // В lite mode не показываем кнопку поиска
+        // In lite mode do not show the search button
         if (this.instance.config.liteMode) {
             return [];
         }
@@ -55,7 +55,7 @@ export default class FindReplace extends Module {
 
     open() {
         if (this.isOpen) {
-            // Если уже открыто, фокусируемся на поле поиска
+            // If already open, focus on the search field
             const searchInput = this.panel.querySelector('.redactix-find-input');
             if (searchInput) {
                 searchInput.focus();
@@ -71,7 +71,7 @@ export default class FindReplace extends Module {
         const searchInput = this.panel.querySelector('.redactix-find-input');
         searchInput.focus();
 
-        // Если есть выделенный текст, вставляем его в поле поиска
+        // If there is selected text, insert it into the search field
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
             const selectedText = selection.toString().trim();
@@ -92,11 +92,11 @@ export default class FindReplace extends Module {
         this.currentMatches = [];
         this.currentIndex = -1;
         
-        // Возвращаем фокус в редактор
+        // Return focus to the editor
         this.instance.editorEl.focus();
     }
 
-    /** Закрыть панель поиска (вызывается при входе в HTML-режим). */
+    /** Close the search panel (called when entering HTML mode). */
     hideUI() {
         if (this.isOpen) this.close();
     }
@@ -130,7 +130,7 @@ this.panel.innerHTML = `
             </div>
         `;
 
-        // Обработчики
+        // Handlers
         const searchInput = this.panel.querySelector('.redactix-find-input');
         const replaceInput = this.panel.querySelector('.redactix-replace-input');
 
@@ -164,7 +164,7 @@ this.panel.innerHTML = `
             }
         });
 
-        // Кнопки
+        // Buttons
         this.panel.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-action]');
             if (!btn) return;
@@ -200,7 +200,7 @@ this.panel.innerHTML = `
             return;
         }
 
-        // Поиск текстовых узлов
+        // Search for text nodes
         const walker = document.createTreeWalker(
             this.instance.editorEl,
             NodeFilter.SHOW_TEXT,
@@ -211,7 +211,7 @@ this.panel.innerHTML = `
         const textNodes = [];
         let node;
         while (node = walker.nextNode()) {
-            // Пропускаем пустые узлы и узлы внутри скрытых элементов
+            // Skip empty nodes and nodes inside hidden elements
             if (node.textContent.trim() && node.parentElement.offsetParent !== null) {
                 textNodes.push(node);
             }
@@ -245,8 +245,8 @@ this.panel.innerHTML = `
     }
 
     highlightAll() {
-        // Подсвечиваем все совпадения
-        // Идём с конца, чтобы не сбивать индексы
+        // Highlight all matches
+        // Go from the end to avoid shifting indices
         const matchesByNode = new Map();
         
         this.currentMatches.forEach(match => {
@@ -257,18 +257,18 @@ this.panel.innerHTML = `
         });
 
         matchesByNode.forEach((matches, textNode) => {
-            // Сортируем по индексу в обратном порядке
+            // Sort by index in descending order
             matches.sort((a, b) => b.index - a.index);
             
             let text = textNode.textContent;
             const parent = textNode.parentNode;
             
-            // Создаём фрагмент с подсвеченными совпадениями
+            // Create a fragment with highlighted matches
             const fragment = document.createDocumentFragment();
             let lastIndex = text.length;
             
             matches.forEach((match, i) => {
-                // Текст после совпадения
+                // Text after match
                 if (match.index + match.length < lastIndex) {
                     fragment.insertBefore(
                         document.createTextNode(text.substring(match.index + match.length, lastIndex)),
@@ -276,7 +276,7 @@ this.panel.innerHTML = `
                     );
                 }
                 
-                // Само совпадение
+                // The match itself
                 const mark = document.createElement('mark');
                 mark.className = 'redactix-find-highlight';
                 mark.textContent = text.substring(match.index, match.index + match.length);
@@ -286,7 +286,7 @@ this.panel.innerHTML = `
                 lastIndex = match.index;
             });
             
-            // Текст до первого совпадения
+            // Text before the first match
             if (lastIndex > 0) {
                 fragment.insertBefore(
                     document.createTextNode(text.substring(0, lastIndex)),
@@ -297,7 +297,7 @@ this.panel.innerHTML = `
             parent.replaceChild(fragment, textNode);
         });
 
-        // Обновляем ссылки на mark элементы
+        // Update references to mark elements
         const marks = this.instance.editorEl.querySelectorAll('.redactix-find-highlight');
         this.currentMatches = Array.from(marks).map((mark, i) => ({
             element: mark,
@@ -311,13 +311,13 @@ this.panel.innerHTML = `
             const parent = mark.parentNode;
             const text = document.createTextNode(mark.textContent);
             parent.replaceChild(text, mark);
-            // Нормализуем соседние текстовые узлы
+            // Normalize adjacent text nodes
             parent.normalize();
         });
     }
 
     highlightCurrent() {
-        // Убираем предыдущую текущую подсветку
+        // Remove previous current highlight
         const prevCurrent = this.instance.editorEl.querySelector('.redactix-find-current');
         if (prevCurrent) {
             prevCurrent.classList.remove('redactix-find-current');
@@ -378,7 +378,7 @@ if (this.currentMatches.length === 0) {
             text.parentNode.normalize();
         }
 
-        // Перезапускаем поиск
+        // Restart search
         const searchInput = this.panel.querySelector('.redactix-find-input');
         this.search(searchInput.value);
         
@@ -391,7 +391,7 @@ if (this.currentMatches.length === 0) {
         const replaceInput = this.panel.querySelector('.redactix-replace-input');
         const replaceText = replaceInput.value;
 
-        // Заменяем все с конца
+        // Replace all from the end
         for (let i = this.currentMatches.length - 1; i >= 0; i--) {
             const match = this.currentMatches[i];
             if (match.element) {
@@ -401,7 +401,7 @@ if (this.currentMatches.length === 0) {
             }
         }
 
-        // Перезапускаем поиск
+        // Restart search
         const searchInput = this.panel.querySelector('.redactix-find-input');
         this.search(searchInput.value);
         

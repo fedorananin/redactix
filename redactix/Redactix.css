@@ -42,12 +42,12 @@
     --redactix-code-editor-gutter: #252526;
     --redactix-code-editor-text: #d4d4d4;
     --redactix-code-editor-line: #858585;
-    /* Полупрозрачный: выделение рисуется в textarea ПОВЕРХ подсвеченного
-       backdrop'а — непрозрачный фон закрыл бы текст под выделением */
+    /* Semi-transparent: the selection is drawn in the textarea ON TOP of the highlighted
+       backdrop — an opaque background would cover the text under the selection */
     --redactix-code-editor-selection: rgba(58, 110, 165, 0.45);
 
-    /* Токены подсветки синтаксиса в HTML-режиме (палитра VS Code Dark;
-       код-редактор всегда тёмный, поэтому без override в темах) */
+    /* Syntax highlighting tokens in HTML mode (VS Code Dark palette;
+       the code editor is always dark, so no overrides in themes are needed) */
     --redactix-code-token-tag: #569cd6;
     --redactix-code-token-attr: #9cdcfe;
     --redactix-code-token-value: #ce9178;
@@ -228,7 +228,7 @@
     transition: all 0.15s ease;
 }
 
-/* Кнопка поиска — первая в правой группе */
+/* Find button — the first in the right group */
 .redactix-btn[data-command="find"] {
     margin-left: auto;
 }
@@ -275,7 +275,7 @@
     font-size: 16px;
     color: var(--redactix-text);
     white-space: pre-wrap;
-    /* Скругление углов снизу */
+    /* Bottom corner rounding */
     border-bottom-left-radius: var(--redactix-radius);
     border-bottom-right-radius: var(--redactix-radius);
 }
@@ -318,7 +318,7 @@
 
 /* Quote-card: outer figure owns the border, background and padding so that
    blockquote and figcaption share a single visual container.
-   Левый padding шире, чтобы внутри помещался drag-handle inner-блоков. */
+   The left padding is wider to accommodate the drag-handle of inner blocks. */
 .redactix-editor figure.quote-card {
     margin: 1em 0;
     padding: 0.6em 1em 0.6em 2.5em;
@@ -426,9 +426,9 @@
     flex: 0 1 auto;
 }
 
-/* Callout (aside) - базовый стиль (серый, без класса).
-   Левый padding шире остальных, чтобы внутри помещался drag-handle
-   inner-блоков, не залезая на контент. */
+/* Callout (aside) - base style (gray, without class).
+   The left padding is wider than others to accommodate the drag-handle of
+   inner blocks without overlapping the content. */
 .redactix-editor aside {
     margin: 1em 0;
     padding: 1em 1em 1em 2.5em;
@@ -494,8 +494,8 @@
 }
 
 /* Callout emoji.
-   padding-left делаем шире обычного, чтобы между эмодзи и текстом
-   осталось место для drag-handle inner-блоков. */
+   We make padding-left wider than usual to leave space between the emoji and the text
+   for the drag-handle of inner blocks. */
 .redactix-editor aside[data-emoji] {
     padding-left: 4em;
     position: relative;
@@ -783,14 +783,14 @@
 
 .redactix-editor hr {
     margin: 0;
-    /* Отступы управляются оберткой */
+    /* Spacings are managed by the wrapper */
     border: none;
     height: auto;
     border-top: 2px solid var(--redactix-border);
     cursor: default;
     user-select: none;
     pointer-events: none;
-    /* События будет ловить обертка */
+    /* Events will be caught by the wrapper */
 }
 
 .redactix-separator {
@@ -816,7 +816,7 @@
     text-align: center;
 }
 
-/* Плейсхолдер для пустого figcaption (только обычные изображения) */
+/* Placeholder for empty figcaption (only regular images) */
 .redactix-editor figure:not(.quote-card) > figcaption:empty::before,
 .redactix-editor figure:not(.quote-card) > figcaption:has(> br:only-child)::before {
     content: 'Add caption...';
@@ -825,7 +825,7 @@
     pointer-events: none;
 }
 
-/* Скрываем оригинальную textarea */
+/* Hide the original textarea */
 textarea.redactix[style*="display: none"] {
     display: none !important;
 }
@@ -863,7 +863,7 @@ textarea.redactix[style*="display: none"] {
     animation: modalFadeIn 0.2s ease;
 }
 
-/* Модальное окно - адаптивная сетка для полей */
+/* Modal window - responsive grid for fields */
 .redactix-modal-content .redactix-modal-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -874,7 +874,7 @@ textarea.redactix[style*="display: none"] {
     min-width: 0;
 }
 
-/* Полноширинные элементы в сетке */
+/* Full-width elements in the grid */
 .redactix-modal-content .redactix-modal-full-width {
     grid-column: 1 / -1;
 }
@@ -947,7 +947,7 @@ textarea.redactix[style*="display: none"] {
     box-shadow: 0 0 0 3px rgba(var(--redactix-primary-rgb), 0.1);
 }
 
-/* Кнопки управления внутри формы (не в футере) */
+/* Control buttons inside the form (not in the footer) */
 .redactix-modal-content .redactix-modal-grid button,
 .redactix-modal-content .redactix-upload-group button {
     padding: 10px 20px;
@@ -1227,8 +1227,8 @@ textarea.redactix[style*="display: none"] {
     background: var(--redactix-primary);
 }
 
-/* На touch-устройствах hover-а нет — кнопки Edit (embed / video / gallery)
-   видны всегда, иначе до модалки редактирования не добраться. */
+/* No hover on touch devices — Edit buttons (embed / video / gallery)
+   are always visible, otherwise the edit modal cannot be reached. */
 @media (hover: none) {
     .redactix-editor .redactix-embed-edit-btn,
     .redactix-editor .redactix-video-edit-btn,
@@ -1312,7 +1312,7 @@ textarea.redactix[style*="display: none"] {
     color: white;
 }
 
-/* Ручка для списка целиком */
+/* Handle for the entire list */
 .redactix-list-handle {
     background: #fef3c7;
     border: 1px dashed #f59e0b;
@@ -1373,8 +1373,8 @@ textarea.redactix[style*="display: none"] {
     color: #92400e;
 }
 
-/* Ручка для callout / quote-card целиком — выделяем primary-цветом, чтобы
-   отличить от ручки внутреннего блока. */
+/* Handle for the entire callout / quote-card — highlight with the primary color to
+   distinguish it from the handle of the inner block. */
 .redactix-container-handle {
     background: var(--redactix-primary-light);
     border: 1px dashed var(--redactix-primary);
@@ -1576,14 +1576,14 @@ textarea.redactix[style*="display: none"] {
 
 .redactix-code-lines {
     flex-shrink: 0;
-    /* ВАЖНО: padding-top обязан совпадать с padding-top у
-       .redactix-code-textarea и .redactix-code-backdrop (16px) — раньше
-       у textarea было 24px, и номера висели "между строк" со сдвигом 8px */
+    /* IMPORTANT: padding-top must match the padding-top of
+       .redactix-code-textarea and .redactix-code-backdrop (16px) — previously
+       the textarea had 24px, and line numbers were offset by 8px, hanging "between lines" */
     padding-top: 16px !important;
     padding-bottom: 0 !important;
     margin: 0 !important;
-    /* Фон гаттера должен тянуться на всю высоту контента и во fullscreen
-       (см. комментарий у .redactix-code-main) */
+    /* Gutter background must stretch to the full height of the content and in fullscreen
+       (see comment on .redactix-code-main) */
     min-height: max-content;
     background: var(--redactix-code-editor-gutter);
     color: var(--redactix-code-editor-line);
@@ -1607,9 +1607,9 @@ textarea.redactix[style*="display: none"] {
     cursor: default;
 }
 
-/* Колонка кода: подсвеченный backdrop позади, прозрачная textarea сверху.
-   Метрики текста (шрифт / размер / line-height / паддинги / white-space /
-   tab-size) у textarea и backdrop обязаны совпадать попиксельно. */
+/* Code column: highlighted backdrop behind, transparent textarea on top.
+   Text metrics (font / size / line-height / padding / white-space /
+   tab-size) of textarea and backdrop must match pixel-perfectly. */
 .redactix-code-main {
     position: relative;
     flex: 1;
@@ -1620,18 +1620,17 @@ textarea.redactix[style*="display: none"] {
     min-height: max-content;
 }
 
-/* !important на метрико-критичных свойствах backdrop'а / textarea / гаттера —
-   осознанное исключение из правила "никаких !important": это броня от
-   агрессивных стилей CMS/админок (textarea { ... }, pre { ... }, code { ... }
-   и глобальных ::selection). Любое расхождение шрифта, паддингов или
-   line-height между тремя слоями ломает попиксельное совпадение подсветки,
-   каретки и номеров строк. Инлайновые стили из JS (height, transform) эти
-   правила не задевают. */
+/* !important on metric-critical properties of the backdrop / textarea / gutter —
+   a conscious exception to the "no !important" rule: this is armor against
+   aggressive styles of CMS/admin panels (textarea { ... }, pre { ... }, code { ... }
+   and global ::selection). Any discrepancy in font, padding, or
+   line-height between the three layers breaks the pixel-perfect matching of highlighting,
+   caret, and line numbers. Inline styles from JS (height, transform) are not affected by these rules. */
 .redactix-code-backdrop {
     position: absolute !important;
-    /* Без bottom: 0 — высота определяется собственным контентом, а не
-       контейнером. Иначе при любом несоответствии высот подсветка
-       клипается, а прозрачный текст textarea продолжается дальше. */
+    /* Without bottom: 0 — the height is determined by its own content, not by
+       the container. Otherwise, with any height mismatch, the highlighting
+       is clipped, while the transparent text of the textarea continues. */
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
@@ -1672,8 +1671,8 @@ textarea.redactix[style*="display: none"] {
     color: inherit;
 }
 
-/* Токены подсветки. !important защищает от CMS-правил на pre/code/span,
-   но темингу не мешает: цвет настраивается значением переменной. */
+/* Highlight tokens. !important protects against CMS rules on pre/code/span,
+   but does not interfere with theming: the color is configured by the variable value. */
 .redactix-code-backdrop .rx-tok-tag     { color: var(--redactix-code-token-tag) !important; }
 .redactix-code-backdrop .rx-tok-attr    { color: var(--redactix-code-token-attr) !important; }
 .redactix-code-backdrop .rx-tok-value   { color: var(--redactix-code-token-value) !important; }
@@ -1707,9 +1706,9 @@ textarea.redactix[style*="display: none"] {
     resize: none !important;
     box-shadow: none !important;
     background: transparent !important;
-    /* Запасной видимый цвет: если на сайте оказался устаревший
-       HtmlMode.js без подсвечивающего backdrop'а (частичное обновление
-       файлов), текст не должен исчезнуть */
+    /* Fallback visible color: if the site ends up with an outdated
+       HtmlMode.js without a highlighting backdrop (partial update of
+       files), the text should not disappear */
     color: var(--redactix-code-editor-text);
     caret-color: var(--redactix-code-editor-text) !important;
     font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace !important;
@@ -1725,10 +1724,10 @@ textarea.redactix[style*="display: none"] {
     tab-size: 2 !important;
 }
 
-/* Прозрачный текст — ТОЛЬКО в новой overlay-структуре (textarea лежит
-   внутри .redactix-code-main рядом с .redactix-code-backdrop, который и
-   рисует подсвеченный текст). Со старым JS селектор не совпадает, и
-   textarea остаётся видимой. */
+/* Transparent text — ONLY in the new overlay structure (textarea lies
+   inside .redactix-code-main next to .redactix-code-backdrop, which
+   draws the highlighted text). With old JS, the selector does not match, and
+   the textarea remains visible. */
 .redactix-code-main > .redactix-code-textarea {
     color: transparent !important;
 }
@@ -1738,9 +1737,9 @@ textarea.redactix[style*="display: none"] {
 }
 
 .redactix-code-main > .redactix-code-textarea::selection {
-    /* Цвет выделенного текста прозрачный: видимые глифы рисует backdrop
-       ПОД выделением, поэтому фон выделения обязан быть полупрозрачным
-       (см. --redactix-code-editor-selection) */
+    /* Selected text color is transparent: visible glyphs are drawn by the backdrop
+       UNDER the selection, so the selection background must be semi-transparent
+       (see --redactix-code-editor-selection) */
     color: transparent !important;
 }
 
@@ -1805,7 +1804,7 @@ body.redactix-fullscreen-active {
     overflow-y: auto;
 }
 
-/* HTML editor в полноэкранном режиме - без ограничения ширины */
+/* HTML editor in fullscreen mode - without width restriction */
 .redactix-fullscreen .redactix-code-editor {
     flex: 1;
     max-width: none;
@@ -2141,7 +2140,7 @@ body.redactix-fullscreen-active {
     flex-direction: row-reverse;
 }
 
-/* Кнопка поиска - первая в левой группе (инвертировано для RTL) */
+/* Find button - the first in the left group (inverted for RTL) */
 .redactix-wrapper.redactix-rtl .redactix-btn[data-command="find"] {
     margin-left: 0;
     margin-right: auto;
@@ -2202,7 +2201,7 @@ body.redactix-fullscreen-active {
     text-align: right;
 }
 
-/* Меню в RTL */
+/* Menus in RTL */
 .redactix-wrapper.redactix-rtl .redactix-block-menu,
 .redactix-wrapper.redactix-rtl .redactix-table-menu {
     text-align: right;
@@ -2212,7 +2211,7 @@ body.redactix-fullscreen-active {
     flex-direction: row-reverse;
 }
 
-/* Slash Commands в RTL */
+/* Slash Commands in RTL */
 .redactix-wrapper.redactix-rtl .redactix-slash-menu {
     text-align: right;
 }
@@ -2225,7 +2224,7 @@ body.redactix-fullscreen-active {
     text-align: right;
 }
 
-/* Find & Replace панель в RTL */
+/* Find & Replace panel in RTL */
 .redactix-wrapper.redactix-rtl .redactix-find-panel {
     right: auto;
     left: 12px;
@@ -2253,7 +2252,7 @@ body.redactix-fullscreen-active {
     text-align: right;
 }
 
-/* Code editor (остаётся LTR, код всегда слева направо) */
+/* Code editor (remains LTR, code is always left to right) */
 .redactix-wrapper.redactix-rtl .redactix-code-editor {
     direction: ltr;
 }
@@ -2285,7 +2284,7 @@ body.redactix-fullscreen-active {
 /* ================================
    Lite Mode
    ================================ */
-/* Lite mode - скрываем тулбар */
+/* Lite mode - hide the toolbar */
 .redactix-wrapper.redactix-lite-mode .redactix-toolbar {
     display: none;
 }
@@ -2310,9 +2309,9 @@ body.redactix-fullscreen-active {
         padding-left: 20px;
     }
 
-    /* Позиция ручки считается в JS (showHandle) и уже клампится к левому
-       краю; CSS-override с !important ломал позиционирование ручек внутри
-       callout / quote-card, поэтому удалён. */
+    /* The handle position is calculated in JS (showHandle) and is already clamped to the left
+       edge; CSS override with !important broke the positioning of handles inside
+       callouts / quote-cards, so it has been removed. */
 
     .redactix-floating-toolbar {
         flex-wrap: wrap;

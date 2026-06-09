@@ -7,9 +7,9 @@ export default class Toolbar {
         this.isSticky = false;
         this.stickyPlaceholder = null;
         
-        // Обновляем состояния кнопок при изменении выделения.
-        // Глобальный слушатель — регистрируем через instance.listen,
-        // чтобы destroy() его снял.
+        // Update button states when selection changes.
+        // Global listener - register via instance.listen,
+        // so destroy() can remove it.
         instance.listen(document, 'selectionchange', () => {
             this.updateButtonStates();
         });
@@ -21,38 +21,38 @@ export default class Toolbar {
     }
     
     /**
-     * Инициализация sticky поведения тулбара
+     * Initialization of sticky behavior of the toolbar
      */
     initStickyBehavior() {
-        // Создаём placeholder для сохранения места когда тулбар становится fixed
+        // Create placeholder to preserve space when the toolbar becomes fixed
         this.stickyPlaceholder = document.createElement('div');
         this.stickyPlaceholder.className = 'redactix-toolbar-placeholder';
         this.stickyPlaceholder.style.display = 'none';
         
-        // Вставляем placeholder после того как тулбар в DOM
+        // Insert placeholder after the toolbar is in DOM
         requestAnimationFrame(() => {
             if (this.element.parentNode) {
                 this.element.parentNode.insertBefore(this.stickyPlaceholder, this.element);
             }
         });
         
-        // Слушаем скролл на window (снимается в instance.destroy())
+        // Listen for scroll on window (removed in instance.destroy())
         this.instance.listen(window, 'scroll', () => this.updateStickyState(), { passive: true });
         this.instance.listen(window, 'resize', () => this.updateStickyState(), { passive: true });
     }
     
     /**
-     * Обновление sticky состояния
+     * Updating sticky state
      */
     updateStickyState() {
         if (!this.stickyPlaceholder || this.instance.config.maxHeight) return;
         
         const wrapper = this.instance.wrapper;
         
-        // Отключаем sticky в fullscreen режиме
+        // Disable sticky in fullscreen mode
         if (wrapper.classList.contains('redactix-fullscreen')) {
             if (this.isSticky) {
-                // Сбрасываем sticky если был включен
+                // Reset sticky if it was enabled
                 this.isSticky = false;
                 this.stickyPlaceholder.style.display = 'none';
                 this.element.style.position = '';
@@ -69,21 +69,21 @@ export default class Toolbar {
         const wrapperRect = wrapper.getBoundingClientRect();
         const toolbarHeight = this.element.offsetHeight;
         
-        // Тулбар должен быть sticky когда:
-        // 1. Верх wrapper'а выше верха viewport
-        // 2. Низ wrapper'а ещё виден (есть место для тулбара)
+        // The toolbar should be sticky when:
+        // 1. Top of wrapper is above top of viewport
+        // 2. Bottom of wrapper is still visible (there is space for the toolbar)
         const shouldBeSticky = wrapperRect.top < 0 && wrapperRect.bottom > toolbarHeight + 20;
         
         if (shouldBeSticky && !this.isSticky) {
-            // Включаем sticky
+            // Enable sticky
             this.isSticky = true;
             
-            // Вставляем placeholder перед тулбаром
+            // Insert placeholder before toolbar
             this.element.parentNode.insertBefore(this.stickyPlaceholder, this.element);
             this.stickyPlaceholder.style.display = 'block';
             this.stickyPlaceholder.style.height = toolbarHeight + 'px';
             
-            // Делаем тулбар fixed
+            // Make toolbar fixed
             this.element.style.position = 'fixed';
             this.element.style.top = '0';
             this.element.style.left = wrapperRect.left + 'px';
@@ -93,7 +93,7 @@ export default class Toolbar {
             this.element.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
             
         } else if (!shouldBeSticky && this.isSticky) {
-            // Выключаем sticky
+            // Disable sticky
             this.isSticky = false;
             
             this.stickyPlaceholder.style.display = 'none';
@@ -107,7 +107,7 @@ export default class Toolbar {
             this.element.style.boxShadow = '';
             
         } else if (this.isSticky) {
-            // Обновляем позицию (при ресайзе)
+            // Update position (on resize)
             this.element.style.left = wrapperRect.left + 'px';
             this.element.style.width = wrapperRect.width + 'px';
         }
@@ -135,18 +135,18 @@ export default class Toolbar {
         const run = () => {
             if (btnConfig.action) btnConfig.action();
             this.instance.sync();
-            // Обновляем состояние после действия
+            // Update state after action
             setTimeout(() => this.updateButtonStates(), 10);
         };
 
-        // Используем mousedown вместо click, чтобы не терять фокус редактора
+        // Use mousedown instead of click to not lose editor focus
         btn.addEventListener('mousedown', (e) => {
             e.preventDefault();
             run();
         });
 
-        // Клавиатурная активация (Tab + Enter/Space): такой click приходит
-        // с detail === 0 и mousedown ему не предшествует.
+        // Keyboard activation (Tab + Enter/Space): such click comes
+        // with detail === 0 and mousedown does not precede it.
         btn.addEventListener('click', (e) => {
             if (e.detail === 0) run();
         });
@@ -156,14 +156,14 @@ export default class Toolbar {
     }
 
     updateButtonStates() {
-        // Проверяем что фокус в редакторе
+        // Verify that focus is in the editor
         const selection = window.getSelection();
         if (!selection.rangeCount) return;
         
         const range = selection.getRangeAt(0);
         if (!this.instance.editorEl.contains(range.commonAncestorContainer)) return;
 
-        // Обновляем состояние для команд форматирования
+        // Update state for formatting commands
         const formatCommands = {
             'bold': 'bold',
             'italic': 'italic',
@@ -179,7 +179,7 @@ export default class Toolbar {
             }
         });
 
-        // Обновляем состояние для блочных элементов
+        // Update state for block elements
         let block = range.commonAncestorContainer;
         if (block.nodeType === Node.TEXT_NODE) {
             block = block.parentElement;
@@ -188,7 +188,7 @@ export default class Toolbar {
         while (block && block !== this.instance.editorEl) {
             const tag = block.tagName;
             
-            // Проверяем заголовки и параграфы
+            // Verify headings and paragraphs
             ['h1', 'h2', 'h3', 'p', 'blockquote'].forEach(name => {
                 const btn = this.buttons.get(name);
                 if (btn) {
@@ -196,7 +196,7 @@ export default class Toolbar {
                 }
             });
 
-            // Проверяем списки
+            // Verify lists
             if (tag === 'UL' || tag === 'OL' || tag === 'LI') {
                 const listType = tag === 'LI' ? block.parentElement?.tagName : tag;
                 const ulBtn = this.buttons.get('ul');

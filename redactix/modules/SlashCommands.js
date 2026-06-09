@@ -181,7 +181,7 @@ export default class SlashCommands extends Module {
             }
         });
 
-        // Close menu on click outside (через registry — снимается в destroy())
+        // Close menu on click outside (via registry - removed in destroy())
         this.instance.listen(document, 'click', (e) => {
             if (this.isOpen && !this.menu.contains(e.target)) {
                 this.closeMenu();
@@ -579,7 +579,7 @@ export default class SlashCommands extends Module {
         this.selectedIndex = 0;
     }
 
-    /** Закрыть slash-меню (вызывается при входе в HTML-режим). */
+    /** Close slash menu (called when entering HTML mode). */
     hideUI() {
         if (this.isOpen) this.closeMenu();
     }
@@ -682,10 +682,10 @@ export default class SlashCommands extends Module {
 
             block.parentNode.replaceChild(newBlock, block);
 
-            // Callout-контракт: <aside> — блочный контейнер, прямые дети
-            // должны быть P/H1-H3/UL/OL. Нормализуем сразу, иначе до
-            // следующей загрузки aside остаётся «плоским» и Enter/Backspace
-            // работают по запасным веткам Editor.js.
+            // Callout contract: <aside> is a block container, direct children
+            // should be P/H1-H3/UL/OL. Normalize immediately, otherwise until
+            // the next load aside remains "flat" and Enter/Backspace
+            // work on fallback branches in Editor.js.
             let cursorTarget = newBlock;
             if (tagName.toLowerCase() === 'aside') {
                 const calloutModule = this.instance.modules.find(m => m.constructor.name === 'Callout');
@@ -865,8 +865,8 @@ export default class SlashCommands extends Module {
         }
 
         if (block && block !== this.instance.editorEl && ['P', 'DIV'].includes(block.tagName)) {
-            // Replace empty block with list (text-only check — атомарные
-            // блоки внутри P/DIV не должны замещаться, но их и не бывает).
+            // Replace empty block with list (text-only check - atomic
+            // blocks inside P/DIV should not be replaced, but they do not exist anyway).
             const isEmpty = isBlockEmpty(block, null);
             if (isEmpty) {
                 block.parentNode.replaceChild(list, block);

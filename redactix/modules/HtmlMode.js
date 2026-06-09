@@ -1,4 +1,4 @@
-﻿import Module from '../core/Module.js';
+import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
 
 export default class HtmlMode extends Module {
@@ -9,24 +9,24 @@ export default class HtmlMode extends Module {
         this.textarea = null;
         this.lineNumbers = null;
 
-        // Подсветка синтаксиса: прозрачная textarea лежит поверх <pre>
-        // с раскрашенной копией текста (overlay-паттерн). textarea
-        // остаётся источником правды — каретка, выделение и undo нативные.
-        this.codeMain = null;       // обёртка textarea + backdrop
-        this.backdrop = null;       // <pre> с подсветкой
-        this.backdropCode = null;   // <code> внутри backdrop
-        this.lineHighlight = null;  // полоса подсветки строки при hover на номер
-        this._redrawFrame = null;   // rAF-коалесинг перерисовки
+        // Syntax highlighting: transparent textarea sits on top of <pre>
+        // with a colored copy of the text (overlay pattern). textarea
+        // remains the source of truth — caret, selection, and undo are native.
+        this.codeMain = null;       // wrapper for textarea + backdrop
+        this.backdrop = null;       // <pre> with highlighting
+        this.backdropCode = null;   // <code> inside backdrop
+        this.lineHighlight = null;  // line highlight strip on hover on the line number
+        this._redrawFrame = null;   // rAF coalescing of redraws
 
-        // Метрики строки. Должны совпадать с CSS (.redactix-code-editor:
-        // line-height 21px; паддинг 16px у textarea, backdrop и колонки
-        // номеров) — на этом держится точное соответствие номера и строки.
+        // Line metrics. Must match CSS (.redactix-code-editor:
+        // line-height 21px; padding 16px in textarea, backdrop and lines column)
+        // — this keeps the exact match of the line number and the line.
         this.LINE_HEIGHT = 21;
         this.PAD_TOP = 16;
     }
 
     getButtons() {
-        // В lite mode не показываем кнопку редактирования HTML
+        // In lite mode, do not show the HTML editing button
         if (this.instance.config.liteMode) {
             return [];
         }
@@ -47,16 +47,16 @@ export default class HtmlMode extends Module {
         const editorEl = this.instance.editorEl;
 
         if (this.isHtmlMode) {
-            // --- ПЕРЕХОД В HTML РЕЖИМ ---
+            // --- ENTERING HTML MODE ---
 
-            // 1. Получаем HTML и форматируем
+            // 1. Get HTML and format it
             let rawHtml = editorEl.innerHTML;
             
-            // Убираем служебные элементы для чистого кода
+            // Remove helper elements for clean code
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = rawHtml;
             
-            // Убираем обертки hr
+            // Remove hr wrappers
             tempDiv.querySelectorAll('.redactix-separator').forEach(wrapper => {
                 const hr = wrapper.querySelector('hr');
                 if (hr) {
@@ -64,13 +64,13 @@ export default class HtmlMode extends Module {
                 }
             });
             
-            // Убираем подсветку поиска
+            // Remove search highlighting
             tempDiv.querySelectorAll('.redactix-find-highlight').forEach(mark => {
                 const text = document.createTextNode(mark.textContent);
                 mark.parentNode.replaceChild(text, mark);
             });
             
-            // Убираем пустые figcaption
+            // Remove empty figcaption
             tempDiv.querySelectorAll('figcaption').forEach(figcaption => {
                 const innerHtml = figcaption.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
                 if (!innerHtml && !figcaption.querySelector('img, iframe')) {
@@ -78,13 +78,13 @@ export default class HtmlMode extends Module {
                 }
             });
             
-            // Убираем style и пустой alt у img
+            // Remove style and empty alt attributes from img
             tempDiv.querySelectorAll('img').forEach(img => {
                 img.removeAttribute('style');
                 if (img.alt === '') img.removeAttribute('alt');
             });
             
-            // Убираем contenteditable
+            // Remove contenteditable
             tempDiv.querySelectorAll('[contenteditable]').forEach(el => {
                 el.removeAttribute('contenteditable');
             });
@@ -119,47 +119,47 @@ export default class HtmlMode extends Module {
 
             const prettyHtml = this.beautifyHtml(rawHtml);
 
-            // 2. Создаём контейнер редактора кода
+            // 2. Create the code editor container
             this.createCodeEditor(prettyHtml);
 
-            // 3. Прячем плавающие оверлеи остальных модулей (ручки блоков,
-            // "+" между блоками, табличные ручки, floating toolbar, поиск).
-            // Они абсолютно позиционированы в wrapper'е и иначе остаются
-            // висеть поверх кода: mousemove по скрытому editorEl больше не
-            // приходит, и спрятать их некому.
+            // 3. Hide floating overlays of other modules (block handles,
+            // "+" between blocks, table handles, floating toolbar, search).
+            // They are absolutely positioned in the wrapper and would otherwise remain
+            // hovering on top of the code: mousemove on hidden editorEl no longer
+            // triggers, so there is nothing to hide them.
             this.instance.modules.forEach(m => {
                 if (m !== this && typeof m.hideUI === 'function') {
                     m.hideUI();
                 }
             });
 
-            // 4. Скрываем визуальный редактор, показываем редактор кода
+            // 4. Hide visual editor, show code editor
             editorEl.style.display = 'none';
             wrapper.appendChild(this.editorContainer);
 
-            // 5. Отключаем кнопки тулбара
+            // 5. Disable toolbar buttons
             this.disableToolbar(true);
             
-            // 6. Скрываем счётчик символов
+            // 6. Hide character counter
             if (this.instance.counter) {
                 this.instance.counter.style.display = 'none';
             }
 
-            // 7. Фокус на textarea
+            // 7. Focus on textarea
             this.textarea.focus();
             this.redraw();
 
         } else {
-            // --- ВОЗВРАТ В ВИЗУАЛЬНЫЙ РЕЖИМ ---
+            // --- RETURNING TO VISUAL MODE ---
 
-            // 1. Получаем значение из textarea
+            // 1. Get value from textarea
             let code = this.textarea ? this.textarea.value : '';
 
-            // 2. Обновляем редактор
+            // 2. Update editor
             const minifiedCode = this.minifyHtmlPreservePre(code);
             editorEl.innerHTML = minifiedCode;
 
-            // Восстанавливаем обертки и настройки
+            // Restore wrappers and settings
             if (this.instance.normalizeInlineMarkup) {
                 this.instance.normalizeInlineMarkup();
             }
@@ -191,7 +191,7 @@ export default class HtmlMode extends Module {
                 this.instance.runGallerySetup();
             }
 
-            // 3. Убираем редактор кода
+            // 3. Remove code editor
             if (this._redrawFrame != null) {
                 cancelAnimationFrame(this._redrawFrame);
                 this._redrawFrame = null;
@@ -207,32 +207,32 @@ export default class HtmlMode extends Module {
             this.backdropCode = null;
             this.lineHighlight = null;
 
-            // 4. Показываем визуальный редактор
+            // 4. Show visual editor
             editorEl.style.display = 'block';
 
-            // 5. Включаем кнопки
+            // 5. Enable buttons
             this.disableToolbar(false);
             
-            // 6. Показываем счётчик символов
+            // 6. Show character counter
             if (this.instance.counter) {
                 this.instance.counter.style.display = '';
             }
             
-            // 7. Синхронизируем
+            // 7. Sync
             this.instance.sync();
         }
     }
 
     createCodeEditor(content) {
-        // Основной контейнер
+        // Main container
         this.editorContainer = document.createElement('div');
         this.editorContainer.className = 'redactix-code-editor';
 
-        // Номера строк
+        // Line numbers
         this.lineNumbers = document.createElement('div');
         this.lineNumbers.className = 'redactix-code-lines';
 
-        // Колонка кода: подсвеченный backdrop позади + прозрачная textarea сверху
+        // Code column: highlighted backdrop behind + transparent textarea on top
         this.codeMain = document.createElement('div');
         this.codeMain.className = 'redactix-code-main';
 
@@ -245,7 +245,7 @@ export default class HtmlMode extends Module {
         this.backdropCode = document.createElement('code');
         this.backdrop.appendChild(this.backdropCode);
 
-        // Textarea для редактирования
+        // Textarea for editing
         this.textarea = document.createElement('textarea');
         this.textarea.className = 'redactix-code-textarea';
         this.textarea.value = content;
@@ -253,28 +253,28 @@ export default class HtmlMode extends Module {
         this.textarea.autocomplete = 'off';
         this.textarea.autocorrect = 'off';
         this.textarea.autocapitalize = 'off';
-        // Жёстко выключаем мягкий перенос: одна логическая строка = одна
-        // визуальная = один номер. Без этого номера строк "уезжают" на
-        // длинных строках (одна строка занимает две визуальные).
+        // Strictly disable soft wrap: one logical line = one
+        // visual = one number. Without this, line numbers "drift" on
+        // long lines (one line takes up two visual ones).
         this.textarea.setAttribute('wrap', 'off');
 
-        // Обработчики событий
+        // Event handlers
         this.textarea.addEventListener('input', () => this.scheduleRedraw());
         this.textarea.addEventListener('keydown', (e) => this.handleKeydown(e));
-        // Скролл textarea зеркалится на подсвеченный слой через transform —
-        // в отличие от scrollLeft/scrollTop это работает независимо от
-        // того, есть ли у backdrop'а собственная переполненная область
-        // (по вертикали её нет: высота backdrop'а равна контенту).
+        // Scroll of textarea is mirrored to the highlighted layer via transform —
+        // unlike scrollLeft/scrollTop this works regardless of
+        // whether the backdrop has its own overflow area
+        // (vertically it doesn't: backdrop height is equal to content).
         this.textarea.addEventListener('scroll', () => this.syncBackdropScroll());
 
-        // Hover по номеру строки — подсветка соответствующей строки кода
+        // Hover on line number — highlight the corresponding line of code
         this.lineNumbers.addEventListener('mouseover', (e) => {
             const num = e.target.closest('.redactix-code-line-number');
             if (num) this.showLineHighlight(parseInt(num.dataset.line, 10));
         });
         this.lineNumbers.addEventListener('mouseleave', () => this.hideLineHighlight());
 
-        // Порядок отрисовки: полоса подсветки → подсвеченный код → textarea
+        // Rendering order: highlight strip → highlighted code → textarea
         this.codeMain.appendChild(this.lineHighlight);
         this.codeMain.appendChild(this.backdrop);
         this.codeMain.appendChild(this.textarea);
@@ -286,9 +286,9 @@ export default class HtmlMode extends Module {
     }
 
     /**
-     * Полная перерисовка: номера строк + подсветка. Дёргается с rAF-
-     * коалесингом на input, синхронно — из handleKeydown (ручные правки
-     * value) и при создании редактора.
+     * Full redraw: line numbers + highlighting. Called with rAF
+     * coalescing on input, synchronously — from handleKeydown (manual value
+     * edits) and during editor creation.
      */
     redraw() {
         this.updateLineNumbers();
@@ -314,17 +314,16 @@ export default class HtmlMode extends Module {
 
         this.lineNumbers.innerHTML = numbersHtml;
 
-        // Автовысота textarea (wrap выключен — высота детерминирована
-        // числом строк)
+        // Auto-height of textarea (wrap is disabled — height is determined
+        // by the number of lines)
         this.textarea.style.height = 'auto';
         this.textarea.style.height = Math.max(300, this.textarea.scrollHeight) + 'px';
 
-        // Компенсация горизонтального скроллбара: он отъедает внутреннюю
-        // высоту, и textarea получает возможность прокрутиться по
-        // вертикали на его толщину. Браузер делает это сам при движении
-        // каретки — и выделение/каретка уезжают относительно подсветки.
-        // Добавляем толщину скроллбара к высоте, чтобы вертикального
-        // скролла не существовало в принципе.
+        // Horizontal scrollbar compensation: it consumes inner
+        // height, allowing textarea to scroll vertically by its width.
+        // The browser does this itself when moving the caret — and selection/caret
+        // drift relative to the highlight. We add scrollbar thickness to the height
+        // so that vertical scroll does not exist at all.
         const deficit = this.textarea.scrollHeight - this.textarea.clientHeight;
         if (deficit > 0) {
             this.textarea.style.height = (this.textarea.offsetHeight + deficit) + 'px';
@@ -332,9 +331,9 @@ export default class HtmlMode extends Module {
     }
 
     /**
-     * Сдвиг подсвеченного слоя вслед за скроллом textarea (горизонтальным —
-     * длинные строки; вертикальный в норме невозможен, но зеркалим и его
-     * на случай переходных состояний).
+     * Shift of the highlighted layer following textarea scroll (horizontal —
+     * long lines; vertical is normally impossible, but we mirror it too
+     * just in case of transition states).
      */
     syncBackdropScroll() {
         if (!this.backdropCode || !this.textarea) return;
@@ -342,12 +341,12 @@ export default class HtmlMode extends Module {
             `translate(${-this.textarea.scrollLeft}px, ${-this.textarea.scrollTop}px)`;
     }
 
-    // ---------- Подсветка синтаксиса (свой токенайзер, без зависимостей) ----------
+    // ---------- Syntax highlighting (own tokenizer, no dependencies) ----------
 
     /**
-     * Перерисовать подсвеченную копию в backdrop. Завершающий \n нужен,
-     * чтобы <pre> не схлопнул последнюю пустую строку (textarea её
-     * показывает, и высоты должны совпадать).
+     * Redraw the highlighted copy in backdrop. Trailing \n is needed
+     * so that <pre> does not collapse the last empty line (textarea shows
+     * it, and heights must match).
      */
     updateHighlight() {
         if (!this.backdropCode) return;
@@ -360,9 +359,9 @@ export default class HtmlMode extends Module {
     }
 
     /**
-     * HTML-токенайзер: комментарии, doctype, теги (имя / атрибуты /
-     * значения), сущности в тексте. Принимает сырой код, возвращает
-     * безопасный HTML со span'ами rx-tok-*.
+     * HTML tokenizer: comments, doctype, tags (name / attributes /
+     * values), entities in text. Accepts raw code, returns
+     * safe HTML with rx-tok-* spans.
      */
     highlightHtml(code) {
         let out = '';
@@ -385,16 +384,16 @@ export default class HtmlMode extends Module {
         return out;
     }
 
-    /** Текст между тегами: подсвечиваем только HTML-сущности. */
+    /** Text between tags: highlight only HTML entities. */
     highlightText(raw) {
         if (!raw) return '';
         const escaped = this.escapeToken(raw);
-        // После эскейпа исходное "&nbsp;" выглядит как "&amp;nbsp;"
+        // After escaping, original "&nbsp;" looks like "&amp;nbsp;"
         return escaped.replace(/&amp;(#?[a-zA-Z0-9]{1,32});/g,
             '<span class="rx-tok-entity">&amp;$1;</span>');
     }
 
-    /** Один тег: <(/)имя атрибут="значение" ... (/)> */
+    /** One tag: <(/)name attribute="value" ... (/)> */
     highlightTag(rawTag) {
         const m = rawTag.match(/^(<\/?)([a-zA-Z][\w:-]*)([\s\S]*?)(\/?>?)$/);
         if (!m) return this.escapeToken(rawTag);
@@ -403,7 +402,7 @@ export default class HtmlMode extends Module {
         let out = `<span class="rx-tok-punct">${this.escapeToken(open)}</span>` +
             `<span class="rx-tok-tag">${this.escapeToken(name)}</span>`;
 
-        // Атрибуты: имя(=значение)? — всё, что между ними (пробелы), как есть
+        // Attributes: name(=value)? — everything in between (spaces), as is
         let i = 0;
         const attrRe = /([a-zA-Z_:@][\w:.-]*)(?:(\s*=\s*)("[^"]*"?|'[^']*'?|[^\s"'=<>`]+))?/g;
         let am;
@@ -419,7 +418,7 @@ export default class HtmlMode extends Module {
         return out;
     }
 
-    // ---------- Hover-подсветка строки ----------
+    // ---------- Hover line highlighting ----------
 
     showLineHighlight(lineIndex) {
         if (!this.lineHighlight || !Number.isFinite(lineIndex)) return;
@@ -433,7 +432,7 @@ export default class HtmlMode extends Module {
     }
 
     handleKeydown(e) {
-        // Tab - вставить отступ
+        // Tab - insert indent
         if (e.key === 'Tab') {
             e.preventDefault();
             const start = this.textarea.selectionStart;
@@ -441,7 +440,7 @@ export default class HtmlMode extends Module {
             const value = this.textarea.value;
             
             if (e.shiftKey) {
-                // Shift+Tab - убрать отступ
+                // Shift+Tab - remove indent
                 const beforeCursor = value.substring(0, start);
                 const lineStart = beforeCursor.lastIndexOf('\n') + 1;
                 const lineIndent = value.substring(lineStart, start);
@@ -451,7 +450,7 @@ export default class HtmlMode extends Module {
                     this.textarea.selectionStart = this.textarea.selectionEnd = start - 2;
                 }
             } else {
-                // Tab - добавить отступ
+                // Tab - add indent
                 this.textarea.value = value.substring(0, start) + '  ' + value.substring(end);
                 this.textarea.selectionStart = this.textarea.selectionEnd = start + 2;
             }
@@ -459,22 +458,22 @@ export default class HtmlMode extends Module {
             this.redraw();
         }
         
-        // Enter - сохранить отступ предыдущей строки
+        // Enter - preserve indent of the previous line
         if (e.key === 'Enter') {
             e.preventDefault();
             const start = this.textarea.selectionStart;
             const value = this.textarea.value;
             
-            // Находим начало текущей строки
+            // Find beginning of the current line
             const beforeCursor = value.substring(0, start);
             const lineStart = beforeCursor.lastIndexOf('\n') + 1;
             const currentLine = value.substring(lineStart, start);
             
-            // Определяем отступ текущей строки
+            // Determine indent of the current line
             const indentMatch = currentLine.match(/^(\s*)/);
             const indent = indentMatch ? indentMatch[1] : '';
             
-            // Вставляем перенос с тем же отступом
+            // Insert newline with the same indent
             this.textarea.value = value.substring(0, start) + '\n' + indent + value.substring(start);
             this.textarea.selectionStart = this.textarea.selectionEnd = start + 1 + indent.length;
 
@@ -485,7 +484,7 @@ export default class HtmlMode extends Module {
     disableToolbar(disable) {
         const buttons = this.instance.toolbar.element.querySelectorAll('button');
         buttons.forEach(btn => {
-            // Не отключаем кнопки HTML и Fullscreen
+            // Do not disable HTML and Fullscreen buttons
             if (btn.dataset.command === 'html' || btn.dataset.command === 'fullscreen') return;
             
             btn.disabled = disable;
@@ -494,35 +493,35 @@ export default class HtmlMode extends Module {
         });
     }
 
-    // Минификация HTML с сохранением содержимого <pre>
+    // Minify HTML preserving <pre> content
     minifyHtmlPreservePre(html) {
-        // Сохраняем и минифицируем содержимое <pre> тегов
+        // Save and minify <pre> tag contents
         const prePlaceholders = [];
         
-        // Заменяем pre вместе с окружающими пробелами
+        // Replace pre along with surrounding whitespace
         let result = html.replace(/\s*<pre([^>]*)>([\s\S]*?)<\/pre>\s*/gi, (match, preAttrs, content) => {
-            // Убираем форматирование внутри pre, но сохраняем контент кода
+            // Remove formatting inside pre, but preserve code content
             let minifiedPre = '';
             
-            // Проверяем есть ли code внутри
+            // Check if there is code inside
             const codeMatch = content.match(/^[\s\n]*<code([^>]*)>([\s\S]*)<\/code>[\s\n]*$/i);
             if (codeMatch) {
                 const codeAttrs = codeMatch[1];
                 let codeContent = codeMatch[2];
                 
-                // Убираем общий отступ форматирования
+                // Remove common formatting indent
                 const lines = codeContent.split('\n');
                 
-                // Убираем первую пустую строку если есть
+                // Remove first empty line if present
                 if (lines.length > 0 && lines[0].trim() === '') {
                     lines.shift();
                 }
-                // Убираем последнюю пустую строку если есть
+                // Remove last empty line if present
                 if (lines.length > 0 && lines[lines.length - 1].trim() === '') {
                     lines.pop();
                 }
                 
-                // Находим минимальный отступ
+                // Find minimal indent
                 let minIndent = Infinity;
                 lines.forEach(line => {
                     if (line.trim().length > 0) {
@@ -535,7 +534,7 @@ export default class HtmlMode extends Module {
                 
                 if (minIndent === Infinity) minIndent = 0;
                 
-                // Убираем общий отступ
+                // Remove common indent
                 codeContent = lines.map(line => {
                     if (line.trim().length === 0) return '';
                     return line.substring(minIndent);
@@ -550,10 +549,10 @@ export default class HtmlMode extends Module {
             return `__PRE_PLACEHOLDER_${prePlaceholders.length - 1}__`;
         });
         
-        // Убираем переносы строк и пробелы между тегами
+        // Remove line breaks and spaces between tags
         result = result.replace(/>\s+</g, '><');
         
-        // Восстанавливаем <pre> теги
+        // Restore <pre> tags
         prePlaceholders.forEach((pre, index) => {
             result = result.replace(`__PRE_PLACEHOLDER_${index}__`, pre);
         });
@@ -561,12 +560,12 @@ export default class HtmlMode extends Module {
         return result;
     }
 
-    // Простой Beautifier
+    // Simple Beautifier
     beautifyHtml(html) {
-        // Убираем contenteditable из всех тегов
+        // Remove contenteditable from all tags
         let cleanedHtml = html.replace(/\s+contenteditable=["'][^"']*["']/gi, '');
         
-        // Сохраняем содержимое <pre> тегов
+        // Save <pre> tag contents
         const prePlaceholders = [];
         let processedHtml = cleanedHtml.replace(/<pre[^>]*>[\s\S]*?<\/pre>/gi, (match) => {
             let formatted = match.replace(/<pre([^>]*)>/, '<pre$1>');
@@ -574,7 +573,7 @@ export default class HtmlMode extends Module {
             return `__PRE_PLACEHOLDER_${prePlaceholders.length - 1}__`;
         });
         
-        // Заменяем переносы и множественные пробелы на один пробел
+        // Replace line breaks and multiple spaces with a single space
         processedHtml = processedHtml.replace(/\s+/g, ' ').trim();
         
         let formatted = '';
@@ -654,7 +653,7 @@ export default class HtmlMode extends Module {
             }
         });
 
-        // Восстанавливаем <pre> теги с форматированием
+        // Restore formatted <pre> tags
         prePlaceholders.forEach((pre, index) => {
             const indentLevel = placeholderIndents[index] || 0;
             const preIndent = pad.repeat(indentLevel);

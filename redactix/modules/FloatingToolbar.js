@@ -22,7 +22,7 @@ export default class FloatingToolbar extends Module {
         this.toolbar.className = 'redactix-floating-toolbar';
         this.toolbar.style.display = 'none';
         
-// Кнопки форматирования
+        // Formatting buttons
         const buttons = [
             { name: 'bold', icon: Icons.bold, title: this.t('toolbar.bold'), command: 'bold' },
             { name: 'italic', icon: Icons.italic, title: this.t('toolbar.italic'), command: 'italic' },
@@ -68,7 +68,7 @@ export default class FloatingToolbar extends Module {
                 run();
             });
 
-            // Клавиатурная активация (click с detail === 0)
+            // Keyboard activation (click with detail === 0)
             button.addEventListener('click', (e) => {
                 if (e.detail === 0) run();
             });
@@ -80,7 +80,7 @@ export default class FloatingToolbar extends Module {
     }
 
     bindEvents() {
-        // Глобальные слушатели — через registry, чтобы destroy() их снял.
+        // Global listeners — via registry so that destroy() removes them.
         this.instance.listen(document, 'selectionchange', () => {
             this.onSelectionChange();
         });
@@ -148,7 +148,7 @@ export default class FloatingToolbar extends Module {
         this.isVisible = false;
     }
 
-    /** Спрятать плавающий тулбар (вызывается при входе в HTML-режим). */
+    /** Hide floating toolbar (called when entering HTML mode). */
     hideUI() {
         if (this.hideTimeout) {
             clearTimeout(this.hideTimeout);
@@ -210,7 +210,7 @@ export default class FloatingToolbar extends Module {
                 case 'code':
                 case 'spoiler':
                 case 'mark':
-                    // Проверяем, находимся ли мы внутри соответствующего тега
+                    // Check if we are inside the corresponding tag
                     const selection = window.getSelection();
                     if (selection.rangeCount) {
                         let node = selection.getRangeAt(0).commonAncestorContainer;
@@ -252,7 +252,7 @@ export default class FloatingToolbar extends Module {
         
         const selection = window.getSelection();
         
-        // Проверяем, есть ли уже ссылка
+        // Check if there is already a link
         let existingLink = null;
         if (selection.rangeCount) {
             let node = selection.getRangeAt(0).commonAncestorContainer;
@@ -265,7 +265,7 @@ export default class FloatingToolbar extends Module {
             }
         }
         
-        // Если выделена часть ссылки - расширяем выделение на всю ссылку
+        // If part of the link is selected - expand the selection to the entire link
         if (existingLink) {
             const range = document.createRange();
             range.selectNodeContents(existingLink);
@@ -273,20 +273,20 @@ export default class FloatingToolbar extends Module {
             selection.addRange(range);
         }
         
-        // Сохраняем выделение
+        // Save selection
         this.instance.selection.save();
         
         const selectedText = selection.toString();
 
-        // Создаем форму
+        // Create form
         const form = document.createElement('div');
         
-        // URL — читаем атрибут, а не свойство: .href разворачивает
-        // относительные ссылки в абсолютные.
+        // URL — read the attribute, not the property: .href expands
+        // relative links into absolute ones.
         const urlGroup = this.createInputGroup(this.t('link.url'), 'text', existingLink ? (existingLink.getAttribute('href') || '') : 'https://');
         const urlInput = urlGroup.querySelector('input');
 
-        // Текст ссылки
+        // Link text
         const textGroup = this.createInputGroup(this.t('link.linkText'), 'text', selectedText);
         const textInput = textGroup.querySelector('input');
 
@@ -294,12 +294,12 @@ export default class FloatingToolbar extends Module {
         const titleGroup = this.createInputGroup(this.t('link.titleAttr'), 'text', existingLink ? existingLink.title || '' : '');
         const titleInput = titleGroup.querySelector('input');
         
-        // Rel (дополнительные значения)
+        // Rel (extra values)
         const relGroup = this.createInputGroup(this.t('link.relExceptNofollow'), 'text', existingLink ? (existingLink.rel || '').replace('nofollow', '').trim() : '');
         const relInput = relGroup.querySelector('input');
         relInput.placeholder = this.t('link.relPlaceholder');
         
-        // Чекбоксы
+        // Checkboxes
         const checksDiv = document.createElement('div');
         checksDiv.style.marginTop = '10px';
 
@@ -334,7 +334,7 @@ export default class FloatingToolbar extends Module {
 
         this.hide();
 
-        // Подготовка дополнительных кнопок (Remove для существующей ссылки)
+        // Prepare extra buttons (Remove for existing link)
         const extraButtons = [];
         if (existingLink) {
             extraButtons.push({
@@ -361,13 +361,13 @@ export default class FloatingToolbar extends Module {
                 const relExtra = relInput.value.trim();
                 
                 if (url && url !== 'https://') {
-                    // Валидируем схему URL — javascript:/data:text/html отсекаются.
+                    // Validate URL scheme — javascript:/data:text/html are rejected.
                     const safeUrl = sanitizeUrl(url);
                     if (!safeUrl) return;
 
                     this.instance.selection.restore();
 
-                    // Удаляем старую ссылку если есть
+                    // Remove old link if present
                     if (existingLink) {
                         document.execCommand('unlink');
                     }
@@ -378,9 +378,9 @@ export default class FloatingToolbar extends Module {
                     if (title) a.title = title;
                     if (targetCheck.checked) a.target = '_blank';
 
-                    // composeLinkRel автоматически добавит noopener+noreferrer
-                    // при target=_blank и отфильтрует пользовательские
-                    // rel-токены до безопасного whitelist'а.
+                    // composeLinkRel will automatically add noopener+noreferrer
+                    // for target=_blank and filter custom
+                    // rel tokens to a safe whitelist.
                     const rel = composeLinkRel({
                         nofollow: nofollowCheck.checked,
                         blank: targetCheck.checked,
@@ -396,13 +396,13 @@ export default class FloatingToolbar extends Module {
     }
 
     /**
-     * Упрощённая модалка для ссылок в lite mode
-     * Только URL и текст, всегда nofollow, без title/rel настроек
+     * Simplified modal for links in lite mode
+     * Only URL and text, always nofollow, no title/rel settings
      */
     openLiteLinkModal() {
         const selection = window.getSelection();
         
-        // Проверяем, есть ли уже ссылка
+        // Check if there is already a link
         let existingLink = null;
         if (selection.rangeCount) {
             let node = selection.getRangeAt(0).commonAncestorContainer;
@@ -415,7 +415,7 @@ export default class FloatingToolbar extends Module {
             }
         }
         
-        // Если выделена часть ссылки - расширяем выделение на всю ссылку
+        // If part of the link is selected - expand the selection to the entire link
         if (existingLink) {
             const range = document.createRange();
             range.selectNodeContents(existingLink);
@@ -423,20 +423,20 @@ export default class FloatingToolbar extends Module {
             selection.addRange(range);
         }
         
-        // Сохраняем выделение
+        // Save selection
         this.instance.selection.save();
         
         const selectedText = selection.toString();
 
-        // Создаем простую форму
+        // Create a simple form
         const form = document.createElement('div');
         
-        // URL — getAttribute, чтобы относительные ссылки не разворачивались
+        // URL — getAttribute, so that relative links are not expanded
         const urlGroup = this.createInputGroup(this.t('link.url'), 'text', existingLink ? (existingLink.getAttribute('href') || '') : 'https://');
         const urlInput = urlGroup.querySelector('input');
         urlInput.placeholder = 'https://example.com';
         
-        // Текст ссылки
+        // Link text
         const textGroup = this.createInputGroup(this.t('link.linkText'), 'text', selectedText);
         const textInput = textGroup.querySelector('input');
 
@@ -444,7 +444,7 @@ export default class FloatingToolbar extends Module {
 
         this.hide();
 
-        // Подготовка дополнительных кнопок (Remove для существующей ссылки)
+        // Prepare extra buttons (Remove for existing link)
         const extraButtons = [];
         if (existingLink) {
             extraButtons.push({
@@ -474,13 +474,13 @@ export default class FloatingToolbar extends Module {
 
                     this.instance.selection.restore();
 
-                    // Удаляем старую ссылку если есть
+                    // Remove old link if present
                     if (existingLink) {
                         document.execCommand('unlink');
                     }
 
-                    // В lite mode всегда nofollow + _blank.
-                    // composeLinkRel добавит noopener/noreferrer.
+                    // In lite mode always nofollow + _blank.
+                    // composeLinkRel will add noopener/noreferrer.
                     const a = document.createElement('a');
                     a.href = safeUrl;
                     a.textContent = text;
@@ -509,12 +509,12 @@ export default class FloatingToolbar extends Module {
         const selection = window.getSelection();
         if (!selection.rangeCount) return;
 
-        // Исключаем пробелы из выделения
+        // Exclude spaces from selection
         this.instance.selection.excludeTrailingSpacesFromSelection();
         
         const range = selection.getRangeAt(0);
         
-        // Проверяем, находимся ли мы внутри такого тега
+        // Check if we are inside such a tag
         let existingTag = null;
         let node = range.commonAncestorContainer;
         while (node && node !== this.instance.editorEl) {
@@ -530,14 +530,14 @@ export default class FloatingToolbar extends Module {
         }
 
         if (existingTag) {
-            // Убираем тег - разворачиваем содержимое
+            // Remove tag - unwrap content
             const parent = existingTag.parentNode;
             while (existingTag.firstChild) {
                 parent.insertBefore(existingTag.firstChild, existingTag);
             }
             parent.removeChild(existingTag);
         } else {
-            // Оборачиваем выделенное в тег
+            // Wrap selected in tag
             const selectedContent = range.extractContents();
             const wrapper = document.createElement(tagName);
             if (className) {
@@ -546,7 +546,7 @@ export default class FloatingToolbar extends Module {
             wrapper.appendChild(selectedContent);
             range.insertNode(wrapper);
             
-            // Выделяем обратно
+            // Select back
             selection.removeAllRanges();
             const newRange = document.createRange();
             newRange.selectNodeContents(wrapper);

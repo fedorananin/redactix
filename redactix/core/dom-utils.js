@@ -129,16 +129,16 @@ export function composeLinkRel({ nofollow = false, blank = false, extra = '' } =
     return Array.from(new Set(parts)).join(' ');
 }
 
-// Синонимичные инлайн-теги сводим к одной канонической форме, чтобы в
-// сохранённом HTML не было смеси <b>/<strong>, <i>/<em>, <s>/<strike>.
-// Вызывается на paste, при загрузке контента и на sync-клоне.
+// Synonymous inline tags are reduced to a single canonical form so that there
+// is no mixture of <b>/<strong>, <i>/<em>, <s>/<strike> in the saved HTML.
+// Called on paste, content load, and on sync clone.
 const INLINE_TAG_SYNONYMS = { STRONG: 'b', EM: 'i', STRIKE: 's' };
 
 export function normalizeInlineSynonyms(root) {
     Object.keys(INLINE_TAG_SYNONYMS).forEach(tag => {
         root.querySelectorAll(tag).forEach(el => {
             const repl = document.createElement(INLINE_TAG_SYNONYMS[el.tagName]);
-            // Атрибуты переносим как есть (class/id из Attributes-диалога и т.п.)
+            // Transfer attributes as they are (class/id from Attributes dialog, etc.)
             Array.from(el.attributes).forEach(a => repl.setAttribute(a.name, a.value));
             while (el.firstChild) repl.appendChild(el.firstChild);
             el.parentNode.replaceChild(repl, el);
@@ -216,8 +216,8 @@ export function sanitizeInlineHtml(html) {
     };
     clean(tmp);
 
-    // <strong>/<em>/<strike> разрешены на входе, но в документ уходят
-    // только канонические <b>/<i>/<s>.
+    // <strong>/<em>/<strike> are allowed as input, but only canonical
+    // <b>/<i>/<s> are written to the document.
     normalizeInlineSynonyms(tmp);
 
     return tmp.innerHTML;

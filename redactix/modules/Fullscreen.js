@@ -7,9 +7,9 @@ export default class Fullscreen extends Module {
         this.isFullscreen = false;
         this.originalMaxHeight = null;
 
-        // Если инстанс уничтожают в полноэкранном режиме — снимаем
-        // Escape-слушатель и класс с <body>, иначе страница останется
-        // «залоченной» под fullscreen.
+        // If the instance is destroyed in fullscreen mode — remove
+        // the Escape listener and class from <body>, otherwise the page will
+        // remain "locked" under fullscreen.
         if (instance.onDestroy) {
             instance.onDestroy(() => {
                 if (this.escHandler) {
@@ -24,7 +24,7 @@ export default class Fullscreen extends Module {
     }
 
     getButtons() {
-        // В lite mode не показываем кнопку полноэкранного режима
+        // In lite mode, do not show the fullscreen mode button
         if (this.instance.config.liteMode) {
             return [];
         }
@@ -46,15 +46,15 @@ export default class Fullscreen extends Module {
         const btn = this.instance.toolbar.buttons.get('fullscreen');
 
         if (this.isFullscreen) {
-            // Включаем полноэкранный режим
+            // Enable fullscreen mode
             wrapper.classList.add('redactix-fullscreen');
             document.body.classList.add('redactix-fullscreen-active');
             
-            // Сохраняем оригинальный maxHeight и сбрасываем его
+            // Save original maxHeight and reset it
             this.originalMaxHeight = editor.style.maxHeight;
             editor.style.maxHeight = '';
             
-            // Сбрасываем sticky состояние toolbar (если есть)
+            // Reset sticky state of toolbar (if present)
             if (this.instance.toolbar.updateStickyState) {
                 this.instance.toolbar.updateStickyState();
             }
@@ -64,7 +64,7 @@ export default class Fullscreen extends Module {
                 btn.innerHTML = Icons.fullscreenExit;
             }
             
-            // Слушаем Escape для выхода
+            // Listen for Escape to exit
             this.escHandler = (e) => {
                 if (e.key === 'Escape') {
                     this.toggleFullscreen();
@@ -72,16 +72,16 @@ export default class Fullscreen extends Module {
             };
             document.addEventListener('keydown', this.escHandler);
         } else {
-            // Выключаем полноэкранный режим
+            // Disable fullscreen mode
             wrapper.classList.remove('redactix-fullscreen');
             document.body.classList.remove('redactix-fullscreen-active');
             
-            // Восстанавливаем оригинальный maxHeight
+            // Restore original maxHeight
             if (this.originalMaxHeight) {
                 editor.style.maxHeight = this.originalMaxHeight;
             }
             
-            // Восстанавливаем sticky состояние toolbar (если было)
+            // Restore sticky state of toolbar (if it was active)
             if (this.instance.toolbar.updateStickyState) {
                 setTimeout(() => this.instance.toolbar.updateStickyState(), 0);
             }
@@ -91,7 +91,7 @@ export default class Fullscreen extends Module {
                 btn.innerHTML = Icons.fullscreen;
             }
             
-            // Убираем слушатель Escape
+            // Remove Escape listener
             if (this.escHandler) {
                 document.removeEventListener('keydown', this.escHandler);
                 this.escHandler = null;

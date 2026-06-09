@@ -242,8 +242,8 @@ export default class Embed extends Module {
 
         const { provider, match } = detected;
         const attrs = provider.buildIframe(match, url);
-        // buildIframe может вернуть null (например, Twitch-фолбэк без
-        // распознанного id) — без guard'а populateFigure упал бы на
+        // buildIframe can return null (for example, Twitch fallback without
+        // recognized id) — without the guard populateFigure would crash on
         // Object.entries(null).
         if (!attrs) return null;
         // defaultHeight may be a number or a function (function gets the
@@ -313,8 +313,8 @@ export default class Embed extends Module {
         }
 
         // Figcaption — innerHTML round-trip so inline links / formatting
-        // added through the floating toolbar survive a re-edit. Прогоняем
-        // через инлайн-санитайзер: модалка не должна обходить paste-фильтр.
+        // added through the floating toolbar survive a re-edit. We run it
+        // through the inline sanitizer: the modal should not bypass the paste filter.
         const safeCaption = sanitizeInlineHtml(caption || '');
         let figcaption = figure.querySelector(':scope > figcaption');
         if (safeCaption) {

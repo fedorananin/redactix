@@ -5,15 +5,15 @@ import { sanitizeUrl, sanitizeImageSrc, sanitizeInlineHtml, composeLinkRel } fro
 export default class Image extends Module {
     constructor(instance) {
         super(instance);
-        this.currentFigure = null; // Для редактирования существующего изображения
-        this.liteMode = instance.config.liteMode || false; // Lite mode - упрощённый режим
-        this.uploadUrl = instance.config.uploadUrl || null; // URL для загрузки изображений
-        this.browseUrl = instance.config.browseUrl || null; // URL для просмотра изображений
-        this.allowDelete = instance.config.allowImageDelete || false; // Разрешить удаление изображений
+        this.currentFigure = null; // For editing an existing image
+        this.liteMode = instance.config.liteMode || false; // Lite mode - simplified mode
+        this.uploadUrl = instance.config.uploadUrl || null; // URL for uploading images
+        this.browseUrl = instance.config.browseUrl || null; // URL for browsing images
+        this.allowDelete = instance.config.allowImageDelete || false; // Allow deleting images
     }
 
     init() {
-        // Клик по изображению открывает модалку редактирования
+        // Click on image opens edit modal
         this.instance.editorEl.addEventListener('click', (e) => {
             const img = e.target.closest('img');
             if (img) {
@@ -26,33 +26,33 @@ export default class Image extends Module {
                 if (figure) {
                     this.openModal(figure);
                 } else {
-                    // Если img без figure - создаём figure и редактируем
+                    // If img is without figure - create figure and edit
                     this.openModal(null, img);
                 }
             }
         });
 
-        // Drag & Drop загрузка (отключено в lite mode)
+        // Drag & Drop upload (disabled in lite mode)
         if (this.uploadUrl && !this.liteMode) {
             this.initDragDrop();
             this.initPasteUpload();
         }
 
-        // Обработка base64 изображений после вставки (из Google Docs и т.п.)
-        // В lite mode base64 изображения удаляются
+        // Processing of base64 images after pasting (from Google Docs etc.)
+        // In lite mode base64 images are removed
         this.initBase64Handler();
     }
 
     /**
-     * Обработка base64 изображений после вставки
+     * Processing base64 images after pasting
      */
     initBase64Handler() {
-        // Используем MutationObserver для отслеживания новых изображений
+        // Use MutationObserver to monitor new images
         const observer = new MutationObserver((mutations) => {
             mutations.forEach(mutation => {
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
-                        // Ищем все изображения с base64 src
+                        // Find all images with base64 src
                         const images = node.tagName === 'IMG' ? [node] : node.querySelectorAll ? Array.from(node.querySelectorAll('img')) : [];
                         images.forEach(img => {
                             const src = img.getAttribute('src') || '';
@@ -76,10 +76,10 @@ export default class Image extends Module {
     }
 
     /**
-     * Обработка одного base64 изображения
+     * Processing a single base64 image
      */
     async handleBase64Image(img) {
-        // В lite mode или если нет uploadUrl - удаляем base64 изображение
+        // In lite mode or if there is no uploadUrl - remove base64 image
         if (!this.uploadUrl || this.liteMode) {
             const figure = img.closest('figure');
             if (figure) {
@@ -95,7 +95,7 @@ export default class Image extends Module {
         const src = img.getAttribute('src');
         if (!src || !src.startsWith('data:image/')) return;
 
-        // Показываем индикатор загрузки
+        // Show loading indicator
         const figure = img.closest('figure');
         if (figure) {
             figure.classList.add('redactix-uploading');
@@ -103,10 +103,10 @@ export default class Image extends Module {
         img.style.opacity = '0.5';
 
         try {
-            // Конвертируем base64 в File
+            // Convert base64 to File
             const file = this.base64ToFile(src);
 
-            // Загружаем на сервер
+            // Upload to server
             const formData = new FormData();
             formData.append('image', file);
 
@@ -122,7 +122,7 @@ export default class Image extends Module {
             const result = await response.json();
 
             if (result.success) {
-                // Заменяем src на URL с сервера
+                // Replace src with server URL
                 img.setAttribute('src', result.src);
                 if (result.srcset) img.setAttribute('srcset', result.srcset);
                 if (result.alt) img.setAttribute('alt', result.alt);
@@ -140,7 +140,7 @@ export default class Image extends Module {
         } catch (error) {
             console.error('Redactix: Failed to upload base64 image:', error);
 
-            // Показываем ошибку и удаляем изображение
+            // Show error and remove image
             img.style.opacity = '';
             if (figure) {
                 figure.classList.remove('redactix-uploading');
@@ -153,10 +153,10 @@ export default class Image extends Module {
     }
 
     /**
-     * Конвертация base64 в File
+     * Converting base64 to File
      */
     base64ToFile(dataUrl) {
-        // Парсим data URL
+        // Parse data URL
         const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
         if (!matches) {
             throw new Error('Invalid data URL');
@@ -165,14 +165,14 @@ export default class Image extends Module {
         const mimeType = matches[1];
         const base64Data = matches[2];
 
-        // Декодируем base64
+        // Decode base64
         const byteString = atob(base64Data);
         const byteArray = new Uint8Array(byteString.length);
         for (let i = 0; i < byteString.length; i++) {
             byteArray[i] = byteString.charCodeAt(i);
         }
 
-        // Определяем расширение
+        // Determine extension
         const extMap = {
             'image/jpeg': 'jpg',
             'image/png': 'png',
@@ -183,19 +183,19 @@ export default class Image extends Module {
         };
         const ext = extMap[mimeType] || 'png';
 
-        // Создаём File
+        // Create File
         const blob = new Blob([byteArray], { type: mimeType });
         return new File([blob], `pasted-image.${ext}`, { type: mimeType });
     }
 
     /**
-     * Инициализация drag & drop загрузки
+     * Initializing drag & drop upload
      */
     initDragDrop() {
         const editor = this.instance.editorEl;
 
-        // Нативный dragstart внутри contenteditable глушится в Editor.js
-        // (bindEvents) безусловно — здесь остаётся только зона загрузки.
+        // Native dragstart inside contenteditable is silenced in Editor.js
+        // (bindEvents) unconditionally - only the upload zone remains here.
 
         editor.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -206,7 +206,7 @@ export default class Image extends Module {
         editor.addEventListener('dragleave', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            // Проверяем, что действительно покинули редактор
+            // Verify that we actually left the editor
             if (!editor.contains(e.relatedTarget)) {
                 editor.classList.remove('redactix-dragover');
             }
@@ -219,10 +219,10 @@ export default class Image extends Module {
 
             const files = e.dataTransfer.files;
             if (files.length > 0) {
-                // Фильтруем только изображения
+                // Filter only images
                 const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
                 if (imageFiles.length > 0) {
-                    // Сохраняем позицию курсора для вставки
+                    // Save cursor position for insertion
                     this.instance.selection.save();
                     this.uploadFiles(imageFiles);
                 }
@@ -231,10 +231,10 @@ export default class Image extends Module {
     }
 
     /**
-     * Инициализация загрузки через paste (Ctrl+V)
+     * Initializing upload via paste (Ctrl+V)
      */
     initPasteUpload() {
-        // Используем capture phase чтобы перехватить событие до других обработчиков
+        // Use capture phase to intercept event before other handlers
         this.instance.editorEl.addEventListener('paste', (e) => {
             const items = e.clipboardData?.items;
             if (!items) return;
@@ -250,18 +250,18 @@ export default class Image extends Module {
             }
 
             if (imageFiles.length > 0) {
-                // Полностью блокируем вставку, чтобы браузер не вставил HTML с оригинальной ссылкой
+                // Fully block paste to prevent browser from inserting HTML with original link
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
 
                 this.uploadFilesAtCursor(imageFiles);
             }
-        }, true); // capture: true - перехватываем на фазе погружения
+        }, true); // capture: true - intercepting on capture phase
     }
 
     /**
-     * Загрузка файлов на сервер (для drag&drop с сохранением позиции)
+     * Uploading files to server (for drag&drop with position preservation)
      */
     async uploadFiles(files) {
         for (const file of files) {
@@ -270,7 +270,7 @@ export default class Image extends Module {
     }
 
     /**
-     * Загрузка файлов в текущую позицию курсора (для paste)
+     * Uploading files to current cursor position (for paste)
      */
     async uploadFilesAtCursor(files) {
         for (const file of files) {
@@ -279,7 +279,7 @@ export default class Image extends Module {
     }
 
     /**
-     * Загрузка одного файла (с restore позиции - для drag&drop)
+     * Uploading a single file (with position restore - for drag&drop)
      */
     async uploadFile(file) {
         const placeholder = this.createUploadPlaceholder();
@@ -291,7 +291,7 @@ export default class Image extends Module {
     }
 
     /**
-     * Загрузка одного файла в текущую позицию курсора (для paste)
+     * Uploading a single file at current cursor position (for paste)
      */
     async uploadFileAtCursor(file) {
         const placeholder = this.createUploadPlaceholder();
@@ -301,7 +301,7 @@ export default class Image extends Module {
     }
 
     /**
-     * Общая логика загрузки файла
+     * General file upload logic
      */
     async processUpload(file, placeholder) {
         try {
@@ -313,12 +313,12 @@ export default class Image extends Module {
                 body: formData
             });
 
-            // Проверяем HTTP статус
+            // Check HTTP status
             if (!response.ok && response.status !== 400) {
                 throw new Error(`Server error (${response.status})`);
             }
 
-            // Пробуем распарсить JSON
+            // Try to parse JSON
             let result;
             try {
                 result = await response.json();
@@ -327,20 +327,20 @@ export default class Image extends Module {
             }
 
             if (result.success) {
-                // Заменяем placeholder на реальное изображение
+                // Replace placeholder with real image
                 this.replacePlaceholderWithImage(placeholder, result);
             } else {
-                // Ошибка от сервера
+                // Error from server
                 this.showUploadError(placeholder, result.error || 'Upload failed');
             }
         } catch (error) {
-            // Сетевая ошибка или ошибка парсинга
+            // Network error or parsing error
             this.showUploadError(placeholder, error.message || 'Connection error');
         }
     }
 
     /**
-     * Создание placeholder во время загрузки
+     * Creating placeholder during upload
      */
     createUploadPlaceholder() {
         const placeholder = document.createElement('figure');
@@ -360,7 +360,7 @@ export default class Image extends Module {
     }
 
     /**
-     * Замена placeholder на загруженное изображение
+     * Replacing placeholder with uploaded image
      */
     replacePlaceholderWithImage(placeholder, data) {
         const figure = document.createElement('figure');
@@ -385,7 +385,7 @@ export default class Image extends Module {
     }
 
     /**
-     * Показ ошибки загрузки
+     * Showing upload error
      */
     showUploadError(placeholder, message) {
         placeholder.innerHTML = `
@@ -420,7 +420,7 @@ export default class Image extends Module {
     }
 
     openModal(existingFigure = null, existingImg = null) {
-        // В lite mode используем упрощённую версию модалки
+        // In lite mode, use simplified version of the modal
         if (this.liteMode) {
             this.openLiteModal(existingFigure, existingImg);
             return;
@@ -429,7 +429,7 @@ export default class Image extends Module {
         this.instance.selection.save();
         this.currentFigure = existingFigure;
 
-        // Извлекаем существующие данные
+        // Extract existing data
         let existingData = {
             url: 'https://',
             alt: '',
@@ -440,7 +440,7 @@ export default class Image extends Module {
             linkUrl: '',
             isBlank: false,
             isNofollow: false,
-            relExtra: '' // Дополнительные значения rel (кроме nofollow)
+            relExtra: '' // Additional rel values (except nofollow)
         };
 
         if (existingFigure) {
@@ -456,7 +456,7 @@ export default class Image extends Module {
                 existingData.loading = img.getAttribute('loading') || '';
             }
             if (figcaption) {
-                // Убираем <br> из caption для отображения
+                // Remove <br> from caption for display
                 let caption = figcaption.innerHTML || '';
                 caption = caption.replace(/<br\s*\/?>/gi, '').trim();
                 existingData.caption = caption;
@@ -465,7 +465,7 @@ export default class Image extends Module {
                 existingData.linkUrl = link.getAttribute('href') || '';
                 existingData.isBlank = link.target === '_blank';
                 existingData.isNofollow = (link.rel || '').includes('nofollow');
-                // Извлекаем дополнительные значения rel (кроме nofollow)
+                // Extract additional rel values (except nofollow)
                 existingData.relExtra = (link.rel || '').split(/\s+/).filter(r => r && r !== 'nofollow').join(' ');
             }
         } else if (existingImg) {
@@ -488,7 +488,7 @@ export default class Image extends Module {
 
         const form = document.createElement('div');
 
-        // Блок загрузки файла (если есть uploadUrl)
+        // File upload block (if uploadUrl is present)
         let fileInput = null;
         let uploadStatus = null;
 
@@ -529,7 +529,7 @@ export default class Image extends Module {
             uploadGroup.appendChild(uploadLabel);
             uploadGroup.appendChild(uploadStatus);
 
-            // Drag & drop для зоны загрузки
+            // Drag & drop for upload zone
             uploadGroup.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 uploadGroup.style.borderColor = 'var(--redactix-primary)';
@@ -557,7 +557,7 @@ export default class Image extends Module {
             form.appendChild(uploadGroup);
         }
 
-        // Блок браузера изображений (если есть browseUrl)
+        // Image browser block (if browseUrl is present)
         let browseContainer = null;
         if (this.browseUrl) {
             browseContainer = document.createElement('div');
@@ -585,7 +585,7 @@ export default class Image extends Module {
 
             browseBtn.addEventListener('click', () => {
                 this.openBrowsePanel(browseContainer, (imageData) => {
-                    // Заполняем поля данными выбранного изображения
+                    // Fill inputs with selected image data
                     if (urlInput) urlInput.value = imageData.src;
                     if (srcsetInput && imageData.srcset) srcsetInput.value = imageData.srcset;
                     if (altInput && imageData.alt) altInput.value = imageData.alt;
@@ -597,7 +597,7 @@ export default class Image extends Module {
             form.appendChild(browseContainer);
         }
 
-        // Разделитель "или" (если есть upload или browse)
+        // Divider "or" (if upload or browse is present)
         if (this.uploadUrl || this.browseUrl) {
             const orDivider = document.createElement('div');
             orDivider.style.textAlign = 'center';
@@ -612,11 +612,11 @@ export default class Image extends Module {
             form.appendChild(orDivider);
         }
 
-        // Сетка для полей (2 колонки на ПК, 1 на мобильных)
+        // Fields grid (2 columns on PC, 1 on mobile)
         const grid = document.createElement('div');
         grid.className = 'redactix-modal-grid';
 
-        // Основные поля
+        // Main fields
         const urlGroup = this.createInputGroup(this.t('image.url') + ' *', 'text', existingData.url);
         urlGroup.className = 'redactix-modal-full-width';
         const urlInput = urlGroup.querySelector('input');
@@ -632,7 +632,7 @@ export default class Image extends Module {
         const srcsetInput = srcsetGroup.querySelector('input');
         srcsetInput.placeholder = this.t('image.srcsetPlaceholder');
 
-        // Loading атрибут
+        // Loading attribute
         const loadingGroup = this.createSelectGroup(this.t('image.loading'), existingData.loading, [
             { value: '', label: this.t('image.loadingDefault') },
             { value: 'lazy', label: this.t('image.loadingLazy') },
@@ -640,7 +640,7 @@ export default class Image extends Module {
         ]);
         const loadingSelect = loadingGroup.querySelector('select');
 
-        // Caption (подпись)
+        // Caption (signature)
         const captionGroup = this.createTextareaGroup(this.t('image.caption'), existingData.caption);
         captionGroup.className = 'redactix-modal-full-width';
         const captionInput = captionGroup.querySelector('textarea');
@@ -649,7 +649,7 @@ export default class Image extends Module {
         // Добавляем поля в сетку
         grid.append(urlGroup, altGroup, titleGroup, srcsetGroup, loadingGroup, captionGroup);
 
-        // Разделитель - секция ссылки
+        // Divider - link section
         const linkSection = document.createElement('div');
         linkSection.className = 'redactix-modal-full-width';
         linkSection.style.borderTop = '1px solid var(--redactix-border)';
@@ -663,16 +663,16 @@ export default class Image extends Module {
         linkTitle.style.fontSize = '14px';
         linkSection.appendChild(linkTitle);
 
-        // Сетка для полей ссылки
+        // Grid for link fields
         const linkGrid = document.createElement('div');
         linkGrid.className = 'redactix-modal-grid';
 
-        // Ссылка для изображения
+        // Link for image
         const linkGroup = this.createInputGroup(this.t('image.linkUrl'), 'text', existingData.linkUrl);
         const linkInput = linkGroup.querySelector('input');
         linkInput.placeholder = this.t('image.linkUrlPlaceholder');
 
-        // Rel (дополнительные значения)
+        // Rel (additional values)
         const relGroup = this.createInputGroup(this.t('image.relExceptNofollow'), 'text', existingData.relExtra);
         const relInput = relGroup.querySelector('input');
         relInput.placeholder = this.t('image.relPlaceholder');
@@ -680,7 +680,7 @@ export default class Image extends Module {
         linkGrid.append(linkGroup, relGroup);
         linkSection.appendChild(linkGrid);
 
-        // Чекбоксы для ссылки
+        // Checkboxes for link
         const checksDiv = document.createElement('div');
         checksDiv.style.marginTop = '10px';
 
@@ -717,7 +717,7 @@ export default class Image extends Module {
 
         form.appendChild(grid);
 
-        // Обработчик загрузки файла в модалке
+        // Handler for file upload in modal
         if (fileInput) {
             fileInput.addEventListener('change', async () => {
                 const file = fileInput.files[0];
@@ -743,12 +743,12 @@ export default class Image extends Module {
                         body: formData
                     });
 
-                    // Проверяем HTTP статус
+                    // Check HTTP status
                     if (!response.ok && response.status !== 400) {
                         throw new Error(`Server error (${response.status})`);
                     }
 
-                    // Пробуем распарсить JSON
+                    // Try to parse JSON
                     let result;
                     try {
                         result = await response.json();
@@ -765,26 +765,26 @@ export default class Image extends Module {
                             ${this.t('image.uploadSuccess')}
                         `;
 
-                        // Заполняем поля данными с сервера
+                        // Fill inputs with server data
                         urlInput.value = result.src;
                         if (result.srcset) srcsetInput.value = result.srcset;
                         if (result.alt) altInput.value = result.alt;
                         if (result.title) titleInput.value = result.title;
                         if (result.caption) captionInput.value = result.caption;
                     } else {
-                        // Ошибка от сервера
+                        // Error from server
                         uploadStatus.style.color = 'var(--redactix-danger)';
                         uploadStatus.textContent = result.error || 'Upload failed';
                     }
                 } catch (error) {
-                    // Сетевая ошибка или ошибка парсинга
+                    // Network error or parsing error
                     uploadStatus.style.color = 'var(--redactix-danger)';
                     uploadStatus.textContent = error.message || 'Connection error';
                 }
             });
         }
 
-        // Подготовка дополнительных кнопок (Delete для редактирования)
+        // Preparing additional buttons (Delete for editing)
         const extraButtons = [];
         if (isEditing) {
             extraButtons.push({
@@ -825,7 +825,7 @@ export default class Image extends Module {
 
                 if (url && url !== 'https://') {
                     if (isEditing) {
-                        // Обновляем существующее изображение
+                        // Update existing image
                         this.updateImage(existingFigure, existingImg, {
                             url,
                             alt,
@@ -860,14 +860,14 @@ export default class Image extends Module {
     }
 
     /**
-     * Упрощённая модалка для lite mode
-     * Только URL и alt, без загрузки, srcset, ссылок и т.д.
+     * Simplified modal for lite mode
+     * Only URL and alt, without upload, srcset, links, etc.
      */
     openLiteModal(existingFigure = null, existingImg = null) {
         this.instance.selection.save();
         this.currentFigure = existingFigure;
 
-        // Извлекаем существующие данные
+        // Extract existing data
         let existingData = {
             url: 'https://',
             alt: ''
@@ -888,7 +888,7 @@ export default class Image extends Module {
 
         const form = document.createElement('div');
 
-        // Только URL и Alt - простая форма
+        // Only URL and Alt - simple form
         const urlGroup = this.createInputGroup(this.t('image.url') + ' *', 'text', existingData.url);
         const urlInput = urlGroup.querySelector('input');
         urlInput.placeholder = 'https://example.com/image.jpg';
@@ -899,7 +899,7 @@ export default class Image extends Module {
 
         form.append(urlGroup, altGroup);
 
-        // Подготовка дополнительных кнопок (Delete для редактирования)
+        // Preparing additional buttons (Delete for editing)
         const extraButtons = [];
         if (isEditing) {
             extraButtons.push({
@@ -927,7 +927,7 @@ export default class Image extends Module {
 
                 if (url && url !== 'https://') {
                     if (isEditing) {
-                        // Обновляем существующее изображение (упрощённо)
+                        // Update existing image (simplified)
                         this.updateImageLite(existingFigure, existingImg, { url, alt });
                     } else {
                         this.instance.selection.restore();
@@ -940,7 +940,7 @@ export default class Image extends Module {
     }
 
     /**
-     * Обновление изображения в lite mode
+     * Update image in lite mode
      */
     updateImageLite(existingFigure, existingImg, options) {
         const { alt } = options;
@@ -951,17 +951,17 @@ export default class Image extends Module {
             let img = existingFigure.querySelector('img');
             if (!img) {
                 img = document.createElement('img');
-                img.setAttribute('loading', 'lazy'); // По умолчанию lazy в lite mode
+                img.setAttribute('loading', 'lazy'); // Default lazy in lite mode
                 existingFigure.insertBefore(img, existingFigure.firstChild);
             }
             img.setAttribute('src', url);
             if (alt) img.setAttribute('alt', alt); else img.removeAttribute('alt');
-            // Убеждаемся что loading="lazy" установлен
+            // Ensure that loading="lazy" is set
             if (!img.hasAttribute('loading')) {
                 img.setAttribute('loading', 'lazy');
             }
         } else if (existingImg) {
-            // Оборачиваем в figure для консистентности
+            // Wrap in figure for consistency
             const figure = document.createElement('figure');
             figure.contentEditable = 'false';
 
@@ -972,7 +972,7 @@ export default class Image extends Module {
             existingImg.parentNode.insertBefore(figure, existingImg);
             figure.appendChild(existingImg);
 
-            // Добавляем пустой figcaption
+            // Add empty figcaption
             const figcaption = document.createElement('figcaption');
             figcaption.contentEditable = 'true';
             figcaption.innerHTML = '<br>';
@@ -981,25 +981,25 @@ export default class Image extends Module {
     }
 
     /**
-     * Вставка изображения в lite mode
+     * Insert image in lite mode
      */
     insertImageLite(options) {
         const { alt } = options;
         const url = sanitizeImageSrc(options.url);
         if (!url) return;
 
-        // Создаём figure для консистентности с полной версией
+        // Create figure for consistency with full version
         const figure = document.createElement('figure');
         figure.contentEditable = 'false';
 
         const img = document.createElement('img');
         img.setAttribute('src', url);
-        img.setAttribute('loading', 'lazy'); // По умолчанию lazy в lite mode
+        img.setAttribute('loading', 'lazy'); // Default lazy in lite mode
         if (alt) img.setAttribute('alt', alt);
 
         figure.appendChild(img);
 
-        // Добавляем пустой figcaption для возможности ввода подписи
+        // Add empty figcaption to allow caption input
         const figcaption = document.createElement('figcaption');
         figcaption.contentEditable = 'true';
         figcaption.innerHTML = '<br>';
@@ -1010,10 +1010,10 @@ export default class Image extends Module {
     }
 
     /**
-     * Открытие панели просмотра загруженных изображений
+     * Open panel for browsing uploaded images
      */
     openBrowsePanel(container, onSelect) {
-        // Очищаем контейнер и показываем загрузку
+        // Clear container and show loading
         container.innerHTML = `
             <div style="text-align: center; padding: 20px; color: var(--redactix-text-muted);">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; display: inline-block;">
@@ -1052,7 +1052,7 @@ export default class Image extends Module {
     }
 
     /**
-     * Рендер сетки изображений для выбора
+     * Render grid of images for selection
      */
     renderBrowseGrid(container, images, allowDelete, onSelect) {
         container.innerHTML = '';
@@ -1079,7 +1079,7 @@ export default class Image extends Module {
             item.style.transition = 'border-color 0.15s, transform 0.15s';
             item.style.background = 'var(--redactix-bg)';
 
-            // Превью изображения
+            // Image preview
             const preview = document.createElement('img');
             preview.src = img.src;
             preview.style.width = '100%';
@@ -1087,10 +1087,10 @@ export default class Image extends Module {
             preview.style.objectFit = 'cover';
             preview.alt = img.filename;
 
-            // Tooltip с информацией
+            // Tooltip with information
             item.title = `${img.filename}\n${img.size}`;
 
-            // Hover эффект
+            // Hover effect
             item.addEventListener('mouseenter', () => {
                 item.style.borderColor = 'var(--redactix-primary)';
                 item.style.transform = 'scale(1.02)';
@@ -1100,20 +1100,20 @@ export default class Image extends Module {
                 item.style.transform = 'scale(1)';
             });
 
-            // Клик для выбора
+            // Click to select
             item.addEventListener('click', () => {
                 onSelect(img);
-                // Закрываем панель после выбора
+                // Close the panel after selection
                 container.innerHTML = `<div style="color: #10b981; padding: 10px; text-align: center;">${this.t('image.imageSelected')}: ${img.filename}</div>`;
                 setTimeout(() => {
-                    // Восстанавливаем кнопку browse
+                    // Restore browse button
                     this.restoreBrowseButton(container, onSelect);
                 }, 1500);
             });
 
             item.appendChild(preview);
 
-            // Кнопка удаления (если разрешено)
+            // Delete button (if allowed)
             if (allowDelete) {
                 const deleteBtn = document.createElement('button');
                 deleteBtn.type = 'button';
@@ -1133,7 +1133,7 @@ export default class Image extends Module {
                 deleteBtn.style.lineHeight = '1';
                 deleteBtn.title = this.t('image.deleteTooltip');
 
-                // На touch-устройствах hover-а нет — кнопка видна всегда.
+                // On touch devices there is no hover - the button is always visible.
                 const hoverable = window.matchMedia && window.matchMedia('(hover: hover)').matches;
                 deleteBtn.style.display = hoverable ? 'none' : 'block';
                 if (hoverable) {
@@ -1155,7 +1155,7 @@ export default class Image extends Module {
                 item.appendChild(deleteBtn);
             }
 
-            // Информация о файле
+            // File information
             const info = document.createElement('div');
             info.style.position = 'absolute';
             info.style.bottom = '0';
@@ -1176,7 +1176,7 @@ export default class Image extends Module {
 
         container.appendChild(grid);
 
-        // Кнопка "Закрыть"
+        // "Close" button
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';
         closeBtn.textContent = this.t('image.closeGallery');
@@ -1198,7 +1198,7 @@ export default class Image extends Module {
     }
 
     /**
-     * Восстановление кнопки browse
+     * Restore browse button
      */
     restoreBrowseButton(container, onSelect) {
         container.innerHTML = '';
@@ -1231,7 +1231,7 @@ export default class Image extends Module {
     }
 
     /**
-     * Удаление изображения
+     * Delete image
      */
     deleteImage(filename, container, onSelect) {
         const formData = new FormData();
@@ -1245,7 +1245,7 @@ export default class Image extends Module {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Перезагружаем список
+                    // Reload the list
                     this.openBrowsePanel(container, onSelect);
                 } else {
                     alert(data.error || 'Failed to delete image');
@@ -1316,9 +1316,9 @@ export default class Image extends Module {
     updateImage(existingFigure, existingImg, options) {
         const { alt, title, srcset, loading, isBlank, isNofollow, relExtra } = options;
 
-        // Та же санитизация, что и на paste-пути: src — только http(s)/
-        // относительные/растровые data:, href ссылки — безопасная схема,
-        // rel собирается через composeLinkRel (noopener при _blank).
+        // Same sanitization as on paste path: src - only http(s)/
+        // relative/raster data:, href link - safe schema,
+        // rel is built via composeLinkRel (noopener for _blank).
         const url = sanitizeImageSrc(options.url);
         if (!url) return;
         const linkUrl = options.linkUrl ? sanitizeUrl(options.linkUrl) : null;
@@ -1326,13 +1326,13 @@ export default class Image extends Module {
         const rel = composeLinkRel({ nofollow: isNofollow, blank: isBlank, extra: relExtra });
 
         if (existingFigure) {
-            // Обновляем figure
+            // Update figure
             existingFigure.contentEditable = 'false';
             let img = existingFigure.querySelector('img');
             let link = existingFigure.querySelector('a');
             let figcaption = existingFigure.querySelector('figcaption');
 
-            // Обновляем или создаём img
+            // Update or create img
             if (!img) {
                 img = document.createElement('img');
             }
@@ -1342,11 +1342,11 @@ export default class Image extends Module {
             if (srcset) img.setAttribute('srcset', srcset); else img.removeAttribute('srcset');
             if (loading) img.setAttribute('loading', loading); else img.removeAttribute('loading');
 
-            // Обрабатываем ссылку
+            // Process the link
             if (linkUrl) {
                 if (!link) {
                     link = document.createElement('a');
-                    // Вставляем ссылку, оборачивая img
+                    // Insert link wrapping img
                     if (img.parentNode === existingFigure) {
                         existingFigure.insertBefore(link, img);
                     } else {
@@ -1358,17 +1358,17 @@ export default class Image extends Module {
                 if (isBlank) link.target = '_blank'; else link.removeAttribute('target');
                 if (rel) link.rel = rel; else link.removeAttribute('rel');
             } else if (link) {
-                // Убираем ссылку, оставляем img
+                // Remove link, keep img
                 link.parentNode.insertBefore(img, link);
                 link.remove();
             }
 
-            // Убеждаемся что img/link в figure
+            // Ensure that img/link is in figure
             if (!link && img.parentNode !== existingFigure) {
                 existingFigure.insertBefore(img, existingFigure.firstChild);
             }
 
-            // Всегда есть figcaption
+            // There is always a figcaption
             if (!figcaption) {
                 figcaption = document.createElement('figcaption');
                 existingFigure.appendChild(figcaption);
@@ -1376,7 +1376,7 @@ export default class Image extends Module {
             figcaption.contentEditable = 'true';
             figcaption.innerHTML = caption || '<br>';
         } else if (existingImg) {
-            // Обновляем отдельный img (без figure) - превращаем в figure
+            // Update standalone img (without figure) - turn into figure
             const figure = document.createElement('figure');
             figure.contentEditable = 'false';
 
@@ -1399,18 +1399,18 @@ export default class Image extends Module {
                 }
                 imgOrLink = link;
             } else if (oldLink) {
-                // Убираем ссылку
+                // Remove the link
                 oldLink.parentNode.insertBefore(existingImg, oldLink);
                 oldLink.remove();
                 imgOrLink = existingImg;
             }
 
-            // Заменяем img/link на figure
+            // Replace img/link with figure
             const parent = imgOrLink.parentNode;
             parent.insertBefore(figure, imgOrLink);
             figure.appendChild(imgOrLink);
 
-            // Всегда добавляем figcaption
+            // Always add figcaption
             const figcaption = document.createElement('figcaption');
             figcaption.contentEditable = 'true';
             figcaption.innerHTML = caption || '<br>';
@@ -1421,13 +1421,13 @@ export default class Image extends Module {
     insertImage(options) {
         const { alt, srcset, isBlank, isNofollow, relExtra, title, loading } = options;
 
-        // Санитизация — та же, что в updateImage.
+        // Sanitization - same as in updateImage.
         const url = sanitizeImageSrc(options.url);
         if (!url) return;
         const linkUrl = options.linkUrl ? sanitizeUrl(options.linkUrl) : null;
         const caption = sanitizeInlineHtml(options.caption || '');
 
-        // Создаем изображение
+        // Create image
         const img = document.createElement('img');
         img.setAttribute('src', url);
         if (alt) img.setAttribute('alt', alt);
@@ -1437,7 +1437,7 @@ export default class Image extends Module {
 
         let imgOrLink = img;
 
-        // Если есть ссылка - оборачиваем
+        // If link exists - wrap it
         if (linkUrl) {
             const a = document.createElement('a');
             a.href = linkUrl;
@@ -1448,15 +1448,15 @@ export default class Image extends Module {
             imgOrLink = a;
         }
 
-        // Всегда создаем figure (даже без caption)
+        // Always create figure (even without caption)
         const figure = document.createElement('figure');
         figure.contentEditable = 'false';
         figure.appendChild(imgOrLink);
 
-        // Если есть caption - добавляем figcaption
+        // If caption exists - add figcaption
         const figcaption = document.createElement('figcaption');
         figcaption.contentEditable = 'true';
-        figcaption.innerHTML = caption || '<br>'; // Пустой figcaption для возможности ввода
+        figcaption.innerHTML = caption || '<br>'; // Empty figcaption to allow input
         figure.appendChild(figcaption);
 
         this.instance.selection.insertNode(figure);

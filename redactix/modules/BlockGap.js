@@ -35,7 +35,7 @@ export default class BlockGap extends Module {
         });
 
         // Editor scroll (maxHeight) and window resize — recompute or hide.
-        // Глобальные слушатели — через registry (снимаются в destroy()).
+        // Global listeners — via registry (removed in destroy()).
         this.instance.editorEl.addEventListener('scroll', () => this.hide());
         this.instance.listen(window, 'scroll', () => this.hide(), { passive: true });
         this.instance.listen(window, 'resize', () => this.hide());
@@ -68,7 +68,7 @@ export default class BlockGap extends Module {
             this.insertAtCurrentGap();
         });
 
-        // Клавиатурная активация (click с detail === 0)
+        // Keyboard activation (click with detail === 0)
         this.button.addEventListener('click', (e) => {
             if (e.detail === 0) this.insertAtCurrentGap();
         });
@@ -182,7 +182,7 @@ export default class BlockGap extends Module {
         this.currentGap = null;
     }
 
-    /** Спрятать "+" между блоками (вызывается при входе в HTML-режим). */
+    /** Hide "+" between blocks (called when entering HTML mode). */
     hideUI() {
         this.hide();
     }

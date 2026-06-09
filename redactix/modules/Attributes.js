@@ -24,7 +24,7 @@ export default class Attributes extends Module {
         let temp = currentNode;
         while (temp && temp !== this.editor.el) {
             if (temp.nodeType === 1) { 
-                // Пропускаем служебные обертки
+                // Skip utility wrappers
                 if (!temp.classList.contains('redactix-separator')) {
                     path.unshift(temp);
                 }
@@ -33,7 +33,7 @@ export default class Attributes extends Module {
         }
 
         if (path.length === 0) {
-            // Если ничего не выбрано или мы в корне
+            // If nothing is selected or we are at root
             path.push(currentNode.nodeType === 1 ? currentNode : currentNode.parentNode);
         }
 
@@ -94,7 +94,7 @@ export default class Attributes extends Module {
             // 2. Render Form
             formContainer.innerHTML = '';
             
-// Info text
+            // Info text
             const info = document.createElement('p');
             info.innerHTML = `${this.t('attributes.editing')}: <b>&lt;${selectedNode.tagName.toLowerCase()}&gt;</b>`;
             info.style.marginTop = '0';
@@ -102,13 +102,13 @@ export default class Attributes extends Module {
             info.style.color = '#666';
             formContainer.appendChild(info);
 
-            // ID Input (якорь)
+            // ID Input (anchor)
             const idGroup = this.createInputGroup(this.t('attributes.idAnchor'), 'text', selectedNode.id || '');
             idInput = idGroup.querySelector('input');
             idInput.placeholder = this.t('attributes.idPlaceholder');
             formContainer.appendChild(idGroup);
             
-            // Подсказка для якоря
+            // Anchor hint
             if (selectedNode.id) {
                 const anchorHint = document.createElement('div');
                 anchorHint.style.cssText = 'margin-bottom: 15px; font-size: 12px; color: #6b7280;';
@@ -121,7 +121,7 @@ export default class Attributes extends Module {
             classInput = classGroup.querySelector('input');
             formContainer.appendChild(classGroup);
 
-            // Predefined classes (показываем только если массив задан и не пустой)
+            // Predefined classes (shown only if the array is set and not empty)
             const predefined = this.instance.config.predefinedClasses;
             if (predefined && Array.isArray(predefined) && predefined.length > 0) {
                 const listDiv = document.createElement('div');
@@ -166,13 +166,13 @@ export default class Attributes extends Module {
         body.appendChild(formContainer);
         render();
 
-this.instance.modal.open({
+        this.instance.modal.open({
             title: this.t('attributes.title'),
             body: body,
             onSave: () => {
                 this.instance.selection.restore();
                 if (selectedNode) {
-                    // Сохраняем ID
+                    // Save ID
                     if (idInput) {
                         const newId = this.sanitizeId(idInput.value);
                         if (newId) {
@@ -182,7 +182,7 @@ this.instance.modal.open({
                         }
                     }
                     
-                    // Сохраняем классы
+                    // Save classes
                     if (classInput) {
                         const classValue = classInput.value.trim();
                         if (classValue) {
@@ -211,9 +211,9 @@ this.instance.modal.open({
 
     sanitizeId(id) {
         if (!id) return '';
-        // Убираем # в начале если есть
+        // Remove # at the start if present
         id = id.replace(/^#/, '');
-        // Заменяем пробелы на дефисы, убираем спецсимволы
+        // Replace spaces with hyphens, remove special characters
         id = id.toLowerCase()
             .replace(/\s+/g, '-')
             .replace(/[^a-z0-9-_]/g, '')
@@ -228,28 +228,28 @@ this.instance.modal.open({
 
         const range = selection.getRangeAt(0);
         
-        // 1. Проверяем, выбрана ли картинка напрямую (commonContainer)
-        // В некоторых браузерах img выбирается как содержимое range
+        // 1. Check if the image is selected directly (commonContainer)
+        // In some browsers, img is selected as range content
         if (range.commonAncestorContainer.nodeType === 1 && 
             range.commonAncestorContainer.tagName === 'IMG') {
             return range.commonAncestorContainer;
         }
 
-        // 2. Проверяем родительские элементы (снизу вверх)
+        // 2. Check parent elements (bottom-up)
         let node = range.commonAncestorContainer;
-        if (node.nodeType === 3) node = node.parentNode; // Если текст, берем родителя
+        if (node.nodeType === 3) node = node.parentNode; // If text, take parent
 
-        // Ищем ближайший значащий тег
+        // Search for the nearest significant tag
         while (node && node !== this.editor.el) {
             const tag = node.tagName.toLowerCase();
-            // Если мы внутри ссылки, кнопки, картинки (wrapper), таблицы - возвращаем их
+            // If we are inside link, button, image (wrapper), table - return them
             if (['a', 'img', 'table', 'iframe', 'li', 'td', 'th', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'blockquote', 'pre'].includes(tag)) {
                 return node;
             }
             node = node.parentNode;
         }
         
-        // Если ничего специфичного не нашли, возвращаем сам блок (обычно P или DIV)
+        // If nothing specific is found, return the block itself (usually P or DIV)
         return node === this.editor.el ? null : node;
     }
 }

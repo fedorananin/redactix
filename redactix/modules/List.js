@@ -9,7 +9,7 @@ export default class List extends Module {
                 if (!selection.rangeCount) return;
 
                 const node = selection.anchorNode;
-                // Проверяем, находимся ли мы внутри списка
+                // Check if we are inside a list
                 if (node && node.nodeType === Node.TEXT_NODE && node.parentElement.closest('li')) {
                     e.preventDefault();
                     if (e.shiftKey) {
@@ -18,7 +18,7 @@ export default class List extends Module {
                         document.execCommand('indent');
                     }
                 } else if (node && node.nodeType === Node.ELEMENT_NODE && node.closest('li')) {
-                     // Если выделение на самом элементе
+                     // If selection is on the element itself
                     e.preventDefault();
                     if (e.shiftKey) {
                         document.execCommand('outdent');

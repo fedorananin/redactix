@@ -15,9 +15,9 @@ export default class Separator extends Module {
     }
 
     /**
-     * Вставка через DOM API (тот же путь, что у SlashCommands и Markdown):
-     * execCommand('insertHTML') с блочным div'ом разбивал текущий параграф
-     * и не оставлял места для ввода после сепаратора.
+     * Insertion via DOM API (same path as SlashCommands and Markdown):
+     * execCommand('insertHTML') with a block div split the current paragraph
+     * and left no space for input after the separator.
      */
     insertSeparator() {
         const wrapper = document.createElement('div');
@@ -33,7 +33,7 @@ export default class Separator extends Module {
         if (wrapper.parentNode) {
             wrapper.parentNode.insertBefore(nextP, wrapper.nextSibling);
 
-            // Курсор — в параграф после сепаратора
+            // Cursor - into the paragraph after the separator
             const range = document.createRange();
             range.setStart(nextP, 0);
             range.collapse(true);

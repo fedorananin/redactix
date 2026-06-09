@@ -7,10 +7,10 @@ export default class Markdown extends Module {
     }
 
     handleInput(e) {
-        // Не вмешиваемся в IME-композицию (Space выбирает кандидата)
+        // Do not interfere with IME composition (Space selects a candidate)
         if (e.isComposing) return;
 
-        // Реагируем на пробел
+        // React to space
         if (e.key !== ' ' && e.keyCode !== 32) return;
 
         const selection = window.getSelection();
@@ -19,7 +19,7 @@ export default class Markdown extends Module {
         const range = selection.getRangeAt(0);
         const node = range.startContainer;
 
-        // Работаем только с текстовыми узлами
+        // Work only with text nodes
         if (node.nodeType !== Node.TEXT_NODE) return;
 
         const text = node.textContent.replace(/\u00A0/g, ' ');
@@ -31,10 +31,10 @@ export default class Markdown extends Module {
         const insideQuoteCard = this.isInsideQuoteCard(node);
         const insideCallout = !insideQuoteCard && this.isInsideCallout(node);
 
-        // Все шорткаты заякорены на конец строки ($): срабатывают только
-        // когда префикс — единственное содержимое блока. Иначе пробел в
-        // середине предложения, начинающегося с "# ...", повторно
-        // конвертировал бы блок и съедал первые символы.
+        // All shortcuts are anchored to the end of the line ($): they trigger only
+        // when the prefix is the only content of the block. Otherwise space in the
+        // middle of a sentence starting with "# ..." would repeatedly
+        // convert the block and eat the first characters.
         const rules = [
             { regex: /^#\s$/, command: 'formatBlock', value: '<h1>' },
             { regex: /^##\s$/, command: 'formatBlock', value: '<h2>' },
@@ -56,7 +56,7 @@ export default class Markdown extends Module {
 
         for (const rule of rules) {
             if (rule.regex.test(text)) {
-                // 1. Списки (вложенность)
+                // 1. Lists (nestedness)
                 const parentListItem = node.parentElement.closest('li');
                 if (parentListItem && (rule.command === 'insertUnorderedList' || rule.command === 'insertOrderedList')) {
                     const matchLength = text.match(rule.regex)[0].length;
@@ -190,10 +190,10 @@ export default class Markdown extends Module {
                         brAdded = true;
                     }
 
-                    // Callout-контракт: содержимое <aside> заворачивается в
-                    // блочные дети (P/...). normalizeChildren переносит наш
-                    // текстовый узел внутрь нового <p>, ссылка на узел при
-                    // этом остаётся валидной для установки курсора ниже.
+                    // Callout contract: the content of <aside> is wrapped in
+                    // block children (P/...). normalizeChildren moves our
+                    // text node inside the new <p>, while the reference to the node
+                    // remains valid for setting the cursor below.
                     if (tagName === 'aside') {
                         const calloutModule = this.instance.modules.find(m => m.constructor.name === 'Callout');
                         if (calloutModule) {
@@ -216,35 +216,35 @@ export default class Markdown extends Module {
 
                 // 3. Separator (hr)
                 if (rule.command === 'insertSeparator') {
-                    // Создаём обёртку с hr
+                    // Create wrapper with hr
                     const wrapper = document.createElement('div');
                     wrapper.className = 'redactix-separator';
                     wrapper.contentEditable = 'false';
                     const hr = document.createElement('hr');
                     wrapper.appendChild(hr);
 
-                    // Создаём параграф для продолжения ввода
+                    // Create paragraph for continuing input
                     const nextP = document.createElement('p');
                     nextP.innerHTML = '<br>';
 
-                    // Очищаем текст в блоке
+                    // Clear text in the block
                     if (node.textContent.length >= matchLength) {
                         node.textContent = node.textContent.substring(matchLength);
                     }
 
-                    // Если после очистки блок пустой, заменяем его на separator
+                    // If the block is empty after clearing, replace it with separator
                     const isEmpty = isBlockEmpty(block, 'img, iframe');
 
                     if (isEmpty) {
                         block.parentNode.replaceChild(wrapper, block);
                         wrapper.parentNode.insertBefore(nextP, wrapper.nextSibling);
                     } else {
-                        // Если в блоке остался контент, вставляем separator перед ним
+                        // If content remains in the block, insert separator before it
                         block.parentNode.insertBefore(wrapper, block);
                         block.parentNode.insertBefore(nextP, block);
                     }
 
-                    // Ставим курсор в новый параграф
+                    // Place cursor in the new paragraph
                     const newRange = document.createRange();
                     newRange.setStart(nextP, 0);
                     newRange.collapse(true);
@@ -253,7 +253,7 @@ export default class Markdown extends Module {
                     sel.removeAllRanges();
                     sel.addRange(newRange);
 
-                    // Оборачиваем все hr в обёртки (для консистентности)
+                    // Wrap all hr in wrappers (for consistency)
                     this.editor.el.querySelectorAll('hr').forEach(h => {
                         if (!h.parentNode.classList.contains('redactix-separator')) {
                             const w = document.createElement('div');

@@ -47,9 +47,9 @@ export default class Video extends Module {
             if (figure) this.openModal(figure);
         });
 
-        // Drag&drop загрузка видеофайлов в редактор. Включаем только
-        // когда настроен videoUploadUrl и мы не в lite-режиме (lite
-        // зануляет uploadUrl в Redactix.js, но проверяем на всякий случай).
+        // Drag&drop upload of video files to the editor. Enable only
+        // when videoUploadUrl is configured and we are not in lite mode (lite
+        // zeroes uploadUrl in Redactix.js, but check just in case).
         if (this.uploadUrl && !this.liteMode) {
             this.initDragDrop();
         }
@@ -132,13 +132,13 @@ export default class Video extends Module {
      * module's contract — listeners coexist with Image's (the dragover /
      * dragleave handlers are idempotent w.r.t. the .redactix-dragover
      * class, and stopPropagation does NOT block sibling listeners on
-     * the same element). Видеофайлы фильтруются по MIME 'video/*';
-     * картинки и прочее достанутся Image-модулю.
+     * the same element). Video files are filtered by MIME 'video/*';
+     * images and other files go to the Image module.
      */
     initDragDrop() {
         const editor = this.instance.editorEl;
 
-        // Нативный dragstart глушится безусловно в Editor.js (bindEvents).
+        // Native dragstart is silenced unconditionally in Editor.js (bindEvents).
 
         editor.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -701,7 +701,7 @@ export default class Video extends Module {
                 deleteBtn.style.lineHeight = '1';
                 deleteBtn.title = this.t('video.deleteTooltip');
 
-                // На touch-устройствах hover-а нет — кнопка видна всегда.
+                // On touch devices there is no hover - the button is always visible.
                 const hoverable = window.matchMedia && window.matchMedia('(hover: hover)').matches;
                 deleteBtn.style.display = hoverable ? 'none' : 'block';
                 if (hoverable) {

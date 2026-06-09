@@ -9,8 +9,8 @@ export default class Modal {
         this._escHandler = null;
         this.render();
 
-        // Если инстанс уничтожают с открытой модалкой — снимаем
-        // Escape-слушатель с document.
+        // If the instance is destroyed with an open modal - remove
+        // Escape listener from document.
         if (instance && instance.onDestroy) {
             instance.onDestroy(() => {
                 if (this._escHandler) {
@@ -47,20 +47,20 @@ export default class Modal {
             document.body.appendChild(this.overlay);
         }
 
-        // Закрытие по клику на фон
+        // Close on background click
         this.overlay.addEventListener('click', (e) => {
             if (e.target === this.overlay) this.close();
         });
     }
 
     /**
-     * Открывает модальное окно
+     * Opens modal window
      * @param {Object} options 
-     * @param {string} options.title Заголовок
-     * @param {HTMLElement} options.body Содержимое (форма)
-     * @param {Function} options.onSave Коллбек сохранения
-     * @param {Function} options.onClose Коллбек закрытия (вызывается при любом закрытии)
-     * @param {Array} options.extraButtons Дополнительные кнопки слева (например, Delete)
+     * @param {string} options.title Title
+     * @param {HTMLElement} options.body Content (form)
+     * @param {Function} options.onSave Save callback
+     * @param {Function} options.onClose Close callback (called on any close)
+     * @param {Array} options.extraButtons Additional buttons on the left (e.g. Delete)
      */
     open({ title, body, onSave, onClose, extraButtons = [] }) {
         this.onSave = onSave;
@@ -107,9 +107,9 @@ export default class Modal {
         saveBtn.textContent = this.t('save');
         saveBtn.className = 'redactix-modal-btn redactix-modal-btn-primary';
         saveBtn.addEventListener('click', () => {
-            // onSave может вернуть false (или Promise<false>), чтобы оставить
-            // модалку открытой — например, если форма не прошла валидацию.
-            // Любое другое значение — закрываем как обычно.
+            // onSave can return false (or Promise<false>) to keep
+            // the modal open - for example, if the form failed validation.
+            // Any other value - close as usual.
             if (this.onSave) {
                 const result = this.onSave();
                 if (result === false) return;
@@ -131,7 +131,7 @@ export default class Modal {
 
         this.overlay.classList.add('is-open');
 
-        // Закрытие по Escape — слушатель живёт только пока модалка открыта
+        // Close on Escape - the listener lives only while the modal is open
         this._escHandler = (e) => {
             if (e.key === 'Escape') {
                 e.stopPropagation();
@@ -140,7 +140,7 @@ export default class Modal {
         };
         document.addEventListener('keydown', this._escHandler);
 
-        // Автофокус на первое поле формы
+        // Autofocus on the first form field
         const firstField = this.container.querySelector('input, textarea, select');
         if (firstField) firstField.focus();
     }

@@ -6,13 +6,13 @@ export default class Module {
     }
 
     /**
-     * Инициализация модуля.
-     * Здесь можно вешать слушатели событий или модифицировать DOM.
+     * Module initialization.
+     * Here you can attach event listeners or modify the DOM.
      */
     init() {}
 
     /**
-     * Должен вернуть массив кнопок для тулбара, если модулю нужны кнопки.
+     * Must return an array of buttons for the toolbar if the module needs buttons.
      * @returns {Array} [{ label: 'B', icon: '...', action: func, active: bool }]
      */
     getButtons() {
@@ -20,10 +20,10 @@ export default class Module {
     }
 
     /**
-     * Спрятать все плавающие UI-элементы модуля (ручки, меню, панели).
-     * Вызывается, когда визуальный редактор скрывается (HTML-режим):
-     * абсолютно позиционированные оверлеи в wrapper'е иначе остаются
-     * висеть поверх кода. Модули с оверлеями переопределяют этот метод.
+     * Hide all floating UI elements of the module (handles, menus, panels).
+     * Called when the visual editor is hidden (HTML mode):
+     * otherwise, absolutely positioned overlays in the wrapper remain
+     * hanging on top of the code. Modules with overlays override this method.
      */
     hideUI() {}
     

@@ -29,7 +29,7 @@ export default class Table extends Module {
     }
 
     createHandles() {
-        // Ручка для ячейки (td/th)
+        // Handle for cell (td/th)
         this.cellHandle = document.createElement('div');
         this.cellHandle.className = 'redactix-table-handle redactix-table-cell-handle';
         this.cellHandle.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
@@ -42,7 +42,7 @@ export default class Table extends Module {
         this.cellHandle.title = this.t('blockControl.cellSettings');
         this.instance.wrapper.appendChild(this.cellHandle);
 
-        // Ручка для строки (tr)
+        // Handle for row (tr)
         this.rowHandle = document.createElement('div');
         this.rowHandle.className = 'redactix-table-handle redactix-table-row-handle';
         this.rowHandle.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
@@ -54,13 +54,13 @@ export default class Table extends Module {
         this.rowHandle.title = this.t('blockControl.rowSettings');
         this.instance.wrapper.appendChild(this.rowHandle);
 
-        // Клик по ручке ячейки
+        // Click on cell handle
         this.cellHandle.addEventListener('click', (e) => {
             e.stopPropagation();
             this.showContextMenuAtHandle(this.cellHandle, 'cell');
         });
 
-        // Клик по ручке строки
+        // Click on row handle
         this.rowHandle.addEventListener('click', (e) => {
             e.stopPropagation();
             this.showContextMenuAtHandle(this.rowHandle, 'row');
@@ -68,7 +68,7 @@ export default class Table extends Module {
     }
 
     bindEvents() {
-        // Контекстное меню по правому клику на ячейке
+        // Context menu on right click on a cell
         this.instance.editorEl.addEventListener('contextmenu', (e) => {
             const cell = e.target.closest('td, th');
             if (cell && cell.closest('table')) {
@@ -78,14 +78,14 @@ export default class Table extends Module {
             }
         });
 
-        // Показываем ручки при наведении на ячейку таблицы
+        // Show handles when hovering over a table cell
         this.instance.editorEl.addEventListener('mousemove', (e) => {
             const cell = e.target.closest('td, th');
             if (cell && cell.closest('table')) {
                 this.currentCell = cell;
                 this.showHandles(cell);
             } else {
-                // Проверяем, не на ручках ли мы
+                // Check if we are hovering over handles
                 if (!this.cellHandle.contains(e.target) && 
                     !this.rowHandle.contains(e.target) &&
                     this.contextMenu.style.display === 'none') {
@@ -94,7 +94,7 @@ export default class Table extends Module {
             }
         });
 
-        // Скрываем ручки при уходе из редактора
+        // Hide handles when leaving the editor
         this.instance.wrapper.addEventListener('mouseleave', (e) => {
             if (!this.cellHandle.contains(e.relatedTarget) && 
                 !this.rowHandle.contains(e.relatedTarget) &&
@@ -103,7 +103,7 @@ export default class Table extends Module {
             }
         });
 
-        // Скрываем меню при клике (через registry — снимается в destroy())
+        // Hide menu on click (via registry - removed in destroy())
         this.instance.listen(document, 'click', (e) => {
             if (this.contextMenu &&
                 !this.contextMenu.contains(e.target) &&
@@ -119,12 +119,12 @@ export default class Table extends Module {
         const wrapperRect = this.instance.wrapper.getBoundingClientRect();
         const row = cell.closest('tr');
 
-        // Позиционируем ручку ячейки (справа сверху от ячейки)
+        // Position cell handle (top right of the cell)
         this.cellHandle.style.display = 'flex';
         this.cellHandle.style.left = `${cellRect.right - wrapperRect.left - 20}px`;
         this.cellHandle.style.top = `${cellRect.top - wrapperRect.top + 2}px`;
 
-        // Позиционируем ручку строки (слева от строки)
+        // Position row handle (left of the row)
         if (row) {
             const rowRect = row.getBoundingClientRect();
             this.rowHandle.style.display = 'flex';
@@ -138,7 +138,7 @@ export default class Table extends Module {
         this.rowHandle.style.display = 'none';
     }
 
-    /** Спрятать ручки и контекстное меню (вызывается при входе в HTML-режим). */
+    /** Hide handles and context menu (called when entering HTML mode). */
     hideUI() {
         this.hideHandles();
         this.hideContextMenu();
@@ -149,16 +149,16 @@ export default class Table extends Module {
         const handleRect = handle.getBoundingClientRect();
         const wrapperRect = this.instance.wrapper.getBoundingClientRect();
 
-        // Строим меню
+        // Build menu
         this.buildContextMenu(type);
 
         this.contextMenu.style.display = 'block';
         
-        // Позиционируем под ручкой
+        // Position below handle
         let left = handleRect.left - wrapperRect.left;
         let top = handleRect.bottom - wrapperRect.top + 5;
         
-        // Проверяем границы
+        // Verify boundaries
         const menuRect = this.contextMenu.getBoundingClientRect();
         if (left + menuRect.width > wrapperRect.width) {
             left = wrapperRect.width - menuRect.width - 5;
@@ -182,7 +182,7 @@ export default class Table extends Module {
         let actions = [];
         
         if (type === 'cell') {
-            // Меню для ячейки
+            // Menu for cell
             actions = [
                 { label: this.t('table.insertColumnLeft'), action: () => this.insertColumn('before') },
                 { label: this.t('table.insertColumnRight'), action: () => this.insertColumn('after') },
@@ -258,34 +258,34 @@ export default class Table extends Module {
     showContextMenu(e) {
         const wrapperRect = this.instance.wrapper.getBoundingClientRect();
         
-        // Строим меню
+        // Build menu
         this.buildContextMenu('full');
 
-        // Позиционируем с учётом границ
+        // Position taking boundaries into account
         this.contextMenu.style.display = 'block';
         
-        // Получаем размеры меню после отображения
+        // Get menu dimensions after showing
         const menuRect = this.contextMenu.getBoundingClientRect();
         
         let left = e.clientX - wrapperRect.left;
         let top = e.clientY - wrapperRect.top;
         
-        // Проверяем правую границу
+        // Check right boundary
         if (left + menuRect.width > wrapperRect.width) {
             left = wrapperRect.width - menuRect.width - 5;
         }
         
-        // Проверяем левую границу
+        // Check left boundary
         if (left < 5) {
             left = 5;
         }
         
-        // Проверяем нижнюю границу
+        // Check bottom boundary
         if (top + menuRect.height > wrapperRect.height) {
             top = e.clientY - wrapperRect.top - menuRect.height;
         }
         
-        // Проверяем верхнюю границу
+        // Check top boundary
         if (top < 5) {
             top = 5;
         }
@@ -308,7 +308,7 @@ export default class Table extends Module {
         const rowsGroup = this.createInputGroup(this.t('table.rows'), 'number', '3');
         const colsGroup = this.createInputGroup(this.t('table.columns'), 'number', '3');
         
-        // Чекбокс для заголовка
+        // Checkbox for header
         const headerDiv = document.createElement('div');
         headerDiv.style.marginTop = '10px';
         const headerLabel = document.createElement('label');
@@ -358,7 +358,7 @@ export default class Table extends Module {
     insertTable(rows, cols, hasHeader = true) {
         const table = document.createElement('table');
 
-        // Создаём thead если нужен заголовок
+        // Create thead if header is needed
         if (hasHeader && rows > 0) {
             const thead = document.createElement('thead');
             const tr = document.createElement('tr');
@@ -369,17 +369,17 @@ export default class Table extends Module {
             }
             thead.appendChild(tr);
             table.appendChild(thead);
-            rows--; // Уменьшаем количество строк для tbody
+            rows--; // Decrease number of rows for tbody
         }
 
-        // Создаём tbody
+        // Create tbody
         if (rows > 0) {
             const tbody = document.createElement('tbody');
             for (let i = 0; i < rows; i++) {
                 const tr = document.createElement('tr');
                 for (let j = 0; j < cols; j++) {
                     const td = document.createElement('td');
-                    td.innerHTML = '<br>'; // Пустая ячейка с возможностью редактирования
+                    td.innerHTML = '<br>'; // Empty cell with editing possibility
                     tr.appendChild(td);
                 }
                 tbody.appendChild(tr);
@@ -387,7 +387,7 @@ export default class Table extends Module {
             table.appendChild(tbody);
         }
 
-        // Вставляем таблицу и параграф после неё
+        // Insert table and paragraph after it
         const fragment = document.createDocumentFragment();
         fragment.appendChild(table);
         
@@ -398,7 +398,7 @@ export default class Table extends Module {
         this.instance.selection.insertNode(fragment);
     }
 
-    // --- Действия с таблицей ---
+    // --- Actions with table ---
 
     getTable() {
         return this.currentCell?.closest('table');
@@ -426,7 +426,7 @@ export default class Table extends Module {
         const colCount = row.children.length;
         const newRow = document.createElement('tr');
         
-        // Определяем тип ячеек (если строка в thead - th, иначе td)
+        // Determine cell type (if row in thead - th, otherwise td)
         const isInHead = row.closest('thead') !== null;
         const cellTag = isInHead ? 'th' : 'td';
         
@@ -477,7 +477,7 @@ export default class Table extends Module {
         const tbody = row.closest('tbody');
         const thead = row.closest('thead');
         
-        // Если это последняя строка - удаляем всю таблицу
+        // If this is the last row - delete the whole table
         const allRows = table.querySelectorAll('tr');
         if (allRows.length <= 1) {
             this.deleteTable();
@@ -486,11 +486,11 @@ export default class Table extends Module {
 
         row.remove();
 
-        // Если tbody пуст - удаляем его
+        // If tbody is empty - delete it
         if (tbody && tbody.children.length === 0) {
             tbody.remove();
         }
-        // Если thead пуст - удаляем его
+        // If thead is empty - delete it
         if (thead && thead.children.length === 0) {
             thead.remove();
         }
@@ -507,7 +507,7 @@ export default class Table extends Module {
 
         const rows = table.querySelectorAll('tr');
         
-        // Проверяем что это не последний столбец
+        // Check that this is not the last column
         if (rows[0].children.length <= 1) {
             this.deleteTable();
             return;
@@ -539,7 +539,7 @@ export default class Table extends Module {
         const newCell = document.createElement(newTag);
         newCell.innerHTML = this.currentCell.innerHTML;
         
-        // Копируем атрибуты
+        // Copy attributes
         Array.from(this.currentCell.attributes).forEach(attr => {
             newCell.setAttribute(attr.name, attr.value);
         });
@@ -558,14 +558,14 @@ export default class Table extends Module {
         const isInHead = row.closest('thead') !== null;
 
         if (isInHead) {
-            // Перемещаем из thead в tbody
+            // Move from thead to tbody
             let tbody = table.querySelector('tbody');
             if (!tbody) {
                 tbody = document.createElement('tbody');
                 table.appendChild(tbody);
             }
             
-            // Конвертируем th в td
+            // Convert th to td
             const newRow = document.createElement('tr');
             Array.from(row.children).forEach(cell => {
                 const td = document.createElement('td');
@@ -576,20 +576,20 @@ export default class Table extends Module {
             tbody.insertBefore(newRow, tbody.firstChild);
             row.remove();
             
-            // Удаляем пустой thead
+            // Delete empty thead
             const thead = table.querySelector('thead');
             if (thead && thead.children.length === 0) {
                 thead.remove();
             }
         } else {
-            // Перемещаем в thead
+            // Move to thead
             let thead = table.querySelector('thead');
             if (!thead) {
                 thead = document.createElement('thead');
                 table.insertBefore(thead, table.firstChild);
             }
             
-            // Конвертируем td в th
+            // Convert td to th
             const newRow = document.createElement('tr');
             Array.from(row.children).forEach(cell => {
                 const th = document.createElement('th');

@@ -80,7 +80,7 @@ export default {
         confirmDelete: 'Удалить {filename}?'
     },
 
-    // Gallery module (несколько фото в одном <figure> с общей подписью)
+    // Gallery module (multiple photos in one <figure> with a shared caption)
     gallery: {
         title: 'Вставить фото-галерею',
         editTitle: 'Редактировать фото-галерею',
@@ -105,7 +105,7 @@ export default {
         menuGroup: 'Галерея'
     },
 
-    // Video module (нативное HTML5 <video>, по умолчанию выключено)
+    // Video module (native HTML5 <video>, off by default)
     video: {
         title: 'Вставить видео',
         editTitle: 'Редактировать видео',

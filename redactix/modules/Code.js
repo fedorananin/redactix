@@ -8,7 +8,7 @@ export default class Code extends Module {
     }
 
     init() {
-        // Клик по блоку кода для редактирования
+        // Click on code block to edit
         this.instance.editorEl.addEventListener('click', (e) => {
             const pre = e.target.closest('pre');
             if (pre) {
@@ -42,7 +42,7 @@ export default class Code extends Module {
             const codeEl = existingPre.querySelector('code');
             if (codeEl) {
                 existingCode = codeEl.textContent || '';
-                // Извлекаем язык из класса
+                // Extract language from class
                 const classList = codeEl.className.split(' ');
                 for (const cls of classList) {
                     if (cls.startsWith('language-')) {
@@ -57,7 +57,7 @@ export default class Code extends Module {
 
         const form = document.createElement('div');
         
-        // Выбор языка
+        // Language selection
         const languageGroup = this.createSelectGroup(this.t('code.language'), existingLanguage, [
             { value: '', label: this.t('code.languageNone') },
             { value: 'javascript', label: 'JavaScript' },
@@ -84,7 +84,7 @@ export default class Code extends Module {
         ]);
         const languageSelect = languageGroup.querySelector('select');
 
-        // Textarea для кода
+        // Textarea for code
         const codeGroup = this.createTextareaGroup(this.t('code.language'), existingCode);
         const codeTextarea = codeGroup.querySelector('textarea');
         codeTextarea.style.fontFamily = "'SF Mono', 'Consolas', 'Monaco', monospace";
@@ -92,7 +92,7 @@ export default class Code extends Module {
         codeTextarea.style.tabSize = '2';
         codeTextarea.placeholder = this.t('code.codePlaceholder');
         
-        // Обработка Tab в textarea
+        // Handle Tab in textarea
         codeTextarea.addEventListener('keydown', (e) => {
             if (e.key === 'Tab') {
                 e.preventDefault();
@@ -103,7 +103,7 @@ export default class Code extends Module {
             }
         });
         
-        // Кнопка удаления (при редактировании)
+        // Remove button (when editing)
         if (isEditing) {
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';

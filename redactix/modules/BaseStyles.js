@@ -3,7 +3,7 @@ import Icons from '../ui/Icons.js';
 
 export default class BaseStyles extends Module {
     init() {
-        // Форматирование доступно через плавающий тулбар и горячие клавиши браузера
+        // Formatting is available via the floating toolbar and browser hotkeys
     }
 
     applyStyle(command) {
@@ -12,7 +12,7 @@ export default class BaseStyles extends Module {
         this.instance.sync();
     }
 
-    // Кнопки убраны из основного тулбара - форматирование через floating toolbar
+    // Buttons are removed from the main toolbar - formatting is done via floating toolbar
     getButtons() {
         return [];
     }
