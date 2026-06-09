@@ -12,7 +12,8 @@ export default class BlockGap extends Module {
         super(instance);
         this.enabled = instance.config.gapInsertHandle !== false;
         this.handle = null;
-        this.line = null;
+        this.lineLeft = null;
+        this.lineRight = null;
         this.button = null;
         this.currentGap = null; // { before, after, midY }
     }

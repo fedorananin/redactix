@@ -1,5 +1,6 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
+import { sanitizeUrl, composeLinkRel } from '../core/dom-utils.js';
 
 export default class Link extends Module {
     // Кнопка убрана - ссылки через floating toolbar
@@ -81,13 +82,18 @@ export default class Link extends Module {
     }
 
     insertLink(url, text, isBlank, isNofollow) {
-        // Простой способ через execCommand создает ссылку, но нам нужны атрибуты
-        // Поэтому делаем через DOM
+        // Валидируем схему URL — отсекает javascript:, data:text/html и т.п.
+        const safeUrl = sanitizeUrl(url);
+        if (!safeUrl) return;
+
         const a = document.createElement('a');
-        a.href = url;
+        a.href = safeUrl;
         a.textContent = text;
         if (isBlank) a.target = '_blank';
-        if (isNofollow) a.rel = 'nofollow';
+        // composeLinkRel сам добавит noopener+noreferrer когда target=_blank
+        // (защита от tab-jacking) и nofollow, если запрошено.
+        const rel = composeLinkRel({ nofollow: isNofollow, blank: isBlank });
+        if (rel) a.rel = rel;
 
         this.instance.selection.insertNode(a);
     }

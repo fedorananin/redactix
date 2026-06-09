@@ -1,10 +1,16 @@
+import { isAtomicBlock, isBlockEmpty, sanitizeUrl, sanitizeImageSrc, sanitizeRel, sanitizeTarget } from './dom-utils.js';
+
 export default class Editor {
     constructor(instance) {
         this.instance = instance;
         this.el = instance.editorEl;
 
-        // Настройка дефолтного параграфа
-        document.execCommand('defaultParagraphSeparator', false, 'p');
+        // Дефолтный параграф-разделитель — глобальная настройка документа,
+        // ставим один раз на всю страницу даже при нескольких инстансах.
+        if (!Editor._documentDefaultsApplied) {
+            try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) {}
+            Editor._documentDefaultsApplied = true;
+        }
 
         this.bindEvents();
         this.setupPlaceholder();
@@ -146,11 +152,8 @@ export default class Editor {
             this.updatePlaceholder();
         });
 
-        // Ensure trailing paragraph after programmatic DOM changes settle
-        // Uses click on editor area to check if last element needs a trailing p
-        this.el.addEventListener('click', (e) => {
-            this.ensureTrailingParagraph();
-        });
+        // ensureTrailingParagraph теперь вызывается из RedactixInstance._doSync —
+        // любая структурная правка автоматически получает посадочный <p> в конце.
 
         // Обработка paste
         this.el.addEventListener('paste', (e) => {
@@ -470,8 +473,12 @@ export default class Editor {
             }
         });
 
-        // Удаляем все атрибуты, кроме разрешённых
-        const allowedAttributes = ['href', 'src', 'alt', 'title', 'colspan', 'rowspan'];
+        // Удаляем все атрибуты, кроме разрешённых.
+        // rel/target/download разрешены, но фильтруются по whitelist
+        // (sanitizeRel / sanitizeTarget ниже). href/src проверяются на
+        // допустимую схему через sanitizeUrl — отсекает javascript:, data:
+        // (кроме растровых картинок) и прочее.
+        const allowedAttributes = ['href', 'src', 'alt', 'title', 'colspan', 'rowspan', 'rel', 'target', 'download'];
         // Разрешённые классы. Структурные имена редактора зашиты, а
         // классы коллаут/цитат-пресетов берутся из конфига — так у юзера,
         // отключившего дефолтные пресеты, при вставке не выживут
@@ -531,10 +538,39 @@ export default class Editor {
                     }
                 }
 
-                // Проверяем href и src на javascript:
-                if ((attr.name === 'href' || attr.name === 'src') &&
-                    attr.value.toLowerCase().includes('javascript:')) {
-                    el.removeAttribute(attr.name);
+                // Проверяем схему href / src — пропускаем только http(s),
+                // mailto, tel, относительные и (для src картинок) data:image/*
+                // (кроме svg+xml). Всё остальное — javascript:, data:text/html,
+                // vbscript: и так далее — выкидываем.
+                const nameLower = attr.name.toLowerCase();
+                if (nameLower === 'href') {
+                    const safe = sanitizeUrl(attr.value);
+                    if (safe === null) el.removeAttribute(attr.name);
+                } else if (nameLower === 'src') {
+                    const safe = (el.tagName === 'IMG')
+                        ? sanitizeImageSrc(attr.value)
+                        : sanitizeUrl(attr.value);
+                    if (safe === null) el.removeAttribute(attr.name);
+                } else if (nameLower === 'rel' && el.tagName === 'A') {
+                    const cleaned = sanitizeRel(attr.value);
+                    if (cleaned) el.setAttribute('rel', cleaned);
+                    else el.removeAttribute('rel');
+                } else if (nameLower === 'target' && el.tagName === 'A') {
+                    const cleaned = sanitizeTarget(attr.value);
+                    if (cleaned) {
+                        el.setAttribute('target', cleaned);
+                        // target=_blank без noopener/noreferrer — вектор tab-jacking,
+                        // дочиняем rel автоматически.
+                        if (cleaned === '_blank') {
+                            const existing = sanitizeRel(el.getAttribute('rel') || '');
+                            const tokens = new Set(existing ? existing.split(/\s+/) : []);
+                            tokens.add('noopener');
+                            tokens.add('noreferrer');
+                            el.setAttribute('rel', Array.from(tokens).join(' '));
+                        }
+                    } else {
+                        el.removeAttribute('target');
+                    }
                 }
             });
 
@@ -814,8 +850,8 @@ export default class Editor {
             const bq = card.querySelector(':scope > blockquote');
             if (bq && block.parentNode === bq) {
                 const isLast = block === bq.lastElementChild;
-                const isEmpty = !block.textContent.trim() &&
-                    !block.querySelector('img, iframe');
+                // Quote-card не разрешает <hr> внутри, поэтому селектор уже.
+                const isEmpty = isBlockEmpty(block, 'img, iframe');
                 if (isLast && isEmpty) {
                     e.preventDefault();
                     block.remove();
@@ -845,8 +881,8 @@ export default class Editor {
         const aside = block.closest && block.closest('aside');
         if (aside && block.tagName !== 'LI' && block.parentNode === aside) {
             const isLast = block === aside.lastElementChild;
-            const isEmpty = !block.textContent.trim() &&
-                !block.querySelector('img, iframe, hr');
+            // Callout (aside) разрешает <hr> внутри — учитываем в селекторе.
+            const isEmpty = isBlockEmpty(block, 'img, iframe, hr');
             if (isLast && isEmpty) {
                 e.preventDefault();
                 block.remove();
@@ -870,8 +906,8 @@ export default class Editor {
             return false;
         }
 
-        // Проверяем что блок пустой
-        const isEmpty = !block.textContent.trim() && !block.querySelector('img, iframe');
+        // Проверяем что блок пустой (общий случай для LI и т.п.)
+        const isEmpty = isBlockEmpty(block, 'img, iframe');
 
         // Выход из списка на пустом LI
         if (block.tagName === 'LI' && isEmpty) {
@@ -1036,8 +1072,7 @@ export default class Editor {
                     // Let the browser merge with the previous block inside blockquote
                     return false;
                 }
-                const isEmpty = !block.textContent.trim() &&
-                    !block.querySelector('img, iframe');
+                const isEmpty = isBlockEmpty(block, 'img, iframe');
                 if (!isEmpty) {
                     // Don't merge with content outside the card
                     e.preventDefault();
@@ -1076,8 +1111,7 @@ export default class Editor {
                 // Let the browser merge with the previous block inside aside
                 return false;
             }
-            const isEmpty = !block.textContent.trim() &&
-                !block.querySelector('img, iframe, hr');
+            const isEmpty = isBlockEmpty(block, 'img, iframe, hr');
             if (!isEmpty) {
                 e.preventDefault();
                 return true;
@@ -1115,9 +1149,7 @@ export default class Editor {
             if (prev && this.isAtomicBlock(prev) &&
                 this.isCursorAtStartOfBlock(range, block)) {
                 e.preventDefault();
-                const isEmpty = !block.textContent.trim() &&
-                    !block.querySelector('img, iframe, video, audio, table, hr');
-                if (!isEmpty) {
+                if (!isBlockEmpty(block)) {
                     // Don't merge content into / destroy the atomic block.
                     return true;
                 }
@@ -1212,9 +1244,7 @@ export default class Editor {
         if (!next || !this.isAtomicBlock(next)) return false;
 
         e.preventDefault();
-        const isEmpty = !block.textContent.trim() &&
-            !block.querySelector('img, iframe, video, audio, table, hr');
-        if (!isEmpty) {
+        if (!isBlockEmpty(block)) {
             // Block has content — don't merge the atomic block backward
             // (which would also destroy it). Just no-op.
             return true;
@@ -1263,13 +1293,11 @@ export default class Editor {
      * a browser-default merge with an adjacent empty paragraph: image/video/
      * embed/gallery figures (FIGURE), code blocks (PRE), tables, separators
      * (HR / .redactix-separator), and the legacy .redactix-video-wrapper.
+     * Thin instance-method wrapper over the shared helper so existing
+     * `this.isAtomicBlock(...)` callsites keep working.
      */
     isAtomicBlock(el) {
-        if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
-        const tag = el.tagName;
-        if (tag === 'FIGURE' || tag === 'PRE' || tag === 'TABLE' || tag === 'HR') return true;
-        if (tag === 'DIV' && (el.classList.contains('redactix-separator') || el.classList.contains('redactix-video-wrapper'))) return true;
-        return false;
+        return isAtomicBlock(el);
     }
 
     /**
@@ -1358,7 +1386,24 @@ export default class Editor {
 
     handleSpace() {
         const selection = window.getSelection();
-        if (!selection.rangeCount || !selection.isCollapsed) return;
+        if (!selection.rangeCount) return;
+
+        // Если есть выделение — заменяем его пробелом (раньше handleSpace
+        // молча выходил, потому что e.preventDefault уже отработал, и
+        // пробел просто "съедался"). Вставка как обычный текстовый узел.
+        if (!selection.isCollapsed) {
+            const liveRange = selection.getRangeAt(0);
+            liveRange.deleteContents();
+            const space = document.createTextNode(' ');
+            liveRange.insertNode(space);
+            const r = document.createRange();
+            r.setStartAfter(space);
+            r.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(r);
+            this.instance.sync();
+            return;
+        }
 
         const range = selection.getRangeAt(0);
         const inlineTags = ['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'A', 'CODE', 'SPAN', 'SUB', 'SUP'];

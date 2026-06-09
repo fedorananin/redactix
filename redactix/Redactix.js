@@ -32,8 +32,10 @@ import Callout from './modules/Callout.js';
 export default class Redactix {
     constructor(options = {}) {
         this.selector = options.selector || '.redactix';
-        // Конфиг для модулей (например, список классов)
-        this.predefinedClasses = options.classes || ['red', 'blue', 'large-text', 'hidden-mobile'];
+        // Quick-select classes shown in the Attributes modal. When omitted,
+        // the quick-select block is hidden (Attributes.js checks for null /
+        // empty array).
+        this.predefinedClasses = options.classes || null;
 
         // Пресеты для callout и цитат. Принимают две формы:
         //   1) Массив пользовательских пресетов — расширяет дефолтные:
@@ -71,9 +73,6 @@ export default class Redactix {
 
         // Максимальная высота редактора (например: '500px', '50vh')
         this.maxHeight = options.maxHeight || null;
-
-        // Классы для quick select в атрибутах (если не указано - блок не отображается)
-        this.predefinedClasses = options.classes || null;
 
         // Lite mode - упрощённый редактор для комментариев
         // Отключает: fullscreen, html mode, find/replace, атрибуты, загрузку фото, расширенные настройки
@@ -174,6 +173,11 @@ class RedactixInstance {
         this.modules = [];
         this.selection = null;
         this.modal = null;
+
+        // rAF-frame id used to debounce sync(). Every caller (input event,
+        // MutationObserver, explicit module calls) schedules at most one
+        // sync per animation frame.
+        this._syncFrame = null;
 
         this.render();
     }
@@ -373,7 +377,7 @@ class RedactixInstance {
 
     // Получить чистый HTML контент (без служебных обёрток)
     getContent() {
-        this.sync();
+        this.syncImmediate();
         return this.textarea.value;
     }
 
@@ -395,8 +399,9 @@ class RedactixInstance {
         this.runVideoSetup();
         this.runGallerySetup();
 
-        // Синхронизируем с textarea
-        this.sync();
+        // Синхронизируем с textarea (немедленно — внешний код,
+        // вызвавший setContent, часто читает textarea сразу же).
+        this.syncImmediate();
 
         // Уведомляем модуль истории о новом контенте (сброс истории)
         const historyModule = this.modules.find(m => m.constructor.name === 'History');
@@ -405,8 +410,44 @@ class RedactixInstance {
         }
     }
 
-    // Метод для обновления оригинальной textarea
+    /**
+     * Schedule textarea sync on the next animation frame. Coalesces multiple
+     * calls within a single frame (input + MutationObserver + manual calls
+     * from modules) into a single pass — avoids the per-keystroke clone +
+     * innerHTML serialisation cost the editor used to pay.
+     */
     sync() {
+        if (this._syncFrame != null) return;
+        this._syncFrame = requestAnimationFrame(() => {
+            this._syncFrame = null;
+            this._doSync();
+        });
+    }
+
+    /**
+     * Run the sync pass right now, cancelling any pending scheduled one.
+     * Used by getContent() and setContent() where external callers expect
+     * textarea.value to be up-to-date the moment the call returns.
+     */
+    syncImmediate() {
+        if (this._syncFrame != null) {
+            cancelAnimationFrame(this._syncFrame);
+            this._syncFrame = null;
+        }
+        this._doSync();
+    }
+
+    // The actual sync work: clone, strip presentational wrappers, write to
+    // textarea, dispatch input/change. Called via sync() / syncImmediate().
+    _doSync() {
+        // Make sure the editor never ends with a non-editable atomic block
+        // (figure / table / pre / hr) — folded into the sync flow so any
+        // structural change naturally gets a trailing landing paragraph
+        // before content is serialised.
+        if (this.core && this.core.ensureTrailingParagraph) {
+            this.core.ensureTrailingParagraph();
+        }
+
         // Создаем клон для очистки служебных элементов перед сохранением
         const clone = this.editorEl.cloneNode(true);
 

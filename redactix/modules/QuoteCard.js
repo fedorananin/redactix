@@ -1,4 +1,5 @@
 import Module from '../core/Module.js';
+import { isBlockEmpty } from '../core/dom-utils.js';
 
 /**
  * QuoteCard module.
@@ -126,9 +127,7 @@ export default class QuoteCard extends Module {
                     this.endHistoryBatch();
                     return;
                 }
-                const bareText = topBlock.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-                const isEmpty = !bareText &&
-                    !topBlock.querySelector('img, iframe, hr, table');
+                const isEmpty = isBlockEmpty(topBlock, 'img, iframe, hr, table');
                 // Replace any empty text-block (P or any heading); on Enter
                 // at end of an H2, Chrome often creates a fresh empty H2,
                 // and we want the quote-card to take its place — not to
@@ -644,9 +643,7 @@ export default class QuoteCard extends Module {
                 const blocks = Array.from(bq.children);
                 for (let i = blocks.length - 1; i > 0; i--) {
                     const block = blocks[i];
-                    const isEmpty = !block.textContent.trim() &&
-                        !block.querySelector('img, iframe');
-                    if (isEmpty) block.remove();
+                    if (isBlockEmpty(block, 'img, iframe')) block.remove();
                     else break;
                 }
             }

@@ -1,5 +1,6 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
+import { isBlockEmpty } from '../core/dom-utils.js';
 
 /**
  * Slash Commands Module
@@ -498,7 +499,7 @@ export default class SlashCommands extends Module {
                 // pointing at and silently invalidate the saved range we
                 // restore later (then insertNode bails with no insert).
                 if (block && block !== this.instance.editorEl) {
-                    const isEmpty = !block.textContent.trim() && !block.querySelector('img, iframe, hr, table');
+                    const isEmpty = isBlockEmpty(block, 'img, iframe, hr, table');
                     if (isEmpty && !block.querySelector('br')) {
                         block.appendChild(document.createElement('br'));
                     }
@@ -846,8 +847,9 @@ export default class SlashCommands extends Module {
         }
 
         if (block && block !== this.instance.editorEl && ['P', 'DIV'].includes(block.tagName)) {
-            // Replace empty block with list
-            const isEmpty = !block.textContent.trim();
+            // Replace empty block with list (text-only check — атомарные
+            // блоки внутри P/DIV не должны замещаться, но их и не бывает).
+            const isEmpty = isBlockEmpty(block, null);
             if (isEmpty) {
                 block.parentNode.replaceChild(list, block);
             } else {

@@ -1,4 +1,5 @@
 import Module from '../core/Module.js';
+import { isBlockEmpty } from '../core/dom-utils.js';
 
 /**
  * Callout module.
@@ -104,9 +105,7 @@ export default class Callout extends Module {
             const blocks = Array.from(aside.children);
             for (let i = blocks.length - 1; i > 0; i--) {
                 const block = blocks[i];
-                const isEmpty = !block.textContent.trim() &&
-                    !block.querySelector('img, iframe, hr');
-                if (isEmpty) block.remove();
+                if (isBlockEmpty(block, 'img, iframe, hr')) block.remove();
                 else break;
             }
         });

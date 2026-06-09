@@ -1,4 +1,5 @@
 import Module from '../core/Module.js';
+import { isBlockEmpty } from '../core/dom-utils.js';
 
 export default class Markdown extends Module {
     init() {
@@ -214,7 +215,7 @@ export default class Markdown extends Module {
                     }
 
                     // Если после очистки блок пустой, заменяем его на separator
-                    const isEmpty = !block.textContent.trim() && !block.querySelector('img, iframe');
+                    const isEmpty = isBlockEmpty(block, 'img, iframe');
 
                     if (isEmpty) {
                         block.parentNode.replaceChild(wrapper, block);

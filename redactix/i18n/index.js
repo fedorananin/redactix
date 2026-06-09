@@ -21,8 +21,17 @@ const DEFAULT_LOCALE = 'en';
  */
 class I18n {
     constructor(locale = DEFAULT_LOCALE) {
-        this.locale = locale;
-        this.translations = locales[locale] || locales[DEFAULT_LOCALE];
+        // Нормализуем locale: если запрошенный недоступен, и locale,
+        // и переводы откатываются к дефолту согласованно. Иначе isRTL()
+        // мог бы вернуть true для неизвестного кода, пока переводы
+        // показываются по-английски.
+        if (locales[locale]) {
+            this.locale = locale;
+            this.translations = locales[locale];
+        } else {
+            this.locale = DEFAULT_LOCALE;
+            this.translations = locales[DEFAULT_LOCALE];
+        }
     }
     
     /**

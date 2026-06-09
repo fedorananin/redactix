@@ -95,8 +95,12 @@ export default class Modal {
         saveBtn.textContent = this.t('save');
         saveBtn.className = 'redactix-modal-btn redactix-modal-btn-primary';
         saveBtn.addEventListener('click', () => {
+            // onSave может вернуть false (или Promise<false>), чтобы оставить
+            // модалку открытой — например, если форма не прошла валидацию.
+            // Любое другое значение — закрываем как обычно.
             if (this.onSave) {
-                this.onSave();
+                const result = this.onSave();
+                if (result === false) return;
             }
             this.close();
         });

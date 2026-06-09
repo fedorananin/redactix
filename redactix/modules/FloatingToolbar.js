@@ -1,5 +1,6 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
+import { sanitizeUrl, composeLinkRel } from '../core/dom-utils.js';
 
 export default class FloatingToolbar extends Module {
     constructor(instance) {
@@ -341,26 +342,33 @@ export default class FloatingToolbar extends Module {
                 const relExtra = relInput.value.trim();
                 
                 if (url && url !== 'https://') {
+                    // Валидируем схему URL — javascript:/data:text/html отсекаются.
+                    const safeUrl = sanitizeUrl(url);
+                    if (!safeUrl) return;
+
                     this.instance.selection.restore();
-                    
+
                     // Удаляем старую ссылку если есть
                     if (existingLink) {
                         document.execCommand('unlink');
                     }
-                    
-                    // Создаем ссылку
+
                     const a = document.createElement('a');
-                    a.href = url;
+                    a.href = safeUrl;
                     a.textContent = text;
                     if (title) a.title = title;
                     if (targetCheck.checked) a.target = '_blank';
-                    
-                    // Собираем rel
-                    const relParts = [];
-                    if (nofollowCheck.checked) relParts.push('nofollow');
-                    if (relExtra) relParts.push(relExtra);
-                    if (relParts.length > 0) a.rel = relParts.join(' ');
-                    
+
+                    // composeLinkRel автоматически добавит noopener+noreferrer
+                    // при target=_blank и отфильтрует пользовательские
+                    // rel-токены до безопасного whitelist'а.
+                    const rel = composeLinkRel({
+                        nofollow: nofollowCheck.checked,
+                        blank: targetCheck.checked,
+                        extra: relExtra
+                    });
+                    if (rel) a.rel = rel;
+
                     this.instance.selection.insertNode(a);
                     this.instance.sync();
                 }
@@ -442,20 +450,24 @@ export default class FloatingToolbar extends Module {
                 const text = textInput.value || url;
                 
                 if (url && url !== 'https://') {
+                    const safeUrl = sanitizeUrl(url);
+                    if (!safeUrl) return;
+
                     this.instance.selection.restore();
-                    
+
                     // Удаляем старую ссылку если есть
                     if (existingLink) {
                         document.execCommand('unlink');
                     }
-                    
-                    // Создаем ссылку - в lite mode всегда nofollow и _blank
+
+                    // В lite mode всегда nofollow + _blank.
+                    // composeLinkRel добавит noopener/noreferrer.
                     const a = document.createElement('a');
-                    a.href = url;
+                    a.href = safeUrl;
                     a.textContent = text;
-                    a.rel = 'nofollow';
                     a.target = '_blank';
-                    
+                    a.rel = composeLinkRel({ nofollow: true, blank: true });
+
                     this.instance.selection.insertNode(a);
                     this.instance.sync();
                 }
