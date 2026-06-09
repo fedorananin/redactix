@@ -113,7 +113,7 @@ Locales are plain JS objects keyed by dot paths (e.g. `toolbar.bold`). Currently
 
 ### Theming
 
-All colors are CSS custom properties on `.redactix-wrapper`. The dark theme is just `.redactix-wrapper.redactix-dark` overriding the same variables in [redactix/Redactix.css](redactix/Redactix.css). When customizing, override at the same selector specificity (see README "Method 1"). Never use `!important`.
+All colors are CSS custom properties on `.redactix-wrapper`. The dark theme is just `.redactix-wrapper.redactix-dark` overriding the same variables in [redactix/Redactix.css](redactix/Redactix.css). When customizing, override at the same selector specificity (see README "Method 1"). Never use `!important` — with one sanctioned exception: the HTML-mode code-editor rules (`.redactix-code-*`) deliberately use `!important` on metric-critical properties (font, size, line-height, padding, white-space, the transparent-text overlay and `::selection`). That block is armor against host-page CSS (CMS admin themes aggressively styling `textarea`/`pre`/`code`/`::selection`) — any metric drift between the textarea, the highlight backdrop and the line-number gutter breaks the pixel-perfect overlay. JS-set inline styles (height, transform) are intentionally NOT covered by those rules.
 
 ### Image / video upload contract
 

@@ -1569,9 +1569,9 @@ textarea.redactix[style*="display: none"] {
     border-top: 1px solid var(--redactix-border);
     background: var(--redactix-code-editor-bg);
     min-height: 300px;
-    font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace;
-    font-size: 14px;
-    line-height: 21px;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace !important;
+    font-size: 14px !important;
+    line-height: 21px !important;
 }
 
 .redactix-code-lines {
@@ -1579,7 +1579,9 @@ textarea.redactix[style*="display: none"] {
     /* ВАЖНО: padding-top обязан совпадать с padding-top у
        .redactix-code-textarea и .redactix-code-backdrop (16px) — раньше
        у textarea было 24px, и номера висели "между строк" со сдвигом 8px */
-    padding-top: 16px;
+    padding-top: 16px !important;
+    padding-bottom: 0 !important;
+    margin: 0 !important;
     /* Фон гаттера должен тянуться на всю высоту контента и во fullscreen
        (см. комментарий у .redactix-code-main) */
     min-height: max-content;
@@ -1587,13 +1589,16 @@ textarea.redactix[style*="display: none"] {
     color: var(--redactix-code-editor-line);
     text-align: right;
     user-select: none;
-    line-height: 21px;
+    font-size: 14px !important;
+    line-height: 21px !important;
 }
 
 .redactix-code-line-number {
-    padding: 0 12px 0 16px;
-    height: 21px;
-    line-height: 21px;
+    padding: 0 12px 0 16px !important;
+    margin: 0 !important;
+    height: 21px !important;
+    font-size: 14px !important;
+    line-height: 21px !important;
 }
 
 .redactix-code-line-number:hover {
@@ -1615,45 +1620,66 @@ textarea.redactix[style*="display: none"] {
     min-height: max-content;
 }
 
+/* !important на метрико-критичных свойствах backdrop'а / textarea / гаттера —
+   осознанное исключение из правила "никаких !important": это броня от
+   агрессивных стилей CMS/админок (textarea { ... }, pre { ... }, code { ... }
+   и глобальных ::selection). Любое расхождение шрифта, паддингов или
+   line-height между тремя слоями ломает попиксельное совпадение подсветки,
+   каретки и номеров строк. Инлайновые стили из JS (height, transform) эти
+   правила не задевают. */
 .redactix-code-backdrop {
-    position: absolute;
+    position: absolute !important;
     /* Без bottom: 0 — высота определяется собственным контентом, а не
        контейнером. Иначе при любом несоответствии высот подсветка
        клипается, а прозрачный текст textarea продолжается дальше. */
-    top: 0;
-    left: 0;
-    right: 0;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 16px;
-    overflow: hidden;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 16px !important;
+    overflow: hidden !important;
     pointer-events: none;
-    background: transparent;
-    color: var(--redactix-code-editor-text);
-    font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace;
-    font-size: 14px;
-    line-height: 21px;
-    white-space: pre;
-    tab-size: 2;
-    border-radius: 0;
-    border: none;
+    background: transparent !important;
+    color: var(--redactix-code-editor-text) !important;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace !important;
+    font-size: 14px !important;
+    line-height: 21px !important;
+    letter-spacing: normal !important;
+    word-spacing: normal !important;
+    text-indent: 0 !important;
+    text-transform: none !important;
+    white-space: pre !important;
+    tab-size: 2 !important;
+    border-radius: 0 !important;
+    border: none !important;
 }
 
 .redactix-code-backdrop > code {
-    display: block;
-    font: inherit;
-    background: none;
-    padding: 0;
+    display: block !important;
+    font: inherit !important;
+    background: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    letter-spacing: inherit !important;
+    white-space: inherit !important;
     color: inherit;
 }
 
-/* Токены подсветки */
-.redactix-code-backdrop .rx-tok-tag     { color: var(--redactix-code-token-tag); }
-.redactix-code-backdrop .rx-tok-attr    { color: var(--redactix-code-token-attr); }
-.redactix-code-backdrop .rx-tok-value   { color: var(--redactix-code-token-value); }
-.redactix-code-backdrop .rx-tok-punct   { color: var(--redactix-code-token-punct); }
-.redactix-code-backdrop .rx-tok-comment { color: var(--redactix-code-token-comment); font-style: italic; }
-.redactix-code-backdrop .rx-tok-entity  { color: var(--redactix-code-token-entity); }
+/* Токены подсветки. !important защищает от CMS-правил на pre/code/span,
+   но темингу не мешает: цвет настраивается значением переменной. */
+.redactix-code-backdrop .rx-tok-tag     { color: var(--redactix-code-token-tag) !important; }
+.redactix-code-backdrop .rx-tok-attr    { color: var(--redactix-code-token-attr) !important; }
+.redactix-code-backdrop .rx-tok-value   { color: var(--redactix-code-token-value) !important; }
+.redactix-code-backdrop .rx-tok-punct   { color: var(--redactix-code-token-punct) !important; }
+.redactix-code-backdrop .rx-tok-comment { color: var(--redactix-code-token-comment) !important; font-style: italic; }
+.redactix-code-backdrop .rx-tok-entity  { color: var(--redactix-code-token-entity) !important; }
 
 /* Полоса подсветки строки при наведении на её номер */
 .redactix-code-line-highlight {
@@ -1667,33 +1693,55 @@ textarea.redactix[style*="display: none"] {
 }
 
 .redactix-code-textarea {
-    position: relative;
+    position: relative !important;
     z-index: 1;
-    display: block;
-    width: 100%;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 16px;
-    border: none;
+    display: block !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 16px !important;
+    border: none !important;
     outline: none;
-    resize: none;
-    /* Текст прозрачный — реальное отображение рисует backdrop с
-       подсветкой; каретка остаётся видимой */
-    background: transparent;
-    color: transparent;
-    caret-color: var(--redactix-code-editor-text);
-    font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace;
-    font-size: 14px;
-    line-height: 21px;
-    white-space: pre;
-    overflow-x: auto;
-    overflow-y: hidden;
-    tab-size: 2;
+    resize: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    /* Запасной видимый цвет: если на сайте оказался устаревший
+       HtmlMode.js без подсвечивающего backdrop'а (частичное обновление
+       файлов), текст не должен исчезнуть */
+    color: var(--redactix-code-editor-text);
+    caret-color: var(--redactix-code-editor-text) !important;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', 'Menlo', monospace !important;
+    font-size: 14px !important;
+    line-height: 21px !important;
+    letter-spacing: normal !important;
+    word-spacing: normal !important;
+    text-indent: 0 !important;
+    text-transform: none !important;
+    white-space: pre !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    tab-size: 2 !important;
+}
+
+/* Прозрачный текст — ТОЛЬКО в новой overlay-структуре (textarea лежит
+   внутри .redactix-code-main рядом с .redactix-code-backdrop, который и
+   рисует подсвеченный текст). Со старым JS селектор не совпадает, и
+   textarea остаётся видимой. */
+.redactix-code-main > .redactix-code-textarea {
+    color: transparent !important;
 }
 
 .redactix-code-textarea::selection {
-    background: var(--redactix-code-editor-selection);
-    color: transparent;
+    background: var(--redactix-code-editor-selection) !important;
+}
+
+.redactix-code-main > .redactix-code-textarea::selection {
+    /* Цвет выделенного текста прозрачный: видимые глифы рисует backdrop
+       ПОД выделением, поэтому фон выделения обязан быть полупрозрачным
+       (см. --redactix-code-editor-selection) */
+    color: transparent !important;
 }
 
 /* Скроллбар для редактора кода */
