@@ -613,12 +613,15 @@ export default class Video extends Module {
             .then(r => r.json())
             .then(data => {
                 if (!data.success) {
-                    container.innerHTML = `<div style="color: var(--redactix-danger); padding: 10px;">Error: ${data.error || 'Failed to load videos'}</div>`;
+                    this.setStatusMessage(container,
+                        `Error: ${data.error || 'Failed to load videos'}`,
+                        'color: var(--redactix-danger); padding: 10px;');
                     return;
                 }
                 const videos = data.videos || [];
                 if (videos.length === 0) {
-                    container.innerHTML = `<div style="color: var(--redactix-text-muted); padding: 20px; text-align: center;">${this.t('video.noVideos')}</div>`;
+                    this.setStatusMessage(container, this.t('video.noVideos'),
+                        'color: var(--redactix-text-muted); padding: 20px; text-align: center;');
                     const closeBtn = this.makeBrowseCloseButton(container, onSelect);
                     container.appendChild(closeBtn);
                     return;
@@ -626,7 +629,8 @@ export default class Video extends Module {
                 this.renderBrowseGrid(container, videos, !!data.allowDelete, onSelect);
             })
             .catch(() => {
-                container.innerHTML = `<div style="color: var(--redactix-danger); padding: 10px;">Connection error</div>`;
+                this.setStatusMessage(container, 'Connection error',
+                    'color: var(--redactix-danger); padding: 10px;');
             });
     }
 
@@ -676,7 +680,9 @@ export default class Video extends Module {
 
             item.addEventListener('click', () => {
                 onSelect(v);
-                container.innerHTML = `<div style="color: #10b981; padding: 10px; text-align: center;">${this.t('video.videoSelected')}: ${v.filename}</div>`;
+                this.setStatusMessage(container,
+                    `${this.t('video.videoSelected')}: ${v.filename}`,
+                    'color: #10b981; padding: 10px; text-align: center;');
                 setTimeout(() => this.restoreBrowseButton(container, onSelect), 1500);
             });
 

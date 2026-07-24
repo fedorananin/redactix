@@ -2,7 +2,7 @@
 
 Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero dependencies. Vanilla JS.
 
-![Redactix Editor](https://img.shields.io/badge/version-1.11.1-blue.svg)
+![Redactix Editor](https://img.shields.io/badge/version-1.12.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-js-yellow.svg)
 
@@ -52,7 +52,7 @@ Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero depen
 - 📦 **Modular Architecture** — Easy to extend with custom modules
 - 🎨 **Customizable Styles** — CSS variables for easy theming
 - 🔌 **Simple Integration** — Works with any backend, just a textarea
-- 🛡️ **XSS Protection** — Built-in HTML sanitization
+- 🛡️ **Defence-in-depth sanitization** — every path into the document is filtered ([details](#-security))
 - 📱 **Responsive** — Works perfectly on mobile devices
 - 🌍 **Multi-instance** — Multiple editors on one page
 - 🎛️ **Configurable** — Custom presets, classes, upload handlers
@@ -970,27 +970,76 @@ document.addEventListener('click', (e) => {
 
 ## 🛡️ Security
 
-### Built-in XSS Protection
+### Read this first: the editor is not a security boundary
 
-Redactix sanitizes all pasted content:
-- Removes dangerous tags (`<script>`, `<iframe>`, etc.)
-- Strips inline styles and event handlers
-- Validates URLs (blocks `javascript:`)
-- Filters CSS classes (whitelist only)
-- Converts Google Docs artifacts
-- Validates image content (MIME + actual format)
+Redactix runs in the browser. **Everything it filters, an attacker simply skips** — by POSTing to your endpoint directly, without ever loading the page. There is no configuration that changes this; it is true of every WYSIWYG editor.
 
-### Image Upload Security
+So:
 
-The included PHP script provides:
-- MIME type validation (server-side)
-- File content validation with `getimagesize()`
-- Random filename generation
-- File size limits
-- Extension whitelist
-- Directory traversal protection
+> **Sanitize on the server, on every write, unconditionally.** Not "if needed" — always.
+>
+> **Escape or sanitize on the server, on every read**, before rendering saved HTML to visitors.
 
-**Important:** Add authentication and CSRF tokens for production use.
+The client-side sanitization documented below exists to keep *honest* content clean — so a paste from Word doesn't drag in a stylesheet, so a stray `javascript:` link doesn't survive a round-trip, so an author can't accidentally break their own page. Treat it as a quality feature with a security bonus, not as your defence.
+
+This matters most when the editor is exposed to people you don't control: comment forms, forum posts, user profiles — i.e. exactly what `liteMode` is for. Lite mode narrows the *feature set*, it does not make untrusted input safe.
+
+### Server-side sanitization
+
+Match your allowlist to what the editor actually emits — the [HTML Output](#-html-output) section lists every tag and attribute it produces.
+
+```php
+// PHP — HTMLPurifier
+$config = HTMLPurifier_Config::createDefault();
+$config->set('HTML.Allowed',
+    'p,h1,h2,h3,b,i,u,s,code,mark,sub,sup,span[class],br,hr,'
+    . 'ul,ol,li,a[href|rel|target|title],'
+    . 'img[src|alt|title|srcset],figure[class|data-aspect|data-provider],figcaption,'
+    . 'blockquote,aside[class|data-emoji],pre,table,thead,tbody,tr,th[colspan|rowspan],td[colspan|rowspan]');
+$clean = (new HTMLPurifier($config))->purify($_POST['content']);
+```
+
+```javascript
+// Node — DOMPurify + jsdom
+const clean = DOMPurify.sanitize(req.body.content, {
+    ALLOWED_TAGS: ['p','h1','h2','h3','b','i','u','s','code','mark','sub','sup','span','br','hr',
+                   'ul','ol','li','a','img','figure','figcaption','blockquote','aside',
+                   'pre','table','thead','tbody','tr','th','td'],
+    ALLOWED_ATTR: ['href','rel','target','title','src','alt','srcset','class',
+                   'colspan','rowspan','data-emoji','data-aspect','data-provider']
+});
+```
+
+**Embeds need a decision.** Redactix intentionally lets an author embed an iframe from *any* domain — that's the point of the feature. If your authors are trusted staff, allow `iframe[src|allow|allowfullscreen|loading|referrerpolicy]` and keep it. If they are not, drop `iframe` from the allowlist entirely, or restrict `src` to a host allowlist of your own. Do not leave that choice to the client.
+
+A [Content-Security-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) on the pages that render saved content is the cheapest backstop available, and it covers mistakes in everything above.
+
+### What the editor filters, and where
+
+Four independent entry points, each sanitized:
+
+| Entry point | Handled in | Behaviour |
+|---|---|---|
+| **Paste** | `Editor.sanitizeHtml()` | Full normalisation — foreign markup is rewritten into the editor's own shapes; unknown tags, attributes, classes and inline styles are dropped |
+| **Drop** | `Editor.handleDrop()` | Native drop is cancelled; the dragged HTML goes through the same sanitizer as paste |
+| **Load** (`textarea.value`, `setContent()`, return from HTML mode) | `sanitizeLoadedHtml()` | Narrow pass — markup is preserved (ids, custom classes, embeds), only executable content is removed |
+| **Modal fields** (URLs, captions, author names) | `dom-utils.js` helpers | `sanitizeUrl` / `sanitizeImageSrc` / `sanitizeInlineHtml` / `composeLinkRel` |
+
+Specifically:
+
+- **Untrusted HTML is parsed inertly** (`document.implementation.createHTMLDocument`), so nothing loads and no `onerror` fires while it is being cleaned.
+- **Event handlers** (`on*`, any casing), `<script>`, `<style>`, `<form>` and friends are removed on every path.
+- **URL schemes** are checked after decoding HTML entities and stripping control characters — `&#106;avascript:` and `java&#9;script:` don't get through.
+- **`data:` URLs** are allowed only for raster images. `data:image/svg+xml` is rejected — SVG can carry script.
+- **`target="_blank"`** always gets `rel="noopener noreferrer"` added, on every link-creation path.
+- **`<iframe srcdoc>`** is always removed; iframe `src` is restricted to `http(s)`.
+- **Inline styles** are kept only where the editor needs them (embed layout, video aspect-ratio) and rejected if they contain `javascript:`, `expression()`, or `behavior:`.
+
+### Uploads
+
+`redactix_images.php` is a **demonstration script**, included so the upload UI works out of the box. It validates MIME type and file content, generates random filenames, enforces a size limit and an extension allowlist, and guards against directory traversal — but it ships with **no authentication, no CSRF protection and no rate limiting**, and it allows SVG upload.
+
+Do not deploy it as-is. Write your own endpoint against [the same JSON contract](#api-endpoints), and in it: require an authenticated session, verify a CSRF token, rate-limit, and decide deliberately whether SVG uploads are acceptable (they are same-origin script if served inline — at minimum send `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff` for them).
 
 ---
 
@@ -1342,8 +1391,9 @@ add_action('wp_enqueue_scripts', 'enqueue_redactix');
 ```javascript
 app.post('/articles', (req, res) => {
     const content = req.body.content;
-    // Sanitize on server if needed
-    const sanitized = DOMPurify.sanitize(content);
+    // ALWAYS sanitize here — the request may never have touched the editor.
+    // See the Security section for an allowlist matching Redactix's output.
+    const sanitized = DOMPurify.sanitize(content, { ALLOWED_TAGS: [/* … */] });
     // Save to database
     db.articles.insert({ content: sanitized });
 });

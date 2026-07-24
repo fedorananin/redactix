@@ -1,4 +1,4 @@
-import { isAtomicBlock, isBlockEmpty, sanitizeUrl, sanitizeImageSrc, sanitizeRel, sanitizeTarget, normalizeInlineSynonyms } from './dom-utils.js';
+import { isAtomicBlock, isBlockEmpty, sanitizeUrl, sanitizeImageSrc, sanitizeRel, sanitizeTarget, normalizeInlineSynonyms, parseHtmlInert } from './dom-utils.js';
 
 export default class Editor {
     constructor(instance) {
@@ -176,6 +176,14 @@ export default class Editor {
             this.handlePaste(e);
         });
 
+        // Drop handling. Registered unconditionally and BEFORE the modules,
+        // so foreign markup dragged into the editor can never reach the DOM
+        // unsanitised — previously the only `drop` listener belonged to the
+        // Image module, which is off without an uploadUrl and in lite mode.
+        this.el.addEventListener('drop', (e) => {
+            this.handleDrop(e);
+        });
+
         // Keydown handling
         this.el.addEventListener('keydown', (e) => {
             // During IME composition (Japanese/Korean/Chinese input,
@@ -225,66 +233,141 @@ export default class Editor {
         const clipboardData = e.clipboardData || window.clipboardData;
 
         // Try to get HTML
-        let html = clipboardData.getData('text/html');
-        let text = clipboardData.getData('text/plain');
+        const html = clipboardData.getData('text/html');
+        const text = clipboardData.getData('text/plain');
 
         if (html) {
-            // Sanitizing HTML
-            html = this.sanitizeHtml(html);
-
-            // Parse into temp element to check structure
-            const temp = document.createElement('div');
-            temp.innerHTML = html;
-
-            const blockSelector = 'p, h1, h2, h3, h4, h5, h6, blockquote, aside, figure, pre, table, ul, ol, hr, div';
-            const hasBlocks = !!temp.querySelector(blockSelector);
-
-            if (!hasBlocks) {
-                // Inline-only content — insertHTML works fine for this
-                document.execCommand('insertHTML', false, html);
-            } else {
-                // Block content — manual DOM insertion to avoid browser quirks
-                this.insertBlockContent(temp);
-            }
-
-            // Setup inserted figure tags
-            if (this.instance.setupFigures) {
-                this.instance.setupFigures();
-            }
-
-            // Migrate any pasted legacy blockquotes and wire up quote-cards
-            if (this.instance.runQuoteCardSetup) {
-                this.instance.runQuoteCardSetup();
-            }
-            if (this.instance.runCalloutSetup) {
-                this.instance.runCalloutSetup();
-            }
-            if (this.instance.runEmbedSetup) {
-                this.instance.runEmbedSetup();
-            }
-            if (this.instance.runVideoSetup) {
-                this.instance.runVideoSetup();
-            }
-            if (this.instance.runGallerySetup) {
-                this.instance.runGallerySetup();
-            }
+            this.insertSanitizedHtml(html);
         } else if (text) {
-            // If only text - insert preserving line breaks
-            const lines = text.split('\n');
-            if (lines.length > 1) {
-                const html = lines.map(line => {
-                    if (line.trim() === '') return '<br>';
-                    return `<p>${this.escapeHtml(line)}</p>`;
-                }).join('');
-                document.execCommand('insertHTML', false, html);
-            } else {
-                document.execCommand('insertText', false, text);
-            }
+            this.insertPlainText(text);
         }
 
         this.instance.sync();
         this.updatePlaceholder();
         this.ensureTrailingParagraph();
+    }
+
+    /**
+     * Drop is a second, entirely independent way for foreign markup to reach
+     * the editor: dragging a selection out of another page makes the browser
+     * insert its HTML natively, never touching the paste handler. So every
+     * drop is cancelled and re-inserted through the same sanitiser as paste.
+     *
+     * File drops stay with the Image / Video modules — their listeners sit on
+     * the same element and run after this one. We still preventDefault for
+     * them, so that when no module is listening (no uploadUrl, or lite mode)
+     * the browser can't navigate away to the dropped file.
+     */
+    handleDrop(e) {
+        const dt = e.dataTransfer;
+        if (!dt) return;
+
+        e.preventDefault();
+
+        // Files are somebody else's job.
+        if (dt.files && dt.files.length > 0) return;
+
+        const html = dt.getData('text/html');
+        const text = dt.getData('text/plain');
+        if (!html && !text) return;
+
+        // Land the caret where the content was actually dropped, then reuse
+        // the paste insertion path verbatim.
+        this.el.focus();
+        this.placeCaretAtPoint(e.clientX, e.clientY);
+
+        if (html) {
+            this.insertSanitizedHtml(html);
+        } else {
+            this.insertPlainText(text);
+        }
+
+        this.instance.sync();
+        this.updatePlaceholder();
+        this.ensureTrailingParagraph();
+    }
+
+    /** Collapse the selection to the caret position under (x, y). */
+    placeCaretAtPoint(x, y) {
+        let range = null;
+
+        if (document.caretRangeFromPoint) {
+            range = document.caretRangeFromPoint(x, y);
+        } else if (document.caretPositionFromPoint) {
+            const pos = document.caretPositionFromPoint(x, y);
+            if (pos) {
+                range = document.createRange();
+                range.setStart(pos.offsetNode, pos.offset);
+            }
+        }
+
+        // Outside the editable area (or unsupported) — keep whatever
+        // selection we already have.
+        if (!range || !this.el.contains(range.startContainer)) return;
+
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+
+    /**
+     * Sanitize a foreign HTML string and insert it at the caret. Shared by
+     * paste and drop.
+     */
+    insertSanitizedHtml(rawHtml) {
+        const html = this.sanitizeHtml(rawHtml);
+
+        // Parse into temp element to check structure
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+
+        const blockSelector = 'p, h1, h2, h3, h4, h5, h6, blockquote, aside, figure, pre, table, ul, ol, hr, div';
+        const hasBlocks = !!temp.querySelector(blockSelector);
+
+        if (!hasBlocks) {
+            // Inline-only content — insertHTML works fine for this
+            document.execCommand('insertHTML', false, html);
+        } else {
+            // Block content — manual DOM insertion to avoid browser quirks
+            this.insertBlockContent(temp);
+        }
+
+        // Setup inserted figure tags
+        if (this.instance.setupFigures) {
+            this.instance.setupFigures();
+        }
+
+        // Migrate any pasted legacy blockquotes and wire up quote-cards
+        if (this.instance.runQuoteCardSetup) {
+            this.instance.runQuoteCardSetup();
+        }
+        if (this.instance.runCalloutSetup) {
+            this.instance.runCalloutSetup();
+        }
+        if (this.instance.runEmbedSetup) {
+            this.instance.runEmbedSetup();
+        }
+        if (this.instance.runVideoSetup) {
+            this.instance.runVideoSetup();
+        }
+        if (this.instance.runGallerySetup) {
+            this.instance.runGallerySetup();
+        }
+    }
+
+    /** Insert plain text at the caret, preserving line breaks. */
+    insertPlainText(text) {
+        const lines = text.split('\n');
+        if (lines.length > 1) {
+            const html = lines.map(line => {
+                if (line.trim() === '') return '<br>';
+                return `<p>${this.escapeHtml(line)}</p>`;
+            }).join('');
+            document.execCommand('insertHTML', false, html);
+        } else {
+            document.execCommand('insertText', false, text);
+        }
     }
 
     /**
@@ -380,9 +463,10 @@ export default class Editor {
     }
 
     sanitizeHtml(html) {
-        // Create temporary element for parsing
-        const temp = document.createElement('div');
-        temp.innerHTML = html;
+        // Parse into an INERT document — a plain detached <div> would start
+        // loading images and firing their onerror handlers before we get to
+        // the attribute sweep below.
+        const temp = parseHtmlInert(html);
 
         // Remove Google Docs helper wrappers (b with id="docs-internal-guid-...")
         const googleWrappers = temp.querySelectorAll('b[id^="docs-internal-guid"]');

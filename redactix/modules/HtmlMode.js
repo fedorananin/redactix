@@ -1,5 +1,6 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
+import { parseHtmlInert, sanitizeLoadedHtml } from '../core/dom-utils.js';
 
 export default class HtmlMode extends Module {
     constructor(instance) {
@@ -52,9 +53,10 @@ export default class HtmlMode extends Module {
             // 1. Get HTML and format it
             let rawHtml = editorEl.innerHTML;
             
-            // Remove helper elements for clean code
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = rawHtml;
+            // Remove helper elements for clean code. Parsed inertly so the
+            // round-trip doesn't re-fire load/error handlers on every image
+            // in the document.
+            const tempDiv = parseHtmlInert(rawHtml);
             
             // Remove hr wrappers
             tempDiv.querySelectorAll('.redactix-separator').forEach(wrapper => {
@@ -155,8 +157,12 @@ export default class HtmlMode extends Module {
             // 1. Get value from textarea
             let code = this.textarea ? this.textarea.value : '';
 
-            // 2. Update editor
-            const minifiedCode = this.minifyHtmlPreservePre(code);
+            // 2. Update editor. Hand-written code goes through the same
+            // load-time sanitiser as stored content — not because the author
+            // is untrusted, but so that what comes back from HTML mode is
+            // exactly what would survive the next load. Markup that silently
+            // disappeared on reload would be worse than markup rejected here.
+            const minifiedCode = sanitizeLoadedHtml(this.minifyHtmlPreservePre(code));
             editorEl.innerHTML = minifiedCode;
 
             // Restore wrappers and settings

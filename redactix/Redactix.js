@@ -3,7 +3,7 @@ import Toolbar from './ui/Toolbar.js';
 import Selection from './core/Selection.js';
 import Modal from './ui/Modal.js';
 import I18n from './i18n/index.js';
-import { normalizeInlineSynonyms } from './core/dom-utils.js';
+import { normalizeInlineSynonyms, sanitizeLoadedHtml } from './core/dom-utils.js';
 
 // Import modules (can be a dynamic config in the future)
 import BaseStyles from './modules/BaseStyles.js';
@@ -297,10 +297,15 @@ class RedactixInstance {
         }
 
         // Clean original HTML from extra spaces and line breaks between tags
-        // This will remove code indentations but preserve content
-        const cleanHtml = this.textarea.value
-            .replace(/>\s+</g, '><') // Убираем пробелы между тегами
-            .trim();
+        // This will remove code indentations but preserve content.
+        // sanitizeLoadedHtml strips anything executable: the content in the
+        // textarea comes from the host application's storage, which may well
+        // contain text some other user wrote.
+        const cleanHtml = sanitizeLoadedHtml(
+            this.textarea.value
+                .replace(/>\s+</g, '><') // Убираем пробелы между тегами
+                .trim()
+        );
 
         // If textarea is empty, create initial paragraph structure
         this.editorEl.innerHTML = cleanHtml || '<p><br></p>';
@@ -458,8 +463,10 @@ class RedactixInstance {
 
     // Set HTML content into editor
     setContent(html) {
-        // Clean HTML from extra spaces between tags
-        const cleanHtml = html.replace(/>\s+</g, '><').trim();
+        // Clean HTML from extra spaces between tags, then strip anything
+        // executable — same treatment as content loaded from the textarea,
+        // since callers routinely feed this straight from a database.
+        const cleanHtml = sanitizeLoadedHtml(html.replace(/>\s+</g, '><').trim());
 
         // Set to visual editor
         this.editorEl.innerHTML = cleanHtml;

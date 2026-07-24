@@ -1,0 +1,25 @@
+# Normalize all text files to LF in the repository, regardless of the OS
+# the files were edited on (Windows checkouts still get CRLF locally if the
+# user's core.autocrlf says so — the repo itself stays LF).
+* text=auto eol=lf
+
+# Explicit text types
+*.js       text eol=lf
+*.css      text eol=lf
+*.html     text eol=lf
+*.php      text eol=lf
+*.md       text eol=lf
+*.json     text eol=lf
+*.svg      text eol=lf
+
+# Binary — never touch
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.webp     binary
+*.ico      binary
+*.mp4      binary
+*.webm     binary
+*.ogg      binary
+*.mov      binary

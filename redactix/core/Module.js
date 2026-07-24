@@ -36,4 +36,28 @@ export default class Module {
     t(key, params = {}) {
         return this.instance.t(key, params);
     }
+
+    /**
+     * Replace a panel's contents with a single status line (loading state,
+     * "nothing here", error text).
+     *
+     * Exists so that strings coming back from the upload backend — error
+     * messages, file names — are never interpolated into an HTML template.
+     * Redactix's own PHP generates random file names, but a browse listing
+     * shows whatever is in the directory, and a custom backend's `error`
+     * field is frequently an echo of user input.
+     *
+     * @param {HTMLElement} container - Panel to fill.
+     * @param {string} text - Message, inserted as text.
+     * @param {string} cssText - Inline styles for the message element.
+     * @returns {HTMLElement} The created message element.
+     */
+    setStatusMessage(container, text, cssText = '') {
+        container.innerHTML = '';
+        const msg = document.createElement('div');
+        if (cssText) msg.style.cssText = cssText;
+        msg.textContent = text;
+        container.appendChild(msg);
+        return msg;
+    }
 }

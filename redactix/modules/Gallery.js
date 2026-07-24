@@ -648,17 +648,21 @@ export default class Gallery extends Module {
             .then(r => r.json())
             .then(data => {
                 if (!data.success) {
-                    container.innerHTML = `<div style="color:var(--redactix-danger);padding:8px;font-size:13px;">${data.error || 'Failed to load images'}</div>`;
+                    this.setStatusMessage(container,
+                        data.error || 'Failed to load images',
+                        'color:var(--redactix-danger);padding:8px;font-size:13px;');
                     return;
                 }
                 if (!data.images || data.images.length === 0) {
-                    container.innerHTML = `<div style="color:var(--redactix-text-muted);padding:16px;text-align:center;font-size:13px;">${this.t('gallery.noImages')}</div>`;
+                    this.setStatusMessage(container, this.t('gallery.noImages'),
+                        'color:var(--redactix-text-muted);padding:16px;text-align:center;font-size:13px;');
                     return;
                 }
                 this.renderBrowseGrid(container, data.images, onSelect);
             })
             .catch(() => {
-                container.innerHTML = `<div style="color:var(--redactix-danger);padding:8px;font-size:13px;">Connection error</div>`;
+                this.setStatusMessage(container, 'Connection error',
+                    'color:var(--redactix-danger);padding:8px;font-size:13px;');
             });
     }
 

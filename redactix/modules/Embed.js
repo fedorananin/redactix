@@ -1,6 +1,6 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
-import { sanitizeInlineHtml } from '../core/dom-utils.js';
+import { sanitizeInlineHtml, sanitizeUrl, parseHtmlInert } from '../core/dom-utils.js';
 
 /**
  * Embed module.
@@ -531,8 +531,7 @@ export default class Embed extends Module {
      */
     parseAndSanitizeCustomHtml(html) {
         if (!html || !html.trim()) return null;
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html;
+        const tmp = parseHtmlInert(html);
         const iframe = tmp.querySelector('iframe');
         if (!iframe) return null;
 
@@ -545,6 +544,13 @@ export default class Embed extends Module {
     /**
      * Strip an iframe to a known-safe set of attributes. Returns the
      * sanitized iframe (mutates in place).
+     *
+     * Which HOST an embed points at is the user's call — any domain is fair
+     * game. Which SCHEME it uses is not: a `javascript:` URL in an iframe
+     * runs in the parent's origin. That check goes through sanitizeUrl(),
+     * which decodes entities and strips control characters first — a plain
+     * `startsWith('javascript:')` is defeated by a single leading tab, and
+     * `srcdoc` sneaks a whole inline document past a src-only check.
      */
     sanitizeIframe(iframe) {
         const allowed = ['src', 'width', 'height', 'allow', 'allowfullscreen',
@@ -556,7 +562,7 @@ export default class Embed extends Module {
             }
         });
         const src = iframe.getAttribute('src') || '';
-        if (src.toLowerCase().startsWith('javascript:')) {
+        if (sanitizeUrl(src, { allowedSchemes: ['http', 'https'] }) === null) {
             iframe.removeAttribute('src');
         }
         return iframe;

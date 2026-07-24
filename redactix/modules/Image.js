@@ -1035,19 +1035,23 @@ export default class Image extends Module {
             .then(response => response.json())
             .then(data => {
                 if (!data.success) {
-                    container.innerHTML = `<div style="color: var(--redactix-danger); padding: 10px;">Error: ${data.error || 'Failed to load images'}</div>`;
+                    this.setStatusMessage(container,
+                        `Error: ${data.error || 'Failed to load images'}`,
+                        'color: var(--redactix-danger); padding: 10px;');
                     return;
                 }
 
                 if (data.images.length === 0) {
-                    container.innerHTML = `<div style="color: var(--redactix-text-muted); padding: 20px; text-align: center;">${this.t('image.noImages')}</div>`;
+                    this.setStatusMessage(container, this.t('image.noImages'),
+                        'color: var(--redactix-text-muted); padding: 20px; text-align: center;');
                     return;
                 }
 
                 this.renderBrowseGrid(container, data.images, data.allowDelete, onSelect);
             })
             .catch(error => {
-                container.innerHTML = `<div style="color: var(--redactix-danger); padding: 10px;">Connection error</div>`;
+                this.setStatusMessage(container, 'Connection error',
+                    'color: var(--redactix-danger); padding: 10px;');
             });
     }
 
@@ -1104,7 +1108,9 @@ export default class Image extends Module {
             item.addEventListener('click', () => {
                 onSelect(img);
                 // Close the panel after selection
-                container.innerHTML = `<div style="color: #10b981; padding: 10px; text-align: center;">${this.t('image.imageSelected')}: ${img.filename}</div>`;
+                this.setStatusMessage(container,
+                    `${this.t('image.imageSelected')}: ${img.filename}`,
+                    'color: #10b981; padding: 10px; text-align: center;');
                 setTimeout(() => {
                     // Restore browse button
                     this.restoreBrowseButton(container, onSelect);
