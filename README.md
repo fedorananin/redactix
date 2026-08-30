@@ -970,23 +970,11 @@ document.addEventListener('click', (e) => {
 
 ## 🛡️ Security
 
-### Read this first: the editor is not a security boundary
-
-Redactix runs in the browser. **Everything it filters, an attacker simply skips** — by POSTing to your endpoint directly, without ever loading the page. There is no configuration that changes this; it is true of every WYSIWYG editor.
-
-So:
-
-> **Sanitize on the server, on every write, unconditionally.** Not "if needed" — always.
->
-> **Escape or sanitize on the server, on every read**, before rendering saved HTML to visitors.
-
-The client-side sanitization documented below exists to keep *honest* content clean — so a paste from Word doesn't drag in a stylesheet, so a stray `javascript:` link doesn't survive a round-trip, so an author can't accidentally break their own page. Treat it as a quality feature with a security bonus, not as your defence.
-
-This matters most when the editor is exposed to people you don't control: comment forms, forum posts, user profiles — i.e. exactly what `liteMode` is for. Lite mode narrows the *feature set*, it does not make untrusted input safe.
+**The editor is not a security boundary.** Redactix runs in the browser, so everything it filters an attacker simply skips by POSTing to your endpoint directly. Sanitize on the server, on every write — always, not "if needed". This matters most when the editor is open to people you don't control (comments, forums, profiles); `liteMode` narrows the feature set, it does not make untrusted input safe.
 
 ### Server-side sanitization
 
-Match your allowlist to what the editor actually emits — the [HTML Output](#-html-output) section lists every tag and attribute it produces.
+Match your allowlist to what the editor emits — see [HTML Output](#-html-output).
 
 ```php
 // PHP — HTMLPurifier
@@ -1010,36 +998,17 @@ const clean = DOMPurify.sanitize(req.body.content, {
 });
 ```
 
-**Embeds need a decision.** Redactix intentionally lets an author embed an iframe from *any* domain — that's the point of the feature. If your authors are trusted staff, allow `iframe[src|allow|allowfullscreen|loading|referrerpolicy]` and keep it. If they are not, drop `iframe` from the allowlist entirely, or restrict `src` to a host allowlist of your own. Do not leave that choice to the client.
+Note the missing `iframe`. Redactix lets an author embed an iframe from any domain — that's the point of the feature. Allow `iframe[src|allow|allowfullscreen|loading|referrerpolicy]` if your authors are trusted staff; otherwise drop it or restrict `src` to your own host allowlist. A [Content-Security-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) on pages rendering saved content is a cheap backstop for everything above.
 
-A [Content-Security-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) on the pages that render saved content is the cheapest backstop available, and it covers mistakes in everything above.
+### What the editor filters
 
-### What the editor filters, and where
+Client-side filtering keeps *honest* content clean — a paste from Word doesn't drag in a stylesheet, a stray `javascript:` link doesn't survive a round-trip. Four entry points are covered: **paste** and **drop** get full normalisation (`Editor.sanitizeHtml()` — foreign markup is rewritten into the editor's own shapes, unknown tags/attributes/classes/styles dropped), **load** (`textarea.value`, `setContent()`, HTML mode) gets a narrow pass that preserves markup and removes only executable content, and **modal fields** go through the `dom-utils.js` helpers.
 
-Four independent entry points, each sanitized:
-
-| Entry point | Handled in | Behaviour |
-|---|---|---|
-| **Paste** | `Editor.sanitizeHtml()` | Full normalisation — foreign markup is rewritten into the editor's own shapes; unknown tags, attributes, classes and inline styles are dropped |
-| **Drop** | `Editor.handleDrop()` | Native drop is cancelled; the dragged HTML goes through the same sanitizer as paste |
-| **Load** (`textarea.value`, `setContent()`, return from HTML mode) | `sanitizeLoadedHtml()` | Narrow pass — markup is preserved (ids, custom classes, embeds), only executable content is removed |
-| **Modal fields** (URLs, captions, author names) | `dom-utils.js` helpers | `sanitizeUrl` / `sanitizeImageSrc` / `sanitizeInlineHtml` / `composeLinkRel` |
-
-Specifically:
-
-- **Untrusted HTML is parsed inertly** (`document.implementation.createHTMLDocument`), so nothing loads and no `onerror` fires while it is being cleaned.
-- **Event handlers** (`on*`, any casing), `<script>`, `<style>`, `<form>` and friends are removed on every path.
-- **URL schemes** are checked after decoding HTML entities and stripping control characters — `&#106;avascript:` and `java&#9;script:` don't get through.
-- **`data:` URLs** are allowed only for raster images. `data:image/svg+xml` is rejected — SVG can carry script.
-- **`target="_blank"`** always gets `rel="noopener noreferrer"` added, on every link-creation path.
-- **`<iframe srcdoc>`** is always removed; iframe `src` is restricted to `http(s)`.
-- **Inline styles** are kept only where the editor needs them (embed layout, video aspect-ratio) and rejected if they contain `javascript:`, `expression()`, or `behavior:`.
+On every path: untrusted HTML is parsed inertly, so no `onerror` fires while it's cleaned; `on*` handlers, `<script>`, `<style>` and `<form>` are removed; URL schemes are checked after entity-decoding (`&#106;avascript:` doesn't get through); `data:` URLs are allowed only for raster images (SVG rejected); `target="_blank"` always gains `rel="noopener noreferrer"`; `srcdoc` is removed and iframe `src` restricted to `http(s)`; inline styles survive only where the editor needs them.
 
 ### Uploads
 
-`redactix_images.php` is a **demonstration script**, included so the upload UI works out of the box. It validates MIME type and file content, generates random filenames, enforces a size limit and an extension allowlist, and guards against directory traversal — but it ships with **no authentication, no CSRF protection and no rate limiting**, and it allows SVG upload.
-
-Do not deploy it as-is. Write your own endpoint against [the same JSON contract](#api-endpoints), and in it: require an authenticated session, verify a CSRF token, rate-limit, and decide deliberately whether SVG uploads are acceptable (they are same-origin script if served inline — at minimum send `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff` for them).
+`redactix_images.php` is a **demonstration script**. It validates MIME type and file content, generates random filenames, enforces a size limit and extension allowlist, and guards against directory traversal — but ships with **no authentication, no CSRF protection and no rate limiting**, and allows SVG upload. Don't deploy it as-is: write your own endpoint against [the same JSON contract](#api-endpoints) with an authenticated session, a CSRF token, rate limiting, and a deliberate decision about SVG (at minimum serve it with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`).
 
 ---
 
@@ -1398,69 +1367,6 @@ app.post('/articles', (req, res) => {
     db.articles.insert({ content: sanitized });
 });
 ```
-
----
-
-## 🧪 Testing
-
-### Demo Mode
-
-Use `redactix_images_demo.php` for testing without cluttering your uploads folder:
-
-```javascript
-new Redactix({
-    uploadUrl: '/redactix_images_demo.php',
-    browseUrl: '/redactix_images_demo.php'
-});
-```
-
-### Manual Testing Checklist
-
-- [ ] Upload images via drag & drop
-- [ ] Upload images via paste
-- [ ] Upload images via file picker
-- [ ] Browse uploaded images
-- [ ] Edit existing images
-- [ ] Delete images (if enabled)
-- [ ] Paste from Google Docs (with images)
-- [ ] Paste from Word
-- [ ] Drag & drop blocks
-- [ ] Touch drag on mobile
-- [ ] Undo/redo operations
-- [ ] Find & replace
-- [ ] Fullscreen mode
-- [ ] HTML mode
-- [ ] Multiple editors on one page
-
----
-
-## 🐛 Troubleshooting
-
-### Images Not Uploading
-
-1. Check `uploadUrl` is set correctly
-2. Verify PHP script has write permissions to uploads folder
-3. Check PHP `upload_max_filesize` and `post_max_size`
-4. Open browser console for error messages
-
-### Sticky Toolbar Not Working
-
-- Toolbar is sticky only when no `maxHeight` is set
-- In fullscreen mode, toolbar is static
-- Check browser console for JavaScript errors
-
-### Base64 Images Not Converting
-
-1. Ensure `uploadUrl` is configured
-2. Check browser console for upload errors
-3. Verify server accepts POST requests
-4. Check server response format (must be JSON)
-
-### Drag & Drop Not Working on Mobile
-
-- Long press (500ms) to open menu
-- Drag immediately to reorder blocks
-- Ensure no other touch handlers are interfering
 
 ---
 
