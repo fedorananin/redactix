@@ -1,19 +1,44 @@
-import { isAtomicBlock, isBlockEmpty, sanitizeUrl, sanitizeImageSrc, sanitizeRel, sanitizeTarget, normalizeInlineSynonyms, parseHtmlInert } from './dom-utils.js';
+import { isAtomicBlock, isBlockEmpty, sanitizeUrl, sanitizeImageSrc, sanitizeRel, sanitizeTarget, normalizeInlineSynonyms, parseHtmlInert, sanitizeLoadedRoot, normalizeWhitespace, FORBIDDEN_TAGS } from './dom-utils.js';
+import { getContainerRule, findHostChild, getEditingContext, isBlockLike, TEXT_BLOCK_TAGS, HEADING_TAGS } from './schema.js';
+
+// Tags removed from pasted HTML on top of the shared FORBIDDEN_TAGS baseline.
+// iframe / video survive only when a module's preparePaste() vouched for them.
+const PASTE_EXTRA_FORBIDDEN = ['iframe', 'video', 'audio', 'source', 'track', 'colgroup', 'canvas', 'map', 'area', 'dialog'];
+
+// Attributes kept on pasted elements (URL / rel / target are filtered below).
+const PASTE_ALLOWED_ATTRIBUTES = ['href', 'src', 'alt', 'title', 'colspan', 'rowspan', 'rel', 'target', 'download'];
+
+const BLOCK_SELECTOR = 'p, h1, h2, h3, h4, h5, h6, blockquote, aside, figure, pre, table, ul, ol, hr, div';
 
 export default class Editor {
     constructor(instance) {
         this.instance = instance;
         this.el = instance.editorEl;
 
-        // Default paragraph separator — global document setting,
-        // set once for the entire page even with multiple instances.
-        if (!Editor._documentDefaultsApplied) {
-            try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) {}
-            Editor._documentDefaultsApplied = true;
-        }
-
         this.bindEvents();
+        this.setupParagraphSeparator();
         this.setupPlaceholder();
+    }
+
+    /**
+     * `defaultParagraphSeparator` is a document-wide setting: setting it once
+     * globally changed how every other contenteditable on the host page
+     * behaves. Apply it only while this editor has focus.
+     */
+    setupParagraphSeparator() {
+        let previous = null;
+        this.el.addEventListener('focusin', () => {
+            try {
+                previous = document.queryCommandValue('defaultParagraphSeparator') || null;
+                document.execCommand('defaultParagraphSeparator', false, 'p');
+            } catch (e) { /* unsupported — harmless */ }
+        });
+        this.el.addEventListener('focusout', (e) => {
+            if (e.relatedTarget && this.el.contains(e.relatedTarget)) return;
+            if (previous && previous !== 'p') {
+                try { document.execCommand('defaultParagraphSeparator', false, previous); } catch (err) { /* ignore */ }
+            }
+        });
     }
 
     setupPlaceholder() {
@@ -26,95 +51,108 @@ export default class Editor {
         this.el.classList.toggle('is-empty', isEmpty);
     }
 
-    // Guarantees proper structure of the editor (at least one paragraph)
+    /** Fire a synthetic input event after a manual DOM edit of typed text. */
+    notifyInput(data = null, inputType = 'insertText') {
+        let event;
+        try {
+            event = new InputEvent('input', { bubbles: true, inputType, data });
+        } catch (e) {
+            event = new Event('input', { bubbles: true });
+        }
+        this.el.dispatchEvent(event);
+    }
+
+    // Guarantees proper structure of the editor (at least one paragraph,
+    // no naked inline content at root level). Runs on every input, so it
+    // works on direct children only — no innerHTML serialisation.
     ensureEditorStructure() {
-        // If the editor is completely empty or contains only <br>
-        const content = this.el.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
+        const el = this.el;
 
-        if (!content) {
-            // Create an empty paragraph
-            this.el.innerHTML = '<p><br></p>';
-
-            // Place cursor in the paragraph
-            const p = this.el.querySelector('p');
-            if (p) {
-                const range = document.createRange();
-                const sel = window.getSelection();
-                range.setStart(p, 0);
-                range.collapse(true);
-                sel.removeAllRanges();
-                sel.addRange(range);
+        // Completely empty, or only <br> / whitespace left.
+        let onlyTrivia = true;
+        for (const n of el.childNodes) {
+            if (n.nodeType === Node.TEXT_NODE ? n.data.trim() : n.nodeName !== 'BR') {
+                onlyTrivia = false;
+                break;
             }
+        }
+        if (onlyTrivia) {
+            el.innerHTML = '<p><br></p>';
+            this.placeCaret(el.firstChild, 0);
             return;
         }
 
-        // Check: if one empty block element remains (not P) — replace with P
-        // This happens when the user selects all and deletes
-        if (this.el.children.length === 1) {
-            const child = this.el.children[0];
-            const checkContent = child.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-
-            if (!checkContent && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'ASIDE'].includes(child.tagName)) {
-                // Replace empty heading/quote with a paragraph
+        // One empty non-P block left (select-all + delete) → paragraph.
+        if (el.children.length === 1 && el.childNodes.length === 1) {
+            const child = el.children[0];
+            const isEmpty = !child.textContent.trim() && !child.querySelector('*:not(br)');
+            if (isEmpty && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'ASIDE'].includes(child.tagName)) {
                 const p = document.createElement('p');
                 p.innerHTML = '<br>';
-                this.el.replaceChild(p, child);
-
-                // Place cursor
-                const range = document.createRange();
-                const sel = window.getSelection();
-                range.setStart(p, 0);
-                range.collapse(true);
-                sel.removeAllRanges();
-                sel.addRange(range);
+                el.replaceChild(p, child);
+                this.placeCaret(p, 0);
                 return;
             }
         }
 
-        // If there is "naked" text directly in the editor (not in a block element)
-        // This can happen after deleting everything and starting input
-        const firstChild = this.el.firstChild;
-        if (firstChild && firstChild.nodeType === Node.TEXT_NODE && firstChild.textContent.trim()) {
-            // Save cursor position before wrapping
-            const sel = window.getSelection();
-            let savedOffset = 0;
-            let savedNode = null;
-            if (sel.rangeCount) {
-                const range = sel.getRangeAt(0);
-                savedNode = range.startContainer;
-                savedOffset = range.startOffset;
+        this.wrapRootInlineRuns();
+    }
+
+    /**
+     * Wrap runs of naked text / inline elements sitting directly in the
+     * editor root into <p>. Happens after "delete everything and type", or
+     * when the caret was left between two blocks.
+     */
+    wrapRootInlineRuns() {
+        const el = this.el;
+        const isInlineNode = (n) => n.nodeType === Node.TEXT_NODE ||
+            (n.nodeType === Node.ELEMENT_NODE && !isBlockLike(n) && !n.classList.contains('redactix-separator'));
+
+        let hasNaked = false;
+        for (const n of el.childNodes) {
+            if (n.nodeType === Node.TEXT_NODE ? n.data.trim() : (isInlineNode(n) && n.nodeName !== 'BR')) {
+                hasNaked = true;
+                break;
             }
+        }
+        if (!hasNaked) return;
 
-            // Wrap in a paragraph
-            const p = document.createElement('p');
+        const sel = window.getSelection();
+        let savedNode = null;
+        let savedOffset = 0;
+        if (sel.rangeCount) {
+            const range = sel.getRangeAt(0);
+            savedNode = range.startContainer;
+            savedOffset = range.startOffset;
+        }
 
-            // Collect all text nodes and inline elements at the beginning
-            while (this.el.firstChild &&
-                (this.el.firstChild.nodeType === Node.TEXT_NODE ||
-                    (this.el.firstChild.nodeType === Node.ELEMENT_NODE &&
-                        !['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'BLOCKQUOTE', 'ASIDE', 'PRE', 'TABLE', 'FIGURE', 'HR', 'DIV'].includes(this.el.firstChild.tagName)))) {
-                p.appendChild(this.el.firstChild);
+        let run = [];
+        const flush = () => {
+            const meaningful = run.some(n => n.nodeType === Node.TEXT_NODE ? n.data.trim() : n.nodeName !== 'BR');
+            if (meaningful) {
+                const p = document.createElement('p');
+                el.insertBefore(p, run[0]);
+                run.forEach(n => p.appendChild(n));
+            } else {
+                run.forEach(n => { if (n.nodeType === Node.TEXT_NODE) n.remove(); });
             }
+            run = [];
+        };
+        Array.from(el.childNodes).forEach(n => {
+            if (isInlineNode(n)) run.push(n);
+            else if (run.length) flush();
+        });
+        if (run.length) flush();
 
-            this.el.insertBefore(p, this.el.firstChild);
-
-            // Restore cursor position after wrapping
-            if (savedNode && p.contains(savedNode)) {
-                try {
-                    const newRange = document.createRange();
-                    newRange.setStart(savedNode, savedOffset);
-                    newRange.collapse(true);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                } catch (e) {
-                    // Fallback: place cursor at end of p
-                    const newRange = document.createRange();
-                    newRange.selectNodeContents(p);
-                    newRange.collapse(false);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                }
-            }
+        if (savedNode && el.contains(savedNode)) {
+            try {
+                const r = document.createRange();
+                r.setStart(savedNode, Math.min(savedOffset,
+                    savedNode.nodeType === Node.TEXT_NODE ? savedNode.length : savedNode.childNodes.length));
+                r.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(r);
+            } catch (e) { /* keep whatever selection we have */ }
         }
     }
 
@@ -122,19 +160,29 @@ export default class Editor {
     // if the last element is an uneditable block (figure, table, hr, etc.)
     ensureTrailingParagraph() {
         const lastChild = this.el.lastElementChild;
-        if (lastChild && (
-            ['FIGURE', 'TABLE', 'HR', 'PRE'].includes(lastChild.tagName) ||
-            (lastChild.tagName === 'DIV' && (lastChild.classList.contains('redactix-separator') || lastChild.classList.contains('redactix-video-wrapper')))
-        )) {
+        if (lastChild && isAtomicBlock(lastChild)) {
             const p = document.createElement('p');
             p.innerHTML = '<br>';
             this.el.appendChild(p);
         }
     }
 
+    placeCaret(node, offset = 0) {
+        if (!node) return;
+        const range = document.createRange();
+        range.setStart(node, offset);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+
     bindEvents() {
         // Observer for any DOM changes (the most reliable synchronization method)
-        this.observer = new MutationObserver((mutations) => {
+        this.observer = new MutationObserver(() => {
+            // Any structural edit gets a landing <p> after a trailing atomic
+            // block (kept out of _doSync so getContent() never mutates DOM).
+            this.ensureTrailingParagraph();
             this.instance.sync();
             this.updatePlaceholder();
         });
@@ -153,9 +201,7 @@ export default class Editor {
         // Completely disable native HTML5 drag for the editor's content:
         // otherwise, the browser can drag <img> inside contenteditable
         // and drop them anywhere (up to inserting <img> inside <h2>).
-        // Block dragging is implemented via mousedown in BlockControl,
-        // native dragstart is not needed. Previously this was done by
-        // Image/Video modules, but only with configured uploadUrl — now disabled always.
+        // Block dragging is implemented via mousedown in BlockControl.
         this.el.addEventListener('dragstart', (e) => {
             e.preventDefault();
         });
@@ -167,9 +213,6 @@ export default class Editor {
             this.updatePlaceholder();
         });
 
-        // ensureTrailingParagraph is now called from RedactixInstance._doSync —
-        // any structural edit automatically gets a landing <p> at the end.
-
         // Paste handling
         this.el.addEventListener('paste', (e) => {
             e.preventDefault();
@@ -178,8 +221,7 @@ export default class Editor {
 
         // Drop handling. Registered unconditionally and BEFORE the modules,
         // so foreign markup dragged into the editor can never reach the DOM
-        // unsanitised — previously the only `drop` listener belonged to the
-        // Image module, which is off without an uploadUrl and in lite mode.
+        // unsanitised.
         this.el.addEventListener('drop', (e) => {
             this.handleDrop(e);
         });
@@ -190,6 +232,11 @@ export default class Editor {
             // many Android keyboards) space and Enter control candidate selection —
             // custom handlers break composition.
             if (e.isComposing || e.keyCode === 229) return;
+
+            // Keys pressed on a focused control inside the editor (the
+            // floating Edit buttons of videos / galleries / embeds) are not
+            // text editing — Space must activate the button, not insert text.
+            if (!e.target || !e.target.isContentEditable) return;
 
             // Shift+Enter inside aside/blockquote — insert <br> explicitly
             if (e.key === 'Enter' && e.shiftKey) {
@@ -229,22 +276,27 @@ export default class Editor {
         });
     }
 
+    // ------------------------------------------------------------------
+    // Paste / drop
+    // ------------------------------------------------------------------
+
     handlePaste(e) {
         const clipboardData = e.clipboardData || window.clipboardData;
+        if (!clipboardData) return;
 
-        // Try to get HTML
         const html = clipboardData.getData('text/html');
         const text = clipboardData.getData('text/plain');
+        if (!html && !text) return;
 
-        if (html) {
-            this.insertSanitizedHtml(html);
-        } else if (text) {
-            this.insertPlainText(text);
-        }
-
-        this.instance.sync();
+        // One paste = one undo step.
+        this.instance.transact(() => {
+            if (html) {
+                this.insertSanitizedHtml(html, 'paste');
+            } else {
+                this.insertPlainText(text);
+            }
+        });
         this.updatePlaceholder();
-        this.ensureTrailingParagraph();
     }
 
     /**
@@ -276,15 +328,14 @@ export default class Editor {
         this.el.focus();
         this.placeCaretAtPoint(e.clientX, e.clientY);
 
-        if (html) {
-            this.insertSanitizedHtml(html);
-        } else {
-            this.insertPlainText(text);
-        }
-
-        this.instance.sync();
+        this.instance.transact(() => {
+            if (html) {
+                this.insertSanitizedHtml(html, 'drop');
+            } else {
+                this.insertPlainText(text);
+            }
+        });
         this.updatePlaceholder();
-        this.ensureTrailingParagraph();
     }
 
     /** Collapse the selection to the caret position under (x, y). */
@@ -303,404 +354,347 @@ export default class Editor {
 
         // Outside the editable area (or unsupported) — keep whatever
         // selection we already have.
-        if (!range || !this.el.contains(range.startContainer)) return;
+        if (!range || !this.el.contains(range.startContainer)) return false;
 
         range.collapse(true);
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
+        return true;
+    }
+
+    /** Context of the current caret (see schema.getEditingContext). */
+    getCaretContext() {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return getEditingContext(null, this.el);
+        return getEditingContext(sel.getRangeAt(0).startContainer, this.el);
     }
 
     /**
      * Sanitize a foreign HTML string and insert it at the caret. Shared by
-     * paste and drop.
+     * paste and drop. The sanitized tree is adopted directly from the inert
+     * document it was cleaned in — no serialise / re-parse round trip, which
+     * is where mutation-XSS lives.
      */
-    insertSanitizedHtml(rawHtml) {
-        const html = this.sanitizeHtml(rawHtml);
+    insertSanitizedHtml(rawHtml, source = 'paste') {
+        const root = this.sanitizePasteRoot(rawHtml);
+        if (!root.firstChild) return;
 
-        // Parse into temp element to check structure
-        const temp = document.createElement('div');
-        temp.innerHTML = html;
+        const hasBlocks = !!root.querySelector(BLOCK_SELECTOR);
+        const ctx = this.getCaretContext();
 
-        const blockSelector = 'p, h1, h2, h3, h4, h5, h6, blockquote, aside, figure, pre, table, ul, ol, hr, div';
-        const hasBlocks = !!temp.querySelector(blockSelector);
+        if (hasBlocks && (ctx.inFigcaption || ctx.inTable || ctx.inPre)) {
+            // Captions and table cells hold inline content only.
+            this.insertPlainText(this.blockTextOf(root));
+            return;
+        }
 
         if (!hasBlocks) {
-            // Inline-only content — insertHTML works fine for this
-            document.execCommand('insertHTML', false, html);
+            // Inline-only content — insertHTML keeps native undo/caret
+            // behaviour and merges into the current paragraph.
+            document.execCommand('insertHTML', false, root.innerHTML);
         } else {
-            // Block content — manual DOM insertion to avoid browser quirks
-            this.insertBlockContent(temp);
+            this.insertBlockContent(root);
         }
 
-        // Setup inserted figure tags
-        if (this.instance.setupFigures) {
-            this.instance.setupFigures();
-        }
+        this.instance.setupContent();
+        this.instance.emit('contentInserted', { source });
+    }
 
-        // Migrate any pasted legacy blockquotes and wire up quote-cards
-        if (this.instance.runQuoteCardSetup) {
-            this.instance.runQuoteCardSetup();
-        }
-        if (this.instance.runCalloutSetup) {
-            this.instance.runCalloutSetup();
-        }
-        if (this.instance.runEmbedSetup) {
-            this.instance.runEmbedSetup();
-        }
-        if (this.instance.runVideoSetup) {
-            this.instance.runVideoSetup();
-        }
-        if (this.instance.runGallerySetup) {
-            this.instance.runGallerySetup();
-        }
+    /** Text of a tree with block boundaries turned into newlines. */
+    blockTextOf(root) {
+        const clone = root.cloneNode(true);
+        clone.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+        clone.querySelectorAll(BLOCK_SELECTOR + ', li, figcaption').forEach(el => el.append('\n'));
+        return clone.textContent.replace(/\n{3,}/g, '\n\n').trim();
     }
 
     /** Insert plain text at the caret, preserving line breaks. */
     insertPlainText(text) {
-        const lines = text.split('\n');
-        if (lines.length > 1) {
-            const html = lines.map(line => {
-                if (line.trim() === '') return '<br>';
-                return `<p>${this.escapeHtml(line)}</p>`;
-            }).join('');
-            document.execCommand('insertHTML', false, html);
-        } else {
-            document.execCommand('insertText', false, text);
+        const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+        if (lines.length === 1) {
+            document.execCommand('insertText', false, lines[0]);
+            return;
         }
+
+        const ctx = this.getCaretContext();
+        if (ctx.inFigcaption || ctx.inTable || ctx.inListItem || ctx.inHeading) {
+            // Inline-only contexts: keep the lines, separated by <br>.
+            const html = lines.map(line => this.escapeHtml(line)).join('<br>');
+            document.execCommand('insertHTML', false, html);
+            return;
+        }
+
+        const container = document.createElement('div');
+        lines.forEach(line => {
+            const p = document.createElement('p');
+            if (line.trim() === '') p.innerHTML = '<br>';
+            else p.textContent = line;
+            container.appendChild(p);
+        });
+        this.insertBlockContent(container);
     }
 
     /**
      * Insert block-level content from a parsed container using DOM API.
      * Avoids insertHTML quirks with block elements inside blocks.
      *
-     * Insertion host is not always the editor root: when the cursor sits
+     * Insertion host is not always the editor root: when the caret sits
      * inside a callout (<aside>) or a quote-card's <blockquote>, pasted
-     * blocks land INSIDE that container (after the current inner block),
-     * not after the container at top level. Disallowed tags get cleaned
-     * up by the migrate/normalize passes that run right after paste.
+     * blocks land INSIDE that container. Disallowed tags are moved out by
+     * the container normalisers that run right after paste.
+     *
+     * The current paragraph is split at the caret, so content pasted in the
+     * middle of a paragraph lands in the middle — not after it.
      */
     insertBlockContent(container) {
         const sel = window.getSelection();
         if (!sel.rangeCount) return;
 
         const range = sel.getRangeAt(0);
+        if (!this.el.contains(range.startContainer)) return;
         range.deleteContents();
 
-        // Containers inside which block insertion is allowed.
-        const isInsertionHost = (el) => {
-            if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
-            if (el === this.el) return true;
-            if (el.tagName === 'ASIDE') return true;
-            if (el.tagName === 'BLOCKQUOTE' && el.parentElement &&
-                el.parentElement.tagName === 'FIGURE' &&
-                el.parentElement.classList.contains('quote-card')) return true;
-            return false;
-        };
+        this.wrapInlineRuns(container);
+        const nodesToInsert = Array.from(container.childNodes);
+        if (nodesToInsert.length === 0) return;
 
-        // Find the nearest block whose parent is an insertion host.
-        let currentBlock = range.startContainer;
-        while (currentBlock && currentBlock !== this.el && !isInsertionHost(currentBlock.parentNode)) {
-            currentBlock = currentBlock.parentNode;
-        }
+        const point = findHostChild(range.startContainer, this.el);
 
-        // If we couldn't find a block or we're at editor root level
-        if (!currentBlock || currentBlock === this.el) {
-            // Just insert all children at cursor position
+        if (!point) {
+            // Caret directly in the editor root (between blocks).
             const frag = document.createDocumentFragment();
-            while (container.firstChild) {
-                frag.appendChild(container.firstChild);
-            }
+            nodesToInsert.forEach(n => frag.appendChild(n));
             range.insertNode(frag);
-            range.collapse(false);
-            sel.removeAllRanges();
-            sel.addRange(range);
+            this.placeCaretAtEndOf(nodesToInsert[nodesToInsert.length - 1]);
             return;
         }
 
-        // Check if current block is empty (only <br> or whitespace)
-        const currentContent = currentBlock.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-        const isCurrentEmpty = !currentContent;
+        const { host, block } = point;
+        let ref;
+        if (isBlockEmpty(block, 'img, iframe, video, audio, table, hr') && TEXT_BLOCK_TAGS.includes(block.tagName)) {
+            // Pasted content replaces the empty paragraph.
+            ref = block.nextSibling;
+            block.remove();
+        } else if (TEXT_BLOCK_TAGS.includes(block.tagName) && block.contains(range.startContainer)) {
+            const head = document.createRange();
+            head.setStart(block, 0);
+            head.setEnd(range.startContainer, range.startOffset);
+            const tail = document.createRange();
+            tail.setStart(range.startContainer, range.startOffset);
+            tail.setEnd(block, block.childNodes.length);
 
-        // Collect all nodes to insert
-        const nodesToInsert = [];
-        while (container.firstChild) {
-            nodesToInsert.push(container.firstChild);
-            container.removeChild(container.firstChild);
-        }
+            const headEmpty = head.toString().trim() === '' && !head.cloneContents().querySelector('img, iframe, video');
+            const tailEmpty = tail.toString().trim() === '' && !tail.cloneContents().querySelector('img, iframe, video');
 
-        if (nodesToInsert.length === 0) return;
-
-        // Insert each node after the current block, inside its host
-        // (editor root, aside, or quote-card blockquote).
-        const host = currentBlock.parentNode;
-        let insertionRef = currentBlock.nextSibling;
-        for (const node of nodesToInsert) {
-            host.insertBefore(node, insertionRef);
-        }
-
-        // If current block was empty, remove it (pasted content replaces it)
-        if (isCurrentEmpty) {
-            currentBlock.remove();
-        }
-
-        // Place cursor at the end of the last inserted node
-        const lastInserted = insertionRef
-            ? insertionRef.previousSibling
-            : host.lastChild;
-        if (lastInserted) {
-            const newRange = document.createRange();
-            if (lastInserted.nodeType === Node.ELEMENT_NODE) {
-                newRange.selectNodeContents(lastInserted);
-                newRange.collapse(false);
+            if (headEmpty) {
+                ref = block;                       // insert before the paragraph
+            } else if (tailEmpty) {
+                ref = block.nextSibling;           // insert after it
             } else {
-                newRange.setStartAfter(lastInserted);
-                newRange.collapse(true);
+                // Split: the part after the caret becomes a new block.
+                const after = block.cloneNode(false);
+                after.removeAttribute('id');
+                after.appendChild(tail.extractContents());
+                block.parentNode.insertBefore(after, block.nextSibling);
+                ref = after;
             }
-            sel.removeAllRanges();
-            sel.addRange(newRange);
+        } else {
+            ref = block.nextSibling;
         }
+
+        nodesToInsert.forEach(node => host.insertBefore(node, ref));
+        this.placeCaretAtEndOf(nodesToInsert[nodesToInsert.length - 1]);
     }
 
-    sanitizeHtml(html) {
-        // Parse into an INERT document — a plain detached <div> would start
-        // loading images and firing their onerror handlers before we get to
-        // the attribute sweep below.
-        const temp = parseHtmlInert(html);
-
-        // Remove Google Docs helper wrappers (b with id="docs-internal-guid-...")
-        const googleWrappers = temp.querySelectorAll('b[id^="docs-internal-guid"]');
-        googleWrappers.forEach(wrapper => {
-            // Unwrap content, removing the wrapper
-            while (wrapper.firstChild) {
-                wrapper.parentNode.insertBefore(wrapper.firstChild, wrapper);
+    /** Group naked text / inline runs of a container into <p> elements. */
+    wrapInlineRuns(container) {
+        let run = [];
+        const flush = () => {
+            if (run.some(n => n.nodeType === Node.TEXT_NODE ? n.data.trim() : true)) {
+                const p = document.createElement('p');
+                container.insertBefore(p, run[0]);
+                run.forEach(n => p.appendChild(n));
+            } else {
+                run.forEach(n => n.remove());
             }
-            wrapper.remove();
+            run = [];
+        };
+        Array.from(container.childNodes).forEach(n => {
+            const inline = n.nodeType === Node.TEXT_NODE || (n.nodeType === Node.ELEMENT_NODE && !isBlockLike(n));
+            if (inline) run.push(n);
+            else if (run.length) flush();
+        });
+        if (run.length) flush();
+    }
+
+    placeCaretAtEndOf(node) {
+        if (!node || !node.parentNode) return;
+        const sel = window.getSelection();
+        const r = document.createRange();
+        if (node.nodeType === Node.ELEMENT_NODE && !isAtomicBlock(node) && node.isContentEditable) {
+            r.selectNodeContents(node);
+            r.collapse(false);
+        } else {
+            // Atomic block: land in the following editable block if any.
+            const next = node.nextElementSibling;
+            if (next && !isAtomicBlock(next) && next.isContentEditable) {
+                r.setStart(next, 0);
+                r.collapse(true);
+            } else {
+                r.setStartAfter(node);
+                r.collapse(true);
+            }
+        }
+        sel.removeAllRanges();
+        sel.addRange(r);
+    }
+
+    /**
+     * Paste sanitizer — a *normaliser*: rewrites foreign markup into the
+     * editor's own shapes and drops everything it doesn't recognise.
+     * Works entirely on an inert document; returns its <body>.
+     */
+    sanitizePasteRoot(html) {
+        const temp = parseHtmlInert(html);
+        const config = this.instance.config;
+        const modules = this.instance.modules;
+
+        // 1. Office / comment garbage, removed on the DOM — string regexes
+        // over serialised HTML could cut across node boundaries and turn
+        // inert text back into markup.
+        const walker = temp.ownerDocument.createTreeWalker(temp, NodeFilter.SHOW_COMMENT);
+        const comments = [];
+        while (walker.nextNode()) comments.push(walker.currentNode);
+        comments.forEach(c => c.remove());
+        Array.from(temp.querySelectorAll('*')).forEach(el => {
+            if (!el.tagName.includes(':')) return;
+            if (el.tagName === 'O:P') { el.remove(); return; }
+            // Other namespaced Office tags (st1:…) wrap real text — unwrap.
+            this.unwrap(el);
+        });
+        temp.querySelectorAll('[class]').forEach(el => {
+            const kept = el.getAttribute('class').split(/\s+/).filter(c => c && !/^Mso/i.test(c));
+            if (kept.length) el.setAttribute('class', kept.join(' '));
+            else el.removeAttribute('class');
         });
 
-        // Unwrap editor separator wrappers to bare <hr>.
-        // They are not in the saved HTML, but when copying from the editor's
-        // live DOM they end up in the buffer; without unwrap, the div cleanup below
-        // would turn them into <p><hr></p>. wrapSeparators() will restore the wrapper
-        // after insertion.
+        // 2. Remove Google Docs helper wrappers (b with id="docs-internal-guid-...")
+        temp.querySelectorAll('b[id^="docs-internal-guid"]').forEach(wrapper => this.unwrap(wrapper));
+
+        // Unwrap editor separator wrappers to bare <hr> (copying from the
+        // editor's live DOM puts them on the clipboard). setupContent()
+        // restores the wrapper after insertion.
         temp.querySelectorAll('div.redactix-separator').forEach(wrapper => {
             const hr = wrapper.querySelector('hr');
             if (hr) wrapper.parentNode.replaceChild(hr, wrapper);
             else wrapper.remove();
         });
 
-        // Spare iframes that belong to a known embed provider (or already
-        // sit inside a redactix-embed figure) before the dangerousTags
-        // sweep. Sanitize them in place so the attribute-cleanup loop
-        // below doesn't strip src/allow/etc.
-        const embedModule = this.instance.modules.find(m => m.constructor.name === 'Embed');
-        const safeIframes = new Set();
-        if (embedModule) {
-            Array.from(temp.querySelectorAll('iframe')).forEach(iframe => {
-                const insideEmbed = iframe.closest && iframe.closest('figure.redactix-embed');
-                const src = iframe.getAttribute('src') || '';
-                const detected = embedModule.findProviderByUrl(src);
-                if (insideEmbed || detected) {
-                    embedModule.sanitizeIframe(iframe);
-                    safeIframes.add(iframe);
+        // <picture> → its <img>.
+        temp.querySelectorAll('picture').forEach(pic => this.unwrap(pic));
 
-                    // If the iframe wasn't wrapped in a redactix-embed figure,
-                    // wrap it now so it survives later passes and renders
-                    // correctly with our CSS.
-                    if (!insideEmbed) {
-                        const figure = document.createElement('figure');
-                        figure.className = 'redactix-embed';
-                        figure.setAttribute('data-provider', detected ? detected.provider.name : 'custom');
-                        figure.setAttribute('data-aspect', detected ? (detected.provider.aspect || 'auto') : 'auto');
-                        const frame = document.createElement('div');
-                        frame.className = 'redactix-embed-frame';
-                        iframe.parentNode.insertBefore(figure, iframe);
-                        frame.appendChild(iframe);
-                        figure.appendChild(frame);
-                    }
-                }
-            });
-        }
+        // 3. Module hooks: Embed spares provider iframes, Video spares its
+        // own <video> markup, before the sweeps below would strip them.
+        const pasteCtx = { keep: new Set(), liteMode: !!config.liteMode };
+        modules.forEach(m => {
+            if (typeof m.preparePaste === 'function') {
+                try { m.preparePaste(temp, pasteCtx); } catch (e) { console.error('Redactix: ' + m.name + '.preparePaste failed', e); }
+            }
+        });
+        const keep = pasteCtx.keep;
 
-        // Spare <video> tags that already sit inside a figure.redactix-video
-        // (i.e. saved Redactix output being pasted back). They get a safe
-        // attribute set, then survive the global attribute sweep below.
-        // Standalone <video> tags pasted from elsewhere are stripped — we
-        // only re-render videos the editor itself produced.
-        const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
-        const safeVideos = new Set();
-        if (videoModule) {
-            Array.from(temp.querySelectorAll('figure.redactix-video > video')).forEach(video => {
-                const src = video.getAttribute('src') || '';
-                if (!src || src.toLowerCase().startsWith('javascript:')) return;
-                // Whitelisted attribute set: src + controls + preload + style
-                // (only when style declares aspect-ratio).
-                const aspectStyle = (video.getAttribute('style') || '').match(/aspect-ratio\s*:\s*[^;]+/i);
-                Array.from(video.attributes).forEach(attr => {
-                    video.removeAttribute(attr.name);
-                });
-                video.setAttribute('src', src);
-                video.setAttribute('controls', '');
-                video.setAttribute('preload', 'metadata');
-                if (aspectStyle) video.setAttribute('style', aspectStyle[0]);
-                safeVideos.add(video);
-            });
-        }
-
-        // Remove dangerous and unnecessary tags
-        const dangerousTags = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'meta', 'colgroup'];
-        dangerousTags.forEach(tag => {
-            const elements = Array.from(temp.getElementsByTagName(tag));
-            elements.forEach(el => {
-                if (tag === 'iframe' && safeIframes.has(el)) return;
+        // 4. Remove dangerous and unnecessary tags.
+        [...FORBIDDEN_TAGS, ...PASTE_EXTRA_FORBIDDEN].forEach(tag => {
+            Array.from(temp.getElementsByTagName(tag)).forEach(el => {
+                if (keep.has(el)) return;
                 if (el.parentNode) el.parentNode.removeChild(el);
             });
         });
 
-        // Strip standalone <video> tags that aren't wrapped in a redactix-video
-        // figure — we only render videos through our own pipeline.
-        Array.from(temp.querySelectorAll('video')).forEach(video => {
-            if (safeVideos.has(video)) return;
-            if (video.parentNode) video.parentNode.removeChild(video);
-        });
+        // 5. Shared baseline: event handlers, script URLs, srcdoc, unsafe
+        // CSS, iframe permissions — the same pass content loads go through.
+        sanitizeLoadedRoot(temp);
 
-        // Convert styled spans into semantic tags (before style removal!)
+        // 6. Convert styled spans into semantic tags (before style removal!)
         // Google Docs uses inline styles instead of b/i/u tags
-        const styledSpans = Array.from(temp.querySelectorAll('span[style]'));
-        styledSpans.forEach(span => {
+        Array.from(temp.querySelectorAll('span[style]')).forEach(span => {
             const style = span.getAttribute('style') || '';
-            let wrapper = null;
-
-            // Check styles and create corresponding tags
-            // Order is important: outer first, then inner
             const isBold = /font-weight:\s*(bold|700|800|900)/i.test(style);
             const isItalic = /font-style:\s*italic/i.test(style);
             const isUnderline = /text-decoration:[^;]*underline/i.test(style);
             const isStrike = /text-decoration:[^;]*line-through/i.test(style);
 
             if (isBold || isItalic || isUnderline || isStrike) {
-                // Collect span content
-                const content = document.createDocumentFragment();
+                const content = temp.ownerDocument.createDocumentFragment();
                 while (span.firstChild) {
                     content.appendChild(span.firstChild);
                 }
-
-                // Wrap in tags (from outer to inner)
+                // Wrap in tags (from inner to outer)
                 let result = content;
-
-                if (isStrike) {
-                    const s = document.createElement('s');
-                    s.appendChild(result);
-                    result = s;
-                }
-                if (isUnderline) {
-                    const u = document.createElement('u');
-                    u.appendChild(result);
-                    result = u;
-                }
-                if (isItalic) {
-                    const i = document.createElement('i');
-                    i.appendChild(result);
-                    result = i;
-                }
-                if (isBold) {
-                    const b = document.createElement('b');
-                    b.appendChild(result);
-                    result = b;
-                }
-
+                [[isStrike, 's'], [isUnderline, 'u'], [isItalic, 'i'], [isBold, 'b']].forEach(([on, tag]) => {
+                    if (!on) return;
+                    const wrap = temp.ownerDocument.createElement(tag);
+                    wrap.appendChild(result);
+                    result = wrap;
+                });
                 span.parentNode.replaceChild(result, span);
             }
         });
 
-        // Remove all attributes except allowed ones.
-        // rel/target/download are allowed but filtered by whitelist
-        // (sanitizeRel / sanitizeTarget below). href/src are checked for
-        // allowed schema via sanitizeUrl — cuts off javascript:, data:
-        // (except raster images) and others.
-        const allowedAttributes = ['href', 'src', 'alt', 'title', 'colspan', 'rowspan', 'rel', 'target', 'download'];
-        // Allowed classes. Editor structural names are hardcoded, and
-        // callout/quote preset classes are taken from config — so that if a user
-        // disabled default presets, corresponding classes won't survive pasting;
-        // and vice versa, custom classes (calloutPresets / quotePresets)
-        // will pass without explicit whitelisting.
-        const allowedClasses = ['spoiler', 'quote-card',
-            'redactix-embed', 'redactix-embed-frame',
-            'redactix-video', 'redactix-gallery', 'redactix-gallery-grid'];
-        const presetClasses = [
-            ...(this.instance.config.calloutPresets || []),
-            ...(this.instance.config.quotePresets || [])
-        ].map(p => p.class).filter(Boolean);
-        allowedClasses.push(...presetClasses);
-        const allElements = temp.getElementsByTagName('*');
+        // 7. Attribute sweep. Allowed classes: editor structural names come
+        // from the modules (pasteAllowedClasses), preset classes from config —
+        // so disabled default presets don't survive pasting and custom ones
+        // pass without explicit whitelisting. Multi-token preset classes
+        // ("callout warning") are split into tokens.
+        const allowedClasses = new Set(['spoiler']);
+        const attributeRules = [];
+        modules.forEach(m => {
+            (m.pasteAllowedClasses || []).forEach(c => allowedClasses.add(c));
+            (m.pasteAllowedAttributes || []).forEach(rule => attributeRules.push(rule));
+        });
+        [...(config.calloutPresets || []), ...(config.quotePresets || [])]
+            .map(p => p.class).filter(Boolean)
+            .forEach(cls => cls.split(/\s+/).filter(Boolean).forEach(c => allowedClasses.add(c)));
 
-        for (let i = 0; i < allElements.length; i++) {
-            const el = allElements[i];
-            // Iframes that we've spared above were already sanitized to a
-            // safe attribute set — don't re-strip them here.
-            if (el.tagName === 'IFRAME' && safeIframes.has(el)) continue;
-            // Same for safe <video> tags inside figure.redactix-video.
-            if (el.tagName === 'VIDEO' && safeVideos.has(el)) continue;
-            const attrs = Array.from(el.attributes);
+        Array.from(temp.getElementsByTagName('*')).forEach(el => {
+            // Elements spared by a module were already reduced to a safe set.
+            if (keep.has(el)) return;
 
-            attrs.forEach(attr => {
-                if (!allowedAttributes.includes(attr.name.toLowerCase())) {
-                    // Allow data-emoji on aside elements
-                    if (attr.name.toLowerCase() === 'data-emoji' && el.tagName === 'ASIDE') {
-                        return;
-                    }
-                    // Allow data-provider / data-aspect / data-height /
-                    // data-source-url on redactix-embed figures
-                    if ((attr.name.toLowerCase() === 'data-provider' ||
-                         attr.name.toLowerCase() === 'data-aspect' ||
-                         attr.name.toLowerCase() === 'data-height' ||
-                         attr.name.toLowerCase() === 'data-source-url') &&
-                        el.tagName === 'FIGURE' &&
-                        el.classList.contains('redactix-embed')) {
-                        return;
-                    }
-                    // Allow data-aspect on redactix-video figures
-                    if (attr.name.toLowerCase() === 'data-aspect' &&
-                        el.tagName === 'FIGURE' &&
-                        el.classList.contains('redactix-video')) {
-                        return;
-                    }
-                    // For class — filter, keeping only allowed ones
-                    if (attr.name.toLowerCase() === 'class') {
-                        const classes = attr.value.split(/\s+/).filter(c => allowedClasses.includes(c));
-                        if (classes.length > 0) {
-                            el.setAttribute('class', classes.join(' '));
-                        } else {
-                            el.removeAttribute('class');
-                        }
-                    } else {
-                        el.removeAttribute(attr.name);
-                    }
+            const extraAttrs = new Set();
+            attributeRules.forEach(rule => {
+                if (el.matches(rule.selector)) rule.attrs.forEach(a => extraAttrs.add(a));
+            });
+
+            Array.from(el.attributes).forEach(attr => {
+                const name = attr.name.toLowerCase();
+                if (name === 'class') {
+                    const classes = attr.value.split(/\s+/).filter(c => allowedClasses.has(c));
+                    if (classes.length > 0) el.setAttribute('class', classes.join(' '));
+                    else el.removeAttribute('class');
+                    return;
+                }
+                if (!PASTE_ALLOWED_ATTRIBUTES.includes(name) && !extraAttrs.has(name)) {
+                    el.removeAttribute(attr.name);
+                    return;
                 }
 
-                // Check href / src scheme — allow only http(s),
-                // mailto, tel, relative and (for image src) data:image/*
-                // (except svg+xml). Everything else — javascript:, data:text/html,
-                // vbscript: and so on — is discarded.
-                const nameLower = attr.name.toLowerCase();
-                if (nameLower === 'href') {
-                    const safe = sanitizeUrl(attr.value);
+                // href / src: http(s), mailto, tel, relative, and raster
+                // data:image/* for <img>. rel / target: whitelisted tokens.
+                if (name === 'href') {
+                    if (sanitizeUrl(attr.value) === null) el.removeAttribute(attr.name);
+                } else if (name === 'src') {
+                    const safe = (el.tagName === 'IMG') ? sanitizeImageSrc(attr.value) : sanitizeUrl(attr.value);
                     if (safe === null) el.removeAttribute(attr.name);
-                } else if (nameLower === 'src') {
-                    const safe = (el.tagName === 'IMG')
-                        ? sanitizeImageSrc(attr.value)
-                        : sanitizeUrl(attr.value);
-                    if (safe === null) el.removeAttribute(attr.name);
-                } else if (nameLower === 'rel' && el.tagName === 'A') {
-                    const cleaned = sanitizeRel(attr.value);
+                } else if (name === 'rel') {
+                    const cleaned = el.tagName === 'A' ? sanitizeRel(attr.value) : '';
                     if (cleaned) el.setAttribute('rel', cleaned);
                     else el.removeAttribute('rel');
-                } else if (nameLower === 'target' && el.tagName === 'A') {
-                    const cleaned = sanitizeTarget(attr.value);
+                } else if (name === 'target') {
+                    const cleaned = el.tagName === 'A' ? sanitizeTarget(attr.value) : '';
                     if (cleaned) {
                         el.setAttribute('target', cleaned);
-                        // target=_blank without noopener/noreferrer — tab-jacking vector,
-                        // fix rel automatically.
+                        // target=_blank without noopener/noreferrer — tab-jacking vector.
                         if (cleaned === '_blank') {
                             const existing = sanitizeRel(el.getAttribute('rel') || '');
                             const tokens = new Set(existing ? existing.split(/\s+/) : []);
@@ -713,182 +707,142 @@ export default class Editor {
                     }
                 }
             });
+        });
 
-            // Remove inline styles — except for <video> inside figure.redactix-video,
-            // for which we have already left only aspect-ratio above.
-            if (!(el.tagName === 'VIDEO' && safeVideos.has(el))) {
-                el.removeAttribute('style');
+        // 8. Divs, deepest first (moving children — copying innerHTML left
+        // nested divs detached and unconverted). Structural editor divs
+        // (embed frame, gallery grid) keep a whitelisted class and are
+        // skipped; a div holding blocks is unwrapped; a div holding only
+        // inline content becomes a paragraph.
+        Array.from(temp.querySelectorAll('div')).reverse().forEach(div => {
+            if (!div.parentNode) return;
+            if (div.hasAttribute('class')) return;
+            const hasContent = div.textContent.trim() || div.querySelector('img, iframe, video, hr, table');
+            if (!hasContent) {
+                div.remove();
+                return;
             }
-        }
+            const hasBlockChild = Array.from(div.children).some(c => isBlockLike(c));
+            if (hasBlockChild) {
+                this.wrapInlineRuns(div);
+                this.unwrap(div);
+            } else {
+                const p = temp.ownerDocument.createElement('p');
+                while (div.firstChild) p.appendChild(div.firstChild);
+                div.parentNode.replaceChild(p, div);
+            }
+        });
 
-        // Simplify list structure: if li contains only one p — unwrap
-        const listItems = Array.from(temp.querySelectorAll('li'));
-        listItems.forEach(li => {
+        // 9. Simplify list structure: if li contains only paragraphs — unwrap
+        temp.querySelectorAll('li').forEach(li => {
             const children = Array.from(li.children);
             const paragraphs = children.filter(c => c.tagName === 'P');
-
-            // If there are only paragraphs (and possibly br) inside li
             if (paragraphs.length > 0 && children.every(c => c.tagName === 'P' || c.tagName === 'BR')) {
-                // Разворачиваем содержимое параграфов в li
-                const fragment = document.createDocumentFragment();
-
+                const fragment = temp.ownerDocument.createDocumentFragment();
                 children.forEach((child, index) => {
                     if (child.tagName === 'P') {
-                        // Transfer p content
-                        while (child.firstChild) {
-                            fragment.appendChild(child.firstChild);
-                        }
-                        // Add br between paragraphs (except the last one)
+                        while (child.firstChild) fragment.appendChild(child.firstChild);
                         if (index < children.length - 1) {
-                            fragment.appendChild(document.createElement('br'));
+                            fragment.appendChild(temp.ownerDocument.createElement('br'));
                         }
                     }
                 });
-
                 li.innerHTML = '';
                 li.appendChild(fragment);
             }
         });
 
-        // Fix incorrect nesting of block elements (Google Docs issue)
-        // For example: <h1><p>text</p></h1> -> <h1>text</h1>
-        const blockTags = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'BLOCKQUOTE', 'ASIDE'];
-        blockTags.forEach(tag => {
-            const elements = Array.from(temp.querySelectorAll(tag));
-            elements.forEach(el => {
-                // If there are other block elements inside the block element
-                const nestedBlocks = el.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div');
-                if (nestedBlocks.length > 0) {
-                    // Collect nested blocks content
-                    const fragment = document.createDocumentFragment();
-
-                    Array.from(el.childNodes).forEach(child => {
-                        if (child.nodeType === Node.ELEMENT_NODE &&
-                            ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'DIV'].includes(child.tagName)) {
-                            // This is a nested block element — extract its content
-                            // or the element itself, if the parent is a heading and the nested is p
-                            if (blockTags.slice(0, 6).includes(el.tagName) && child.tagName === 'P') {
-                                // Heading contains p — take only p content
-                                while (child.firstChild) {
-                                    fragment.appendChild(child.firstChild);
-                                }
-                            } else {
-                                // Pull block outside
-                                fragment.appendChild(child.cloneNode(true));
-                            }
-                        } else if (child.nodeType === Node.ELEMENT_NODE && child.tagName === 'BR') {
-                            // Skip extra br between blocks
-                        } else if (child.nodeType === Node.TEXT_NODE && !child.textContent.trim()) {
-                            // Skip empty text nodes
-                        } else {
-                            fragment.appendChild(child.cloneNode(true));
-                        }
-                    });
-
-                    // Заменяем содержимое
-                    el.innerHTML = '';
-                    el.appendChild(fragment);
-                }
-
-                // If after cleanup the element is empty or contains only br — remove
-                const innerContent = el.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-                if (!innerContent) {
-                    el.remove();
-                }
+        // 10. Fix incorrect nesting (Google Docs): <h1><p>text</p></h1> -> <h1>text</h1>
+        temp.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
+            h.querySelectorAll(':scope > p').forEach(p => {
+                if (p.nextSibling && p.nextElementSibling) p.after(temp.ownerDocument.createElement('br'));
+                this.unwrap(p);
             });
         });
-
-        // Clean up empty span and font tags
-        const emptyTags = temp.querySelectorAll('span:empty, font:empty');
-        emptyTags.forEach(el => el.remove());
-
-        // Unwrap span tags without attributes (useless wrappers)
-        const spans = Array.from(temp.querySelectorAll('span'));
-        spans.forEach(span => {
-            if (span.attributes.length === 0) {
-                while (span.firstChild) {
-                    span.parentNode.insertBefore(span.firstChild, span);
-                }
-                span.remove();
-            }
+        temp.querySelectorAll('h1, h2, h3, h4, h5, h6, p').forEach(el => {
+            const inner = el.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
+            if (!inner) el.remove();
         });
 
-        // Replace font with span
-        const fonts = temp.getElementsByTagName('font');
-        while (fonts.length > 0) {
-            const font = fonts[0];
-            const span = document.createElement('span');
-            while (font.firstChild) {
-                span.appendChild(font.firstChild);
-            }
-            font.parentNode.replaceChild(span, font);
-        }
+        // 11. Clean up empty / attribute-less spans and fonts.
+        temp.querySelectorAll('span:empty, font:empty').forEach(el => el.remove());
+        Array.from(temp.querySelectorAll('span, font')).forEach(el => {
+            if (el.attributes.length === 0) this.unwrap(el);
+        });
 
-        // Canonicalize synonymous inline tags: <strong>→<b>, <em>→<i>,
-        // <strike>→<s>. In the output HTML each role is represented by exactly
-        // one tag.
+        // Canonicalize synonymous inline tags: <strong>→<b>, <em>→<i>, <strike>→<s>.
         normalizeInlineSynonyms(temp);
 
-        // Remove empty divs and replace non-empty ones with p.
-        // Structural editor divs (embed-frame, gallery-grid) must not
-        // be touched — without them setupEmbeds()/setupGalleries() will consider the figure
-        // broken and remove it along with the content.
-        const divs = Array.from(temp.querySelectorAll('div'));
-        divs.forEach(div => {
-            if (div.classList.contains('redactix-embed-frame') ||
-                div.classList.contains('redactix-gallery-grid')) {
+        // 12. Images. data: images can only be kept when there is somewhere
+        // to upload them; the Image module uploads the marked ones after
+        // insertion (contentInserted event).
+        Array.from(temp.querySelectorAll('img')).forEach(img => {
+            const src = img.getAttribute('src') || '';
+            const isData = /^data:/i.test(src);
+            if (!src || (isData && !config.uploadUrl)) {
+                const link = img.parentElement && img.parentElement.tagName === 'A' ? img.parentElement : null;
+                img.remove();
+                if (link && !link.textContent.trim() && !link.querySelector('img')) link.remove();
                 return;
             }
-            const innerContent = div.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-            if (!innerContent) {
-                div.remove();
-            } else {
-                // Заменяем div на p
-                const p = document.createElement('p');
-                p.innerHTML = div.innerHTML;
-                div.parentNode.replaceChild(p, div);
-            }
+            if (isData) img.setAttribute('data-redactix-paste-upload', '');
         });
 
-        // Wrap img in figure (if not already wrapped)
-        const images = Array.from(temp.querySelectorAll('img'));
-        images.forEach(img => {
-            // Skip if already inside figure
+        // Wrap img in figure (if not already wrapped). A link around a lone
+        // image moves into the figure with it.
+        Array.from(temp.querySelectorAll('img')).forEach(img => {
             if (img.closest('figure')) return;
 
-            // Remove style on img
             img.removeAttribute('style');
-
-            const figure = document.createElement('figure');
-            const figcaption = document.createElement('figcaption');
-            figcaption.innerHTML = '<br>';
-
-            const parent = img.parentNode;
-
-            // If img is inside p or div and there is room to move — extract figure one level up
-            if ((parent.tagName === 'P' || parent.tagName === 'DIV') && parent.parentNode) {
-                parent.parentNode.insertBefore(figure, parent);
-            } else {
-                parent.insertBefore(figure, img);
+            let target = img;
+            const parentLink = img.parentElement;
+            if (parentLink && parentLink.tagName === 'A' && !parentLink.textContent.trim() &&
+                parentLink.querySelectorAll('img').length === 1) {
+                target = parentLink;
             }
 
-            figure.appendChild(img);
+            const figure = temp.ownerDocument.createElement('figure');
+            const figcaption = temp.ownerDocument.createElement('figcaption');
+            figcaption.innerHTML = '<br>';
+
+            const parent = target.parentNode;
+            const blockParent = parent && parent.nodeType === Node.ELEMENT_NODE &&
+                (TEXT_BLOCK_TAGS.includes(parent.tagName)) ? parent : null;
+
+            if (blockParent && blockParent.parentNode) {
+                // Figures can't live inside a paragraph — place it before.
+                blockParent.parentNode.insertBefore(figure, blockParent);
+                figure.appendChild(target);
+                if (!blockParent.textContent.trim() && !blockParent.querySelector('img, iframe')) {
+                    blockParent.remove();
+                }
+            } else {
+                parent.insertBefore(figure, target);
+                figure.appendChild(target);
+            }
             figure.appendChild(figcaption);
         });
 
         // Remove empty class attributes
-        temp.querySelectorAll('[class=""]').forEach(el => {
-            el.removeAttribute('class');
-        });
+        temp.querySelectorAll('[class=""]').forEach(el => el.removeAttribute('class'));
 
-        // Remove Microsoft Office garbage
-        html = temp.innerHTML;
-        html = html.replace(/<!--\[if[\s\S]*?\]>[\s\S]*?<!\[endif\]-->/gi, '');
-        html = html.replace(/<!--[\s\S]*?-->/g, '');
-        html = html.replace(/<o:p>[\s\S]*?<\/o:p>/gi, '');
-        html = html.replace(/class="Mso[^"]*"/gi, '');
+        // 13. Source-formatting whitespace (web pages are pretty-printed;
+        // the editor renders pre-wrap).
+        normalizeWhitespace(temp);
 
-        return html.trim();
+        return temp;
+    }
+
+    /** String form of sanitizePasteRoot (kept for external callers). */
+    sanitizeHtml(html) {
+        return this.sanitizePasteRoot(html).innerHTML.trim();
+    }
+
+    unwrap(el) {
+        const parent = el.parentNode;
+        if (!parent) return;
+        while (el.firstChild) parent.insertBefore(el.firstChild, el);
+        parent.removeChild(el);
     }
 
     escapeHtml(text) {
@@ -896,6 +850,10 @@ export default class Editor {
         div.textContent = text;
         return div.innerHTML;
     }
+
+    // ------------------------------------------------------------------
+    // Keyboard
+    // ------------------------------------------------------------------
 
     /**
      * Insert a <br> element at the current cursor position via DOM API.
@@ -948,7 +906,7 @@ export default class Editor {
                 (node.tagName === 'ASIDE' || node.tagName === 'BLOCKQUOTE')) {
                 e.preventDefault();
                 this.insertBrAtCursor();
-                this.instance.sync();
+                this.notifyInput(null, 'insertLineBreak');
                 return true;
             }
             node = node.parentNode;
@@ -957,231 +915,151 @@ export default class Editor {
         return false;
     }
 
+    /** Nearest text-ish block around the caret (LI / P / H* / container). */
+    findCaretBlock(node) {
+        let block = node;
+        while (block && block !== this.el) {
+            if (block.nodeType === Node.ELEMENT_NODE &&
+                ['LI', 'BLOCKQUOTE', 'ASIDE', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(block.tagName)) {
+                return block;
+            }
+            block = block.parentNode;
+        }
+        return null;
+    }
+
+    /**
+     * If `block` is a direct child of a block container (callout body or
+     * quote-card body), describe that container; otherwise null.
+     */
+    getBlockContainer(block) {
+        if (!block || block.tagName === 'LI') return null;
+        const host = block.parentNode;
+        const rule = getContainerRule(host);
+        if (!rule) return null;
+        return { host, outer: rule.outer(host), mediaSelector: rule.mediaSelector };
+    }
+
+    /** Ensure a container is never left without a block. */
+    fillEmptyHost(host) {
+        if (host.children.length === 0) {
+            const filler = document.createElement('p');
+            filler.innerHTML = '<br>';
+            host.appendChild(filler);
+        }
+    }
+
     handleEnterKey(e) {
         const selection = window.getSelection();
         if (!selection.rangeCount) return false;
 
         const range = selection.getRangeAt(0);
-        let block = range.startContainer;
 
         // Check if we are inside a figcaption — special-case quote-card (block
         // Enter entirely; single-line author field) vs. plain figure (insert <br>).
-        let inlineEditable = block;
+        let inlineEditable = range.startContainer;
         while (inlineEditable && inlineEditable !== this.el) {
             if (inlineEditable.nodeType === Node.ELEMENT_NODE &&
                 inlineEditable.tagName === 'FIGCAPTION') {
                 const card = inlineEditable.parentElement;
+                e.preventDefault();
                 if (card && card.tagName === 'FIGURE' && card.classList.contains('quote-card')) {
-                    e.preventDefault();
                     return true;
                 }
-                e.preventDefault();
                 this.insertBrAtCursor();
-                this.instance.sync();
+                this.notifyInput(null, 'insertLineBreak');
                 return true;
             }
             inlineEditable = inlineEditable.parentNode;
         }
 
-        // Find block element
-        while (block && block !== this.el) {
-            if (block.nodeType === Node.ELEMENT_NODE) {
-                const tag = block.tagName;
-                if (['LI', 'BLOCKQUOTE', 'ASIDE', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(tag)) {
-                    break;
-                }
-            }
-            block = block.parentNode;
-        }
+        const block = this.findCaretBlock(range.startContainer);
+        if (!block) return false;
 
-        if (!block || block === this.el) return false;
-
-        // Quote-card: Enter on the empty last block exits the card.
-        const card = block.closest && block.closest('figure.quote-card');
-        if (card && block.tagName !== 'LI') {
-            const bq = card.querySelector(':scope > blockquote');
-            if (bq && block.parentNode === bq) {
-                const isLast = block === bq.lastElementChild;
-                // Quote-card не разрешает <hr> внутри, поэтому селектор уже.
-                const isEmpty = isBlockEmpty(block, 'img, iframe');
-                if (isLast && isEmpty) {
-                    e.preventDefault();
-                    block.remove();
-                    if (bq.children.length === 0) {
-                        const filler = document.createElement('p');
-                        filler.innerHTML = '<br>';
-                        bq.appendChild(filler);
-                    }
-                    const exitP = document.createElement('p');
-                    exitP.innerHTML = '<br>';
-                    card.parentNode.insertBefore(exitP, card.nextSibling);
-                    const newRange = document.createRange();
-                    newRange.setStart(exitP, 0);
-                    newRange.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(newRange);
-                    this.instance.sync();
-                    return true;
-                }
-                // Otherwise let the browser create a sibling block inside the blockquote.
-                return false;
-            }
-        }
-
-        // Callout: Enter on the empty last block exits the aside.
-        // Mirrors the quote-card behavior.
-        const aside = block.closest && block.closest('aside');
-        if (aside && block.tagName !== 'LI' && block.parentNode === aside) {
-            const isLast = block === aside.lastElementChild;
-            // Callout (aside) разрешает <hr> внутри — учитываем в селекторе.
-            const isEmpty = isBlockEmpty(block, 'img, iframe, hr');
-            if (isLast && isEmpty) {
+        // Callout / quote-card: Enter on the empty last block exits the container.
+        const container = this.getBlockContainer(block);
+        if (container) {
+            const isLast = block === container.host.lastElementChild;
+            if (isLast && isBlockEmpty(block, container.mediaSelector)) {
                 e.preventDefault();
                 block.remove();
-                if (aside.children.length === 0) {
-                    const filler = document.createElement('p');
-                    filler.innerHTML = '<br>';
-                    aside.appendChild(filler);
-                }
+                this.fillEmptyHost(container.host);
                 const exitP = document.createElement('p');
                 exitP.innerHTML = '<br>';
-                aside.parentNode.insertBefore(exitP, aside.nextSibling);
-                const newRange = document.createRange();
-                newRange.setStart(exitP, 0);
-                newRange.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(newRange);
-                this.instance.sync();
+                container.outer.parentNode.insertBefore(exitP, container.outer.nextSibling);
+                this.placeCaret(exitP, 0);
+                this.notifyInput(null, 'insertParagraph');
                 return true;
             }
-            // Otherwise let the browser create a sibling block inside the aside.
+            // Otherwise let the browser create a sibling block inside the container.
             return false;
         }
 
-        // Check that the block is empty (general case for LI etc.)
-        const isEmpty = isBlockEmpty(block, 'img, iframe');
-
         // Exit from the list on empty LI
-        if (block.tagName === 'LI' && isEmpty) {
+        if (block.tagName === 'LI' && isBlockEmpty(block, 'img, iframe')) {
             e.preventDefault();
-
-            const list = block.parentElement;
-            const nextSibling = block.nextElementSibling;
-
-            // Check if this is a nested list
-            // 1. Standard nesting: the list parent is LI
-            const parentLi = list.parentElement.closest('li');
-            // 2. Non-standard (incorrect) nesting: list inside a list
-            const parentIsList = ['UL', 'OL'].includes(list.parentElement.tagName);
-
-            const isNested = !!parentLi || parentIsList;
-
-            if (isNested) {
-                // This is a nested list - we need to exit to a higher level
-
-                // Determine where to move the element
-                let targetList;
-                let referenceNode;
-
-                if (parentLi) {
-                    targetList = parentLi.parentElement;
-                    referenceNode = parentLi;
-                } else {
-                    // If the list was nested incorrectly (directly in UL/OL)
-                    targetList = list.parentElement;
-                    referenceNode = list;
-                }
-
-                // Create a new LI for the parent list
-                const newLi = document.createElement('li');
-
-                // If there are elements after the current LI in the nested list
-                if (nextSibling) {
-                    // Create a new nested list for the remaining elements
-                    const newNestedList = document.createElement(list.tagName);
-                    let current = nextSibling;
-                    while (current) {
-                        const next = current.nextElementSibling;
-                        newNestedList.appendChild(current);
-                        current = next;
-                    }
-                    // Add text node before the nested list for cursor positioning
-                    const textNode = document.createTextNode('');
-                    newLi.appendChild(textNode);
-                    newLi.appendChild(newNestedList);
-                } else {
-                    newLi.innerHTML = '<br>';
-                }
-
-                // Insert new LI after the parent element (LI or nested list)
-                if (referenceNode.nextSibling) {
-                    targetList.insertBefore(newLi, referenceNode.nextSibling);
-                } else {
-                    targetList.appendChild(newLi);
-                }
-
-                // Remove empty LI from the nested list
-                block.remove();
-
-                // If the nested list became empty - remove it
-                if (list.children.length === 0) {
-                    list.remove();
-                }
-
-                // Place cursor in the new LI
-                const newRange = document.createRange();
-                newRange.setStart(newLi, 0);
-                newRange.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(newRange);
-
-                this.instance.sync();
-                return true;
-            }
-
-            // This is a top-level list - exit to a paragraph
-            const p = document.createElement('p');
-            p.innerHTML = '<br>';
-
-            // If there are elements after the current one - list needs to be split
-            if (nextSibling) {
-                // Create a new list for the remaining elements
-                const newList = document.createElement(list.tagName);
-                let current = nextSibling;
-                while (current) {
-                    const next = current.nextElementSibling;
-                    newList.appendChild(current);
-                    current = next;
-                }
-
-                // Insert paragraph and new list after the current list
-                list.parentNode.insertBefore(p, list.nextSibling);
-                p.parentNode.insertBefore(newList, p.nextSibling);
-            } else {
-                // Just insert paragraph after the list
-                list.parentNode.insertBefore(p, list.nextSibling);
-            }
-
-            // Remove empty LI
-            block.remove();
-
-            // If the list became empty - remove it
-            if (list.children.length === 0) {
-                list.remove();
-            }
-
-            // Place cursor in the new paragraph
-            const newRange = document.createRange();
-            newRange.setStart(p, 0);
-            newRange.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-
-            this.instance.sync();
+            this.exitListItem(block);
+            this.notifyInput(null, 'insertParagraph');
             return true;
         }
 
         return false;
+    }
+
+    /** Enter on an empty <li>: outdent one level, or leave the list. */
+    exitListItem(block) {
+        const list = block.parentElement;
+        const nextSibling = block.nextElementSibling;
+
+        // 1. Standard nesting: the list parent is LI
+        const parentLi = list.parentElement.closest('li');
+        // 2. Non-standard (incorrect) nesting: list inside a list
+        const parentIsList = ['UL', 'OL'].includes(list.parentElement.tagName);
+
+        if (parentLi || parentIsList) {
+            const targetList = parentLi ? parentLi.parentElement : list.parentElement;
+            const referenceNode = parentLi || list;
+
+            const newLi = document.createElement('li');
+            if (nextSibling) {
+                // Remaining items move into a new nested list under the new LI.
+                const newNestedList = document.createElement(list.tagName);
+                let current = nextSibling;
+                while (current) {
+                    const next = current.nextElementSibling;
+                    newNestedList.appendChild(current);
+                    current = next;
+                }
+                newLi.appendChild(document.createTextNode(''));
+                newLi.appendChild(newNestedList);
+            } else {
+                newLi.innerHTML = '<br>';
+            }
+
+            targetList.insertBefore(newLi, referenceNode.nextSibling);
+            block.remove();
+            if (list.children.length === 0) list.remove();
+            this.placeCaret(newLi, 0);
+            return;
+        }
+
+        // Top-level list — exit to a paragraph, splitting the list if needed.
+        const p = document.createElement('p');
+        p.innerHTML = '<br>';
+        list.parentNode.insertBefore(p, list.nextSibling);
+        if (nextSibling) {
+            const newList = document.createElement(list.tagName);
+            let current = nextSibling;
+            while (current) {
+                const next = current.nextElementSibling;
+                newList.appendChild(current);
+                current = next;
+            }
+            p.parentNode.insertBefore(newList, p.nextSibling);
+        }
+        block.remove();
+        if (list.children.length === 0) list.remove();
+        this.placeCaret(p, 0);
     }
 
     handleBackspace(e) {
@@ -1193,19 +1071,8 @@ export default class Editor {
         // Check that cursor is at the beginning
         if (range.startOffset !== 0) return false;
 
-        let block = range.startContainer;
-        while (block && block !== this.el) {
-            if (block.nodeType === Node.ELEMENT_NODE) {
-                const tag = block.tagName;
-                // P is included so we can detect blocks inside quote-card
-                if (['LI', 'BLOCKQUOTE', 'ASIDE', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(tag)) {
-                    break;
-                }
-            }
-            block = block.parentNode;
-        }
-
-        if (!block || block === this.el) return false;
+        const block = this.findCaretBlock(range.startContainer);
+        if (!block) return false;
 
         // Check that cursor is at the very beginning of the block
         let node = range.startContainer;
@@ -1214,81 +1081,29 @@ export default class Editor {
             node = node.parentNode;
         }
 
-        // Quote-card: don't let backspace escape the card
-        const card = block.closest && block.closest('figure.quote-card');
-        if (card && block.tagName !== 'LI') {
-            const bq = card.querySelector(':scope > blockquote');
-            if (bq && block.parentNode === bq) {
-                const isFirst = block === bq.firstElementChild;
-                if (!isFirst) {
-                    // Let the browser merge with the previous block inside blockquote
-                    return false;
-                }
-                const isEmpty = isBlockEmpty(block, 'img, iframe');
-                if (!isEmpty) {
-                    // Don't merge with content outside the card
-                    e.preventDefault();
-                    return true;
-                }
-                e.preventDefault();
-                block.remove();
-                if (bq.children.length === 0) {
-                    // Card became empty — replace whole card with a paragraph
-                    const replacement = document.createElement('p');
-                    replacement.innerHTML = '<br>';
-                    card.parentNode.replaceChild(replacement, card);
-                    const r = document.createRange();
-                    r.setStart(replacement, 0);
-                    r.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(r);
-                } else {
-                    const newFirst = bq.firstElementChild;
-                    const r = document.createRange();
-                    r.setStart(newFirst, 0);
-                    r.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(r);
-                }
-                this.instance.sync();
-                return true;
-            }
-        }
-
-        // Callout: same idea — don't let backspace escape the aside.
-        const aside = block.closest && block.closest('aside');
-        if (aside && block.tagName !== 'LI' && block.parentNode === aside) {
-            const isFirst = block === aside.firstElementChild;
-            if (!isFirst) {
-                // Let the browser merge with the previous block inside aside
+        // Callout / quote-card: don't let backspace escape the container.
+        const container = this.getBlockContainer(block);
+        if (container) {
+            if (block !== container.host.firstElementChild) {
+                // Let the browser merge with the previous block inside the container
                 return false;
             }
-            const isEmpty = isBlockEmpty(block, 'img, iframe, hr');
-            if (!isEmpty) {
-                e.preventDefault();
+            e.preventDefault();
+            if (!isBlockEmpty(block, container.mediaSelector)) {
+                // Don't merge with content outside the container
                 return true;
             }
-            e.preventDefault();
             block.remove();
-            if (aside.children.length === 0) {
-                // Aside became empty — replace whole aside with a paragraph
+            if (container.host.children.length === 0) {
+                // Container became empty — replace the whole thing with a paragraph
                 const replacement = document.createElement('p');
                 replacement.innerHTML = '<br>';
-                aside.parentNode.replaceChild(replacement, aside);
-                const r = document.createRange();
-                r.setStart(replacement, 0);
-                r.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(r);
+                container.outer.parentNode.replaceChild(replacement, container.outer);
+                this.placeCaret(replacement, 0);
             } else {
-                const newFirst = aside.firstElementChild;
-                const r = document.createRange();
-                r.setStart(newFirst, 0);
-                r.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(r);
+                this.placeCaret(container.host.firstElementChild, 0);
             }
-            this.instance.sync();
+            this.notifyInput(null, 'deleteContentBackward');
             return true;
         }
 
@@ -1306,15 +1121,15 @@ export default class Editor {
                     return true;
                 }
                 this.removeBlockNextToAtomic(block, prev, 'end');
-                this.instance.sync();
+                this.notifyInput(null, 'deleteContentBackward');
                 return true;
             }
             return false;
         }
         if (block.tagName === 'P') return false;
 
-        // Convert heading to paragraph
-        if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(block.tagName)) {
+        // Convert heading (or a stray top-level aside) to paragraph
+        if (HEADING_TAGS.includes(block.tagName) || block.tagName === 'ASIDE') {
             e.preventDefault();
 
             const p = document.createElement('p');
@@ -1324,37 +1139,8 @@ export default class Editor {
             if (!p.innerHTML.trim()) p.innerHTML = '<br>';
 
             block.parentNode.replaceChild(p, block);
-
-            const newRange = document.createRange();
-            newRange.setStart(p, 0);
-            newRange.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-
-            this.instance.sync();
-            return true;
-        }
-
-        // Defensive fallback: top-level <aside> with no inner block (shouldn't
-        // happen after migration, but kept just in case) — convert to paragraph.
-        if (block.tagName === 'ASIDE') {
-            e.preventDefault();
-
-            const p = document.createElement('p');
-            while (block.firstChild) {
-                p.appendChild(block.firstChild);
-            }
-            if (!p.innerHTML.trim()) p.innerHTML = '<br>';
-
-            block.parentNode.replaceChild(p, block);
-
-            const newRange = document.createRange();
-            newRange.setStart(p, 0);
-            newRange.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-
-            this.instance.sync();
+            this.placeCaret(p, 0);
+            this.notifyInput(null, 'deleteContentBackward');
             return true;
         }
 
@@ -1375,21 +1161,13 @@ export default class Editor {
         const range = selection.getRangeAt(0);
 
         // Find the top-level block (direct child of the editor) that
-        // contains the cursor. We deliberately do NOT stop at the nearest
-        // P/H — going to top level lets us correctly handle cases like a
-        // cursor in the last paragraph of a list/aside followed by an atomic
-        // block, and cases where the immediate nearest editable block is the
-        // top-level block itself.
+        // contains the cursor.
         const block = this.findTopLevelBlock(range.endContainer);
         if (!block) return false;
         // Cursor inside an atomic block (e.g. figcaption of a figure) — let
         // the browser handle Delete inside it.
         if (this.isAtomicBlock(block)) return false;
 
-        // Cursor must have nothing meaningful between it and the end of the
-        // block. toString() on a Range ignores <br> and other non-text
-        // nodes, so this correctly treats trailing <br>, empty inline
-        // wrappers, and empty paragraphs as "at end".
         if (!this.isCursorAtEndOfBlock(range, block)) return false;
 
         const next = block.nextElementSibling;
@@ -1402,7 +1180,7 @@ export default class Editor {
             return true;
         }
         this.removeBlockNextToAtomic(block, next, 'start');
-        this.instance.sync();
+        this.notifyInput(null, 'deleteContentForward');
         return true;
     }
 
@@ -1416,8 +1194,7 @@ export default class Editor {
 
     /**
      * Range-based "is the cursor at the start of `block`?" — robust to
-     * inline wrappers, leading <br>, etc. Returns true iff there is no
-     * visible text between the start of the block and the cursor.
+     * inline wrappers, leading <br>, etc.
      */
     isCursorAtStartOfBlock(range, block) {
         if (!range.collapsed) return false;
@@ -1429,8 +1206,7 @@ export default class Editor {
 
     /**
      * Range-based "is the cursor at the end of `block`?" — robust to
-     * trailing <br>, inline wrappers, etc. Returns true iff there is no
-     * visible text between the cursor and the end of the block.
+     * trailing <br>, inline wrappers, etc.
      */
     isCursorAtEndOfBlock(range, block) {
         if (!range.collapsed) return false;
@@ -1440,37 +1216,17 @@ export default class Editor {
         return tail.toString() === '';
     }
 
-    /**
-     * Atomic blocks are top-level elements that should never be destroyed by
-     * a browser-default merge with an adjacent empty paragraph: image/video/
-     * embed/gallery figures (FIGURE), code blocks (PRE), tables, separators
-     * (HR / .redactix-separator), and the legacy .redactix-video-wrapper.
-     * Thin instance-method wrapper over the shared helper so existing
-     * `this.isAtomicBlock(...)` callsites keep working.
-     */
+    /** Thin wrapper over the shared helper (kept for existing callsites). */
     isAtomicBlock(el) {
         return isAtomicBlock(el);
     }
 
     /**
      * Remove an empty paragraph that sits next to an atomic block, placing
-     * the cursor in a sensible existing landing spot. We deliberately do NOT
-     * create new figcaptions — for video/embed without a caption a phantom
-     * figcaption looks like an unwanted caption box, and for quote-cards
-     * the figcaption is reserved for author info (img + span) and managed
-     * by the QuoteCard module.
-     *
-     * If no good landing spot exists, leave the empty paragraph alone — the
-     * caller has already preventDefault'd, so the only effect is that
-     * backspace/delete is a visible no-op rather than destroying the figure.
-     *
-     * @param {HTMLElement} block       The empty P to remove.
-     * @param {HTMLElement} atomic      The adjacent atomic block.
-     * @param {'start'|'end'} edge      Where to land the cursor relative to
-     *                                  any editable target inside the atomic
-     *                                  ('start' = top — used for forward
-     *                                  Delete; 'end' = bottom — used for
-     *                                  Backspace).
+     * the cursor in a sensible existing landing spot. If no good landing
+     * spot exists, leave the empty paragraph alone — the caller has already
+     * preventDefault'd, so backspace/delete is a visible no-op rather than
+     * destroying the figure.
      */
     removeBlockNextToAtomic(block, atomic, edge) {
         const targetRange = this.findCursorTargetForAtomic(atomic, edge);
@@ -1488,15 +1244,6 @@ export default class Editor {
      * Where should the cursor land after removing a paragraph adjacent to
      * `atomic`? Returns a Range positioned in the most natural editable
      * spot, or null when none exists.
-     *
-     *   • Quote-card  → inside its inner blockquote's first/last <p>.
-     *   • Other FIGURE with an EXISTING editable <figcaption> (typically the
-     *     image module always creates one, video/embed only when caption
-     *     was supplied) → that figcaption.
-     *   • Non-figure atomic, or figure without figcaption → "jump over" the
-     *     atomic into the nearest non-atomic editable sibling on the side
-     *     the user was deleting toward (end of prev for Backspace, start of
-     *     next for Delete).
      */
     findCursorTargetForAtomic(atomic, edge) {
         if (atomic.tagName === 'FIGURE') {
@@ -1520,10 +1267,6 @@ export default class Editor {
             }
         }
 
-        // Fall back to jumping over the atomic into the nearest non-atomic
-        // editable sibling — direction follows the keystroke:
-        //   Backspace (edge='end') → end of atomic.previousElementSibling.
-        //   Delete    (edge='start') → start of atomic.nextElementSibling.
         const target = edge === 'end'
             ? atomic.previousElementSibling
             : atomic.nextElementSibling;
@@ -1540,28 +1283,18 @@ export default class Editor {
         const selection = window.getSelection();
         if (!selection.rangeCount) return;
 
-        // If there is a selection — replace it with a space (previously handleSpace
-        // exited silently because e.preventDefault had already run, and the
-        // space was just "eaten"). Insertion as a regular text node.
+        // With a selection — let the browser replace it natively: it merges
+        // blocks correctly across paragraph boundaries and fires `input`.
         if (!selection.isCollapsed) {
-            const liveRange = selection.getRangeAt(0);
-            liveRange.deleteContents();
-            const space = document.createTextNode(' ');
-            liveRange.insertNode(space);
-            const r = document.createRange();
-            r.setStartAfter(space);
-            r.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(r);
-            this.instance.sync();
+            document.execCommand('insertText', false, ' ');
             return;
         }
 
         const range = selection.getRangeAt(0);
-        const inlineTags = ['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'A', 'CODE', 'SPAN', 'SUB', 'SUP'];
+        const inlineTags = ['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'A', 'CODE', 'SPAN', 'SUB', 'SUP', 'MARK'];
 
-        let node = range.endContainer;
-        let offset = range.endOffset;
+        const node = range.endContainer;
+        const offset = range.endOffset;
         let targetTag = null;
 
         // Check previous character for double spaces
@@ -1569,9 +1302,10 @@ export default class Editor {
         if (node.nodeType === Node.TEXT_NODE && offset > 0) {
             prevChar = node.textContent[offset - 1];
         }
-        const charToInsert = (prevChar === ' ') ? '\u00A0' : ' ';
+        const charToInsert = (prevChar === ' ') ? ' ' : ' ';
 
-        // Formatting exit logic
+        // Formatting exit logic: a space typed at the very end of an inline
+        // format element goes after it, so the next word isn't formatted.
         const isAtEnd = (n, off) => {
             if (n.nodeType === Node.TEXT_NODE) return off === n.textContent.length;
             return off === n.childNodes.length;
@@ -1590,25 +1324,15 @@ export default class Editor {
 
         if (targetTag) {
             const space = document.createTextNode(charToInsert);
-            if (targetTag.nextSibling) {
-                targetTag.parentNode.insertBefore(space, targetTag.nextSibling);
-            } else {
-                targetTag.parentNode.appendChild(space);
-            }
+            targetTag.parentNode.insertBefore(space, targetTag.nextSibling);
 
             const newRange = document.createRange();
             newRange.setStartAfter(space);
             newRange.collapse(true);
             selection.removeAllRanges();
             selection.addRange(newRange);
-
-            this.instance.sync();
-            return;
-        }
-
-        // Standard insertion
-        const textNode = range.startContainer;
-        if (textNode.nodeType === Node.TEXT_NODE) {
+        } else if (range.startContainer.nodeType === Node.TEXT_NODE) {
+            const textNode = range.startContainer;
             const text = textNode.data;
             textNode.data = text.slice(0, offset) + charToInsert + text.slice(offset);
 
@@ -1617,12 +1341,12 @@ export default class Editor {
             newRange.collapse(true);
             selection.removeAllRanges();
             selection.addRange(newRange);
-
-            this.instance.sync();
         } else {
-            const newTextNode = document.createTextNode(charToInsert);
-            this.instance.selection.insertNode(newTextNode);
-            this.instance.sync();
+            this.instance.selection.insertNode(document.createTextNode(charToInsert));
         }
+
+        // The keystroke was cancelled, so the browser fires no input event —
+        // History, slash menu and markdown shortcuts must still hear it.
+        this.notifyInput(' ');
     }
 }

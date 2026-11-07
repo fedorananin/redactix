@@ -1,6 +1,62 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
-import { sanitizeInlineHtml, sanitizeUrl, parseHtmlInert } from '../core/dom-utils.js';
+import { parseHtmlInert, sanitizeUrl, sanitizeIframeSrc, sanitizeIframeAllow, sanitizeIframeSandbox } from '../core/dom-utils.js';
+import { readCaption, writeCaption, cleanCaptionForSync, ensureEditButton, setOwnClass } from '../core/figure-utils.js';
+import { inputGroup, textareaGroup, statusLine } from '../ui/form-helpers.js';
+import { isKnownResizeOrigin, resolveResize, parseResizeMessage, withTwitchParent, RESIZE_MIN, RESIZE_MAX } from '../core/embed-protocol.js';
+
+// Padding-top ratios for the aspect-based layouts (see applyFrameLayout).
+const PADDING_ASPECTS = { '16:9': '56.25%', '4:3': '75%', '1:1': '100%' };
+const ASPECTS = ['16:9', '4:3', '1:1', '9:16', 'auto'];
+
+// Query parameters that only track the share (never change what is shown).
+const TRACKING_PARAMS = ['si', 'feature', 'fbclid', 'gclid', 'igsh', 'igshid', 'ref_src', 'ref_url', 'pp', 'share_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+
+const IFRAME_ATTRS = ['src', 'width', 'height', 'allow', 'allowfullscreen',
+    'frameborder', 'scrolling', 'title', 'loading', 'referrerpolicy', 'sandbox'];
+
+/** Valid persisted height (data-height / custom iframe height) or null. */
+function clampHeight(value) {
+    const n = parseInt(value, 10);
+    if (!Number.isFinite(n) || n < RESIZE_MIN) return null;
+    return Math.min(n, RESIZE_MAX);
+}
+
+/** URL object for a user-typed URL (scheme optional), or null. */
+function parseLooseUrl(url) {
+    if (!url) return null;
+    try {
+        return new URL(/^[a-z][a-z0-9+.-]*:/i.test(url) ? url : 'https://' + url);
+    } catch (e) {
+        return null;
+    }
+}
+
+/** Query + hash parameters of a user-typed URL (YouTube puts t= in either). */
+function urlParams(url) {
+    const u = parseLooseUrl(url);
+    const params = new URLSearchParams(u ? u.search : '');
+    if (u && u.hash.length > 1) {
+        new URLSearchParams(u.hash.slice(1)).forEach((v, k) => {
+            if (!params.has(k)) params.set(k, v);
+        });
+    }
+    return params;
+}
+
+/** "90", "90s", "1m30s", "1h2m3s" → seconds (0 when unparseable). */
+function parseStartTime(value) {
+    if (!value) return 0;
+    const v = String(value).trim().toLowerCase();
+    if (/^\d+$/.test(v)) return parseInt(v, 10);
+    const m = v.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+    if (!m || !(m[1] || m[2] || m[3])) return 0;
+    return (parseInt(m[1] || 0, 10) * 3600) + (parseInt(m[2] || 0, 10) * 60) + parseInt(m[3] || 0, 10);
+}
+
+function safeDecode(value) {
+    try { return decodeURIComponent(value); } catch (e) { return ''; }
+}
 
 /**
  * Embed module.
@@ -10,13 +66,20 @@ import { sanitizeInlineHtml, sanitizeUrl, parseHtmlInert } from '../core/dom-uti
  *
  *   <figure class="redactix-embed"
  *           data-provider="..."
- *           data-aspect="16:9|4:3|1:1|auto"
- *           data-height="...">
+ *           data-aspect="16:9|4:3|1:1|9:16|auto"
+ *           data-height="..."            (aspect=auto only)
+ *           data-source-url="...">
  *     <div class="redactix-embed-frame">
  *       <iframe src="..." allow="..." allowfullscreen></iframe>
  *     </div>
  *     <figcaption>...optional caption...</figcaption>
  *   </figure>
+ *
+ * data-height is the embed's real initial height (a Spotify track is 152px,
+ * an album 352px; a custom iframe keeps its own height attribute). Sync and
+ * setup rebuild the inline layout from it, so it survives save / reload.
+ * Live postMessage resizes are NOT persisted — the production runtime
+ * re-measures.
  *
  * No external scripts are loaded — every provider must support a plain
  * iframe URL. Anything that doesn't fit (LinkedIn / FB / niche) goes
@@ -27,10 +90,14 @@ import { sanitizeInlineHtml, sanitizeUrl, parseHtmlInert } from '../core/dom-uti
  * on existing embed cannot reach edit modal).
  */
 export default class Embed extends Module {
+    static moduleName = 'Embed';
+
     constructor(instance) {
         super(instance);
         this.liteMode = instance.config.liteMode || false;
         this.providers = this.buildProviderRegistry();
+        // contentWindow → iframe, so a postMessage doesn't rescan the editor.
+        this._iframeCache = new WeakMap();
     }
 
     init() {
@@ -57,72 +124,46 @@ export default class Embed extends Module {
     }
 
     onProviderMessage(e) {
-        const editor = this.instance.editorEl;
-        if (!editor || !editor.isConnected) return;
+        // Cheap bail-outs first: unknown origin or a payload that can't be
+        // a resize message — no DOM work for unrelated chatter.
+        if (!isKnownResizeOrigin(e.origin)) return;
+        const data = e.data;
+        if (data === null || (typeof data !== 'string' && typeof data !== 'object')) return;
 
-        const iframes = editor.querySelectorAll(
-            'figure.redactix-embed > .redactix-embed-frame > iframe'
-        );
+        const iframe = this.findIframeBySource(e.source);
+        if (!iframe) return;
+        const frame = iframe.parentElement;
+        const figure = frame.parentElement;
+        const provider = figure.getAttribute('data-provider') || '';
+        const height = resolveResize(provider, e.origin, data);
+        if (height === null) return;
+        // Live snapshot only — sync() rebuilds the layout from data-height
+        // before writing to textarea, so it doesn't leak into saved HTML.
+        const px = `${height}px`;
+        if (frame.style.height !== px) frame.style.height = px;
+    }
+
+    findIframeBySource(source) {
+        const editor = this.instance.editorEl;
+        if (!source || !editor || !editor.isConnected) return null;
+        const hit = this._iframeCache.get(source);
+        if (hit && hit.contentWindow === source && editor.contains(hit)) return hit;
+        const iframes = editor.querySelectorAll('figure.redactix-embed > .redactix-embed-frame > iframe');
         for (const iframe of iframes) {
-            if (iframe.contentWindow !== e.source) continue;
-            const figure = iframe.closest('figure.redactix-embed');
-            if (!figure) return;
-            const provider = figure.getAttribute('data-provider') || '';
-            const height = this.parseResizeMessage(provider, e.data);
-            if (height && height > 50) {
-                const frame = iframe.parentElement;
-                const px = `${height}px`;
-                // Live snapshot only — sync() will reset to the provider's
-                // initial height before writing to textarea, so it doesn't
-                // leak into saved HTML.
-                if (frame.style.height !== px) frame.style.height = px;
+            if (iframe.contentWindow === source) {
+                this._iframeCache.set(source, iframe);
+                return iframe;
             }
-            return;
         }
+        return null;
     }
 
     /**
-     * Provider-specific decoder for the postMessage payload that asks
-     * the host to resize the embed. Returns the height in px or null.
+     * Provider-specific decoder for the postMessage payload (see
+     * core/embed-protocol.js). Returns the height in px or null.
      */
     parseResizeMessage(provider, raw) {
-        let data = raw;
-        if (typeof raw === 'string') {
-            try { data = JSON.parse(raw); } catch { return null; }
-        }
-        if (!data || typeof data !== 'object') return null;
-
-        switch (provider) {
-            case 'instagram':
-                // {"type":"MEASURE","details":{"height":N,"width":N}}
-                if (data.type === 'MEASURE' && data.details && data.details.height) {
-                    return data.details.height;
-                }
-                return null;
-            case 'twitter': {
-                // {"method":"twttr.private.resize","params":[{"height":N,"width":N,...}]}
-                if (data.method === 'twttr.private.resize' &&
-                    Array.isArray(data.params) && data.params[0] && data.params[0].height) {
-                    return data.params[0].height;
-                }
-                return null;
-            }
-            case 'tiktok':
-                // {"src":"...","type":"...","frameHeight":N}
-                if (data.frameHeight) return data.frameHeight;
-                if (data.height && /tiktok/i.test(data.type || data.src || '')) return data.height;
-                return null;
-            case 'reddit':
-                // {"type":"embed-resize","height":N,"id":"..."}
-                if (data.type === 'embed-resize' && data.height) return data.height;
-                return null;
-            case 'bluesky':
-                // {"id":"...","height":N}
-                if (data.height && data.id) return data.height;
-                return null;
-            default:
-                return null;
-        }
+        return parseResizeMessage(provider, raw);
     }
 
     // ---------- public API ----------
@@ -131,14 +172,70 @@ export default class Embed extends Module {
         return this.providers.find(p => p.name === name) || null;
     }
 
+    /**
+     * Provider for a user-typed URL. Every matchUrl is anchored at the start
+     * of the URL (scheme optional), so a provider's host buried in another
+     * URL's path or query never matches.
+     */
     findProviderByUrl(url) {
-        if (!url) return null;
+        const value = typeof url === 'string' ? url.trim() : '';
+        if (!value) return null;
         for (const p of this.providers) {
             if (!p.matchUrl) continue;
-            const m = url.match(p.matchUrl);
+            const m = value.match(p.matchUrl);
             if (m) return { provider: p, match: m };
         }
         return null;
+    }
+
+    /**
+     * Is `src` really served by a registered provider? Only https, and the
+     * match must start at the URL's host (matchUrl is anchored).
+     */
+    findProviderForIframeSrc(src) {
+        let url;
+        try { url = new URL(src); } catch (e) { return null; }
+        if (url.protocol !== 'https:') return null;
+        const candidate = 'https://' + url.host.toLowerCase() + url.pathname + url.search;
+        for (const p of this.providers) {
+            if (!p.matchUrl) continue;
+            const m = candidate.match(p.matchUrl);
+            if (m && m.index === 0) return { provider: p, match: m };
+        }
+        return null;
+    }
+
+    resolveAspect(provider, match, url) {
+        const aspect = typeof provider.aspect === 'function' ? provider.aspect(match, url) : provider.aspect;
+        return ASPECTS.includes(aspect) ? aspect : 'auto';
+    }
+
+    resolveHeight(provider, match, url) {
+        const h = typeof provider.defaultHeight === 'function'
+            ? provider.defaultHeight(match, url)
+            : provider.defaultHeight;
+        return clampHeight(h) || 0;
+    }
+
+    /**
+     * Height an aspect="auto" embed should have: the persisted data-height,
+     * else the provider default recomputed from the stored URL (so a legacy
+     * Spotify track still gets 152, not the album height).
+     */
+    heightForFigure(figure) {
+        const stored = clampHeight(figure.getAttribute('data-height'));
+        if (stored) return stored;
+        const provider = this.findProviderByName(figure.getAttribute('data-provider') || '');
+        if (!provider) return 0;
+        const iframe = figure.querySelector(':scope > .redactix-embed-frame > iframe');
+        if (provider.name === 'custom') {
+            return clampHeight(iframe && iframe.getAttribute('height')) || this.resolveHeight(provider, null, '');
+        }
+        const sourceUrl = figure.getAttribute('data-source-url') || '';
+        const src = iframe ? (iframe.getAttribute('src') || '') : '';
+        const detected = this.findProviderByUrl(sourceUrl) || this.findProviderForIframeSrc(src);
+        const match = detected && detected.provider === provider ? detected.match : null;
+        return this.resolveHeight(provider, match, sourceUrl || src);
     }
 
     /**
@@ -163,8 +260,7 @@ export default class Embed extends Module {
                 text: this.t('embed.removeEmbed'),
                 danger: true,
                 onClick: () => {
-                    existingFigure.remove();
-                    this.instance.sync();
+                    this.transact(() => existingFigure.remove());
                     this.instance.modal.close();
                 }
             });
@@ -176,99 +272,125 @@ export default class Embed extends Module {
             extraButtons,
             onSave: () => {
                 const data = form.read();
-                this.applyEmbed(existingFigure, data);
+                if (!this.applyEmbed(existingFigure, data)) {
+                    // Invalid input — say so and keep the modal (and the
+                    // user's input) open.
+                    form.showError(this.t(data.mode === 'custom' ? 'embed.invalidHtml' : 'embed.invalidUrl'));
+                    return false;
+                }
             }
         });
     }
 
     /**
      * Apply form data: build / refresh the figure and insert it (or
-     * update existing).
+     * update existing). Returns false if the input produced no embed.
      */
     applyEmbed(existingFigure, data) {
         const built = this.buildEmbedSpec(data);
-        if (!built) {
-            // Invalid input — keep editor untouched
-            return;
-        }
+        if (!built) return false;
 
         if (existingFigure) {
-            this.populateFigure(existingFigure, built, data.caption);
-            // Re-wire contenteditable in case figcaption was just (re)created.
-            this.setupEmbeds(this.instance.editorEl);
-            this.instance.sync();
-            return;
+            this.transact(() => {
+                this.populateFigure(existingFigure, built, data.caption);
+                // Re-wire contenteditable in case figcaption was just (re)created.
+                this.setupEmbeds(existingFigure.parentNode || this.instance.editorEl);
+            });
+            return true;
         }
 
         const figure = document.createElement('figure');
         this.populateFigure(figure, built, data.caption);
 
         this.instance.selection.restore();
-        this.instance.selection.insertNode(figure);
-        if (this.instance.core) this.instance.core.ensureTrailingParagraph();
-        this.setupEmbeds(this.instance.editorEl);
-        this.instance.sync();
+        this.transact(() => {
+            this.instance.selection.insertNode(figure);
+            this.setupEmbeds(figure.parentNode || this.instance.editorEl);
+        });
+        return true;
     }
 
     /**
      * Build the iframe spec + provider metadata from form data.
      * Returns null if neither URL nor HTML produces a valid iframe.
      *
-     * Height is always picked from the provider's defaultHeight — there's
-     * no per-embed user override anymore. The on-site runtime auto-resizes
-     * embeds to fit current content, and aspect-based providers (16:9 etc.)
-     * scale via padding-top trick from the wrapping width.
+     * Aspect-based providers (16:9 etc.) scale from the wrapping width;
+     * the rest get a pixel height (provider default for that kind of
+     * content, or the pasted iframe's own height for custom embeds) that
+     * is persisted in data-height. The on-site runtime auto-resizes the
+     * social ones to fit their content.
      */
     buildEmbedSpec(data) {
         if (data.mode === 'custom') {
             const iframe = this.parseAndSanitizeCustomHtml(data.html);
             if (!iframe) return null;
-            // For custom embeds, honor the height attribute from the pasted
-            // iframe code if it exists; otherwise fall back to a sensible default.
-            const customH = parseInt(iframe.getAttribute('height'), 10);
             return {
                 providerName: 'custom',
                 aspect: 'auto',
-                initialHeight: Number.isFinite(customH) && customH > 0 ? customH : 500,
+                initialHeight: clampHeight(iframe.getAttribute('height')) || this.resolveHeight(this.findProviderByName('custom'), null, ''),
                 iframeAttrs: this.iframeToAttrs(iframe)
             };
         }
 
-        const url = (data.url || '').trim();
+        let url = (data.url || '').trim();
         if (!url) return null;
+        // People paste the whole "<iframe src=…>" snippet into the URL field
+        // (Google Maps' "Embed a map" dialog only offers that) — use its src.
+        if (/<iframe[\s>]/i.test(url)) {
+            const iframe = parseHtmlInert(url).querySelector('iframe');
+            url = iframe ? (iframe.getAttribute('src') || '').trim() : '';
+            if (!url) return null;
+        }
 
         const detected = this.findProviderByUrl(url);
         if (!detected) return null;
 
         const { provider, match } = detected;
         const attrs = provider.buildIframe(match, url);
-        // buildIframe can return null (for example, Twitch fallback without
-        // recognized id) — without the guard populateFigure would crash on
-        // Object.entries(null).
-        if (!attrs) return null;
-        // defaultHeight may be a number or a function (function gets the
-        // regex match so e.g. Spotify can return 152 for tracks and 352
-        // for albums/playlists).
-        const dh = typeof provider.defaultHeight === 'function'
-            ? provider.defaultHeight(match)
-            : provider.defaultHeight;
+        // buildIframe can return null (unrecognised variant) — without the
+        // guard populateFigure would crash on Object.entries(null).
+        if (!attrs || !sanitizeIframeSrc(attrs.src || '')) return null;
+        const aspect = this.resolveAspect(provider, match, url);
         return {
             providerName: provider.name,
-            aspect: provider.aspect || 'auto',
-            initialHeight: provider.aspect === 'auto' ? (dh || 0) : 0,
+            aspect,
+            initialHeight: aspect === 'auto' ? this.resolveHeight(provider, match, url) : 0,
             iframeAttrs: attrs,
-            sourceUrl: url
+            sourceUrl: this.cleanSourceUrl(url, provider)
         };
     }
 
+    /** User URL with share-tracking parameters (si=, utm_*, …) removed. */
+    cleanSourceUrl(url, provider) {
+        const safe = sanitizeUrl(url, { allowedSchemes: ['http', 'https'] });
+        if (!safe) return '';
+        const hasScheme = /^https?:\/\//i.test(safe);
+        const u = parseLooseUrl(safe);
+        if (!u) return safe;
+        const drop = TRACKING_PARAMS.concat((provider && provider.trackingParams) || []);
+        let changed = false;
+        Array.from(u.searchParams.keys()).forEach(key => {
+            if (drop.includes(key) || /^utm_/i.test(key)) {
+                u.searchParams.delete(key);
+                changed = true;
+            }
+        });
+        if (!changed) return safe;
+        const out = u.toString();
+        return hasScheme ? out : out.replace(/^https:\/\//, '');
+    }
+
     populateFigure(figure, built, caption) {
-        figure.className = 'redactix-embed';
+        setOwnClass(figure, 'redactix-embed');
         figure.setAttribute('data-provider', built.providerName);
         figure.setAttribute('data-aspect', built.aspect);
-        figure.removeAttribute('data-height'); // legacy attribute, no longer used
+        if (built.aspect === 'auto' && built.initialHeight > 0) {
+            figure.setAttribute('data-height', String(built.initialHeight));
+        } else {
+            figure.removeAttribute('data-height');
+        }
         // Remember the user's original URL so edit-modal can show it back
-        // even when the iframe.src is a provider-specific embed URL that
-        // our matchUrl regex doesn't recognise.
+        // even when the iframe.src is a provider-specific embed URL.
         if (built.sourceUrl) {
             figure.setAttribute('data-source-url', built.sourceUrl);
         } else {
@@ -283,12 +405,17 @@ export default class Embed extends Module {
             frame.className = 'redactix-embed-frame';
             figure.insertBefore(frame, figure.firstChild);
         }
-        frame.innerHTML = '';
+        frame.replaceChildren();
         const iframe = document.createElement('iframe');
         for (const [k, v] of Object.entries(built.iframeAttrs)) {
+            if (!IFRAME_ATTRS.includes(k)) continue;
             if (v === true) iframe.setAttribute(k, '');
             else if (v != null && v !== false) iframe.setAttribute(k, String(v));
         }
+        // Provider specs go through the same permission filters as pasted
+        // and loaded iframes, so what the editor writes is what survives
+        // the next load.
+        this.sanitizeIframe(iframe);
         // Critical layout written inline so the embed renders correctly
         // standalone — without depending on Redactix.css being loaded.
         this.applyFrameLayout(frame, built);
@@ -299,74 +426,66 @@ export default class Embed extends Module {
         // top-right corner, visible on hover. This is the only reliable
         // path to the edit modal because iframes swallow mouse events.
         // Marked with data-redactix-ui so sync() strips it from output.
-        let editBtn = frame.querySelector(':scope > .redactix-embed-edit-btn');
-        if (!editBtn) {
-            editBtn = document.createElement('button');
-            editBtn.type = 'button';
-            editBtn.className = 'redactix-embed-edit-btn';
-            editBtn.setAttribute('data-redactix-ui', '');
-            editBtn.contentEditable = 'false';
-            editBtn.textContent = this.t('embed.edit');
-            frame.appendChild(editBtn);
-        } else {
-            editBtn.textContent = this.t('embed.edit');
-        }
+        if (!this.liteMode) ensureEditButton(frame, 'redactix-embed-edit-btn', this.t('embed.edit'));
 
-        // Figcaption — innerHTML round-trip so inline links / formatting
-        // added through the floating toolbar survive a re-edit. We run it
-        // through the inline sanitizer: the modal should not bypass the paste filter.
-        const safeCaption = sanitizeInlineHtml(caption || '');
-        let figcaption = figure.querySelector(':scope > figcaption');
-        if (safeCaption) {
-            if (!figcaption) {
-                figcaption = document.createElement('figcaption');
-                figure.appendChild(figcaption);
-            }
-            figcaption.innerHTML = safeCaption;
-        } else if (figcaption) {
-            figcaption.remove();
-        }
+        // Figcaption — inline HTML round-trip (sanitised in writeCaption) so
+        // inline links / formatting added through the floating toolbar
+        // survive a re-edit.
+        writeCaption(figure, caption);
     }
 
     /**
      * Inline layout for .redactix-embed-frame + its iframe so the embed
      * works without Redactix.css.
      *
-     * Two modes:
-     *   • aspect-based (16:9 / 4:3 / 1:1) → padding-top % trick +
-     *     absolutely-positioned iframe inside.
-     *   • fixed-height (aspect="auto")    → just width + height; iframe
-     *     fills it as a block element. No relative/absolute, no
-     *     overflow:hidden — minimum styles necessary.
+     * Three modes:
+     *   • 16:9 / 4:3 / 1:1 → padding-top % trick + absolutely-positioned
+     *     iframe inside.
+     *   • 9:16 (vertical: YouTube Shorts) → aspect-ratio box capped at
+     *     360px wide (a padding-top box can't be width-capped: its % is
+     *     relative to the PARENT's width).
+     *   • fixed-height (aspect="auto") → width + pixel height; the iframe
+     *     fills it as a block element.
      */
     applyFrameLayout(frame, built) {
-        // Reset any leftover styles from the other mode
-        frame.style.position = '';
-        frame.style.overflow = '';
-        frame.style.paddingTop = '';
+        const s = frame.style;
+        // Reset any leftover styles from another mode
+        s.position = '';
+        s.overflow = '';
+        s.paddingTop = '';
+        s.maxWidth = '';
+        s.aspectRatio = '';
+        s.margin = '';
+        s.width = '';
+        s.height = '';
 
-        const aspectMap = { '16:9': '56.25%', '4:3': '75%', '1:1': '100%' };
-        if (aspectMap[built.aspect]) {
-            frame.style.position = 'relative';
-            frame.style.width = '100%';
-            frame.style.overflow = 'hidden';
-            frame.style.paddingTop = aspectMap[built.aspect];
-            frame.style.height = '0';
+        if (PADDING_ASPECTS[built.aspect]) {
+            s.position = 'relative';
+            s.width = '100%';
+            s.overflow = 'hidden';
+            s.paddingTop = PADDING_ASPECTS[built.aspect];
+            s.height = '0';
+        } else if (built.aspect === '9:16') {
+            s.position = 'relative';
+            s.width = '100%';
+            s.maxWidth = '360px';
+            s.margin = '0 auto';
+            s.aspectRatio = '9 / 16';
+            s.overflow = 'hidden';
+            s.paddingTop = '0';
+            s.height = 'auto';
         } else if (built.initialHeight && built.initialHeight > 0) {
-            frame.style.width = '100%';
-            frame.style.height = `${built.initialHeight}px`;
-        } else {
-            frame.style.width = '';
-            frame.style.height = '';
+            s.width = '100%';
+            s.height = `${built.initialHeight}px`;
         }
     }
 
     applyIframeLayout(iframe, built) {
-        const isAspect = built && (built.aspect === '16:9' ||
-            built.aspect === '4:3' || built.aspect === '1:1');
+        const absolute = built && (PADDING_ASPECTS[built.aspect] || built.aspect === '9:16');
         iframe.style.border = '0';
-        if (isAspect) {
-            // Absolute fill of the padding-top box
+        if (absolute) {
+            // Absolute fill of the aspect box
+            iframe.style.display = '';
             iframe.style.position = 'absolute';
             iframe.style.top = '0';
             iframe.style.left = '0';
@@ -389,31 +508,23 @@ export default class Embed extends Module {
     readFigure(figure) {
         const providerName = figure.getAttribute('data-provider') || '';
         const sourceUrl = figure.getAttribute('data-source-url') || '';
-        const figcaption = figure.querySelector(':scope > figcaption');
-        const caption = figcaption
-            ? (figcaption.innerHTML || '').replace(/<br\s*\/?>/gi, '').trim()
-            : '';
+        const caption = readCaption(figure);
         const iframe = figure.querySelector(':scope > .redactix-embed-frame > iframe');
         const src = iframe ? (iframe.getAttribute('src') || '') : '';
 
         if (providerName === 'custom') {
-            return {
-                providerName,
-                mode: 'custom',
-                url: '',
-                html: iframe ? iframe.outerHTML : '',
-                caption
-            };
+            let html = '';
+            if (iframe) {
+                // Show the code without the editor's inline layout.
+                const copy = iframe.cloneNode(false);
+                copy.removeAttribute('style');
+                html = copy.outerHTML;
+            }
+            return { providerName, mode: 'custom', url: '', html, caption };
         }
         // Prefer the original user-supplied URL so re-saving works even
-        // when the iframe.src is an embed-only URL the regex won't match.
-        return {
-            providerName,
-            mode: 'url',
-            url: sourceUrl || src,
-            html: '',
-            caption
-        };
+        // when the iframe.src is an embed-only URL.
+        return { providerName, mode: 'url', url: sourceUrl || src, html: '', caption };
     }
 
     // ---------- modal form ----------
@@ -431,8 +542,8 @@ export default class Embed extends Module {
 
         // URL panel
         const urlPanel = document.createElement('div');
-        const urlGroup = this.makeInputGroup(this.t('embed.urlLabel'), 'text', initial.url);
-        urlGroup.querySelector('input').placeholder = 'https://...';
+        const urlGroup = inputGroup(this.t('embed.urlLabel'), 'text', initial.url, { placeholder: 'https://...' });
+        const urlInput = urlGroup.field;
         urlPanel.appendChild(urlGroup);
         const urlHint = document.createElement('div');
         urlHint.className = 'redactix-embed-hint';
@@ -441,37 +552,25 @@ export default class Embed extends Module {
 
         // Custom panel
         const customPanel = document.createElement('div');
-        const customLabel = document.createElement('label');
-        customLabel.textContent = this.t('embed.customLabel');
-        const customArea = document.createElement('textarea');
-        customArea.value = initial.html || '';
-        customArea.rows = 6;
-        customArea.placeholder = '<iframe src="https://..."></iframe>';
-        customArea.style.width = '100%';
-        customArea.style.fontFamily = 'monospace';
-        customArea.style.fontSize = '13px';
-        customArea.style.padding = '8px';
-        customArea.style.border = '1px solid var(--redactix-border)';
-        customArea.style.borderRadius = '6px';
-        customArea.style.boxSizing = 'border-box';
-        customPanel.appendChild(customLabel);
-        customPanel.appendChild(customArea);
+        const customGroup = textareaGroup(this.t('embed.customLabel'), initial.html || '', {
+            rows: 6,
+            placeholder: '<iframe src="https://..."></iframe>'
+        });
+        customGroup.field.classList.add('redactix-embed-code');
+        customPanel.appendChild(customGroup);
         const customHint = document.createElement('div');
         customHint.className = 'redactix-embed-hint';
         customHint.textContent = this.t('embed.customHint');
         customPanel.appendChild(customHint);
 
-        // Caption (shared). Height is no longer user-editable — embeds
-        // either follow their aspect-ratio (16:9 / 4:3 / 1:1) or auto-resize
-        // via postMessage from the provider, so a manual override would
-        // just get overwritten.
-        const captionGroup = this.makeInputGroup(this.t('embed.captionLabel'), 'text', initial.caption);
-        const captionInput = captionGroup.querySelector('input');
-        captionInput.placeholder = this.t('embed.captionPlaceholder');
+        // Caption (shared). Height is not user-editable — embeds either
+        // follow their aspect-ratio or auto-resize via postMessage.
+        const captionGroup = inputGroup(this.t('embed.captionLabel'), 'text', initial.caption, { placeholder: this.t('embed.captionPlaceholder') });
+        const captionInput = captionGroup.field;
 
-        wrap.appendChild(urlPanel);
-        wrap.appendChild(customPanel);
-        wrap.appendChild(captionGroup);
+        const status = statusLine('', { error: true });
+
+        wrap.append(urlPanel, customPanel, captionGroup, status);
 
         let mode = initial.mode || 'url';
         const applyMode = () => {
@@ -479,6 +578,7 @@ export default class Embed extends Module {
             tabCustom.classList.toggle('is-active', mode === 'custom');
             urlPanel.style.display = mode === 'url' ? '' : 'none';
             customPanel.style.display = mode === 'custom' ? '' : 'none';
+            status.textContent = '';
         };
         tabUrl.addEventListener('click', (e) => {
             e.preventDefault();
@@ -496,10 +596,14 @@ export default class Embed extends Module {
             element: wrap,
             read: () => ({
                 mode,
-                url: urlPanel.querySelector('input').value.trim(),
-                html: customArea.value,
-                caption: captionInput.value.trim()
-            })
+                url: urlInput.value.trim(),
+                html: customGroup.field.value,
+                caption: captionInput.value
+            }),
+            showError: (text) => {
+                status.textContent = text;
+                (mode === 'custom' ? customGroup.field : urlInput).focus();
+            }
         };
     }
 
@@ -509,17 +613,6 @@ export default class Embed extends Module {
         b.className = 'redactix-embed-tab' + (active ? ' is-active' : '');
         b.textContent = label;
         return b;
-    }
-
-    makeInputGroup(labelText, type, value) {
-        const div = document.createElement('div');
-        const label = document.createElement('label');
-        label.textContent = labelText;
-        const input = document.createElement('input');
-        input.type = type;
-        input.value = value || '';
-        div.append(label, input);
-        return div;
     }
 
     // ---------- custom-html sanitizer ----------
@@ -534,36 +627,41 @@ export default class Embed extends Module {
         const tmp = parseHtmlInert(html);
         const iframe = tmp.querySelector('iframe');
         if (!iframe) return null;
-
-        const src = iframe.getAttribute('src') || '';
-        if (!/^https:\/\//i.test(src)) return null;
-
         return this.sanitizeIframe(iframe);
     }
 
     /**
-     * Strip an iframe to a known-safe set of attributes. Returns the
-     * sanitized iframe (mutates in place).
+     * Strip an iframe to a known-safe set of attributes (mutates in place).
+     * Returns the iframe, or null when its src is unusable (src removed).
      *
      * Which HOST an embed points at is the user's call — any domain is fair
-     * game. Which SCHEME it uses is not: a `javascript:` URL in an iframe
-     * runs in the parent's origin. That check goes through sanitizeUrl(),
-     * which decodes entities and strips control characters first — a plain
-     * `startsWith('javascript:')` is defeated by a single leading tab, and
-     * `srcdoc` sneaks a whole inline document past a src-only check.
+     * game. Which SCHEME it uses is not: only absolute https:// (a
+     * `javascript:` URL in an iframe runs in the parent's origin, a relative
+     * one frames same-origin documents such as uploads). Permissions are
+     * filtered: `allow` loses camera / microphone / geolocation …,
+     * `sandbox` loses the tokens that let the frame escape it.
      */
     sanitizeIframe(iframe) {
-        const allowed = ['src', 'width', 'height', 'allow', 'allowfullscreen',
-            'frameborder', 'scrolling', 'title', 'loading',
-            'referrerpolicy', 'sandbox'];
         Array.from(iframe.attributes).forEach(attr => {
-            if (!allowed.includes(attr.name.toLowerCase())) {
+            if (!IFRAME_ATTRS.includes(attr.name.toLowerCase())) {
                 iframe.removeAttribute(attr.name);
             }
         });
-        const src = iframe.getAttribute('src') || '';
-        if (sanitizeUrl(src, { allowedSchemes: ['http', 'https'] }) === null) {
+        if (iframe.hasAttribute('allow')) {
+            const allow = sanitizeIframeAllow(iframe.getAttribute('allow'));
+            if (allow) iframe.setAttribute('allow', allow);
+            else iframe.removeAttribute('allow');
+        }
+        if (iframe.hasAttribute('sandbox')) {
+            iframe.setAttribute('sandbox', sanitizeIframeSandbox(iframe.getAttribute('sandbox')));
+        }
+        if (iframe.hasAttribute('loading') && !['lazy', 'eager'].includes(iframe.getAttribute('loading').toLowerCase())) {
+            iframe.removeAttribute('loading');
+        }
+        const src = sanitizeIframeSrc(iframe.getAttribute('src') || '');
+        if (src === null) {
             iframe.removeAttribute('src');
+            return null;
         }
         return iframe;
     }
@@ -582,8 +680,8 @@ export default class Embed extends Module {
 
     /**
      * Set contenteditable=false on every embed figure (so the iframe is
-     * inert in the editor). figcaption is wired through setupFigures()
-     * elsewhere.
+     * inert in the editor), re-apply the inline layout and the Edit button.
+     * Idempotent.
      */
     setupEmbeds(rootEl) {
         const root = rootEl || this.instance.editorEl;
@@ -603,36 +701,28 @@ export default class Embed extends Module {
             const figcaption = figure.querySelector(':scope > figcaption');
             if (figcaption) figcaption.setAttribute('contenteditable', 'true');
 
-            // Re-apply inline layout for legacy embeds (saved before the
-            // self-contained inline-styles change, or migrated from the
-            // old .redactix-video-wrapper). Idempotent.
-            const aspect = figure.getAttribute('data-aspect') || 'auto';
-            const providerName = figure.getAttribute('data-provider') || '';
-            const provider = this.findProviderByName(providerName);
-            let initialHeight = 0;
-            if (aspect === 'auto' && provider) {
-                initialHeight = typeof provider.defaultHeight === 'function'
-                    ? provider.defaultHeight()
-                    : provider.defaultHeight;
+            // Twitch needs the CURRENT host in parent= (see withTwitchParent).
+            if (figure.getAttribute('data-provider') === 'twitch') {
+                const src = iframe.getAttribute('src') || '';
+                const fixed = withTwitchParent(src, location.hostname);
+                if (fixed && fixed !== src) iframe.setAttribute('src', fixed);
             }
-            // Don't overwrite a live-resized height in the editor — only
-            // set when frame has no inline layout yet (i.e. fresh load).
+
+            // Re-apply inline layout for embeds loaded from saved HTML or
+            // migrated from the old .redactix-video-wrapper. Don't overwrite
+            // a live-resized height — only set when the frame has no inline
+            // layout yet (i.e. fresh load).
+            const aspect = figure.getAttribute('data-aspect') || 'auto';
+            const initialHeight = aspect === 'auto' ? this.heightForFigure(figure) : 0;
             if (!frame.style.height && !frame.style.position) {
                 this.applyFrameLayout(frame, { aspect, initialHeight });
             }
             this.applyIframeLayout(iframe, { aspect });
 
             // Make sure the floating Edit button exists (legacy embeds
-            // migrated from .redactix-video-wrapper don't have one).
-            if (!frame.querySelector(':scope > .redactix-embed-edit-btn')) {
-                const editBtn = document.createElement('button');
-                editBtn.type = 'button';
-                editBtn.className = 'redactix-embed-edit-btn';
-                editBtn.setAttribute('data-redactix-ui', '');
-                editBtn.contentEditable = 'false';
-                editBtn.textContent = this.t('embed.edit');
-                frame.appendChild(editBtn);
-            }
+            // migrated from .redactix-video-wrapper don't have one). Lite
+            // mode has no embed modal, so no button either.
+            if (!this.liteMode) ensureEditButton(frame, 'redactix-embed-edit-btn', this.t('embed.edit'));
         });
     }
 
@@ -645,7 +735,7 @@ export default class Embed extends Module {
         const root = rootEl || this.instance.editorEl;
         root.querySelectorAll('.redactix-video-wrapper').forEach(wrapper => {
             const iframe = wrapper.querySelector('iframe');
-            if (!iframe) {
+            if (!iframe || !this.sanitizeIframe(iframe)) {
                 wrapper.remove();
                 return;
             }
@@ -656,7 +746,6 @@ export default class Embed extends Module {
 
             const frame = document.createElement('div');
             frame.className = 'redactix-embed-frame';
-            this.sanitizeIframe(iframe);
             frame.appendChild(iframe);
             figure.appendChild(frame);
 
@@ -665,6 +754,8 @@ export default class Embed extends Module {
     }
 
     guessProviderFromSrc(src) {
+        const detected = this.findProviderForIframeSrc(src);
+        if (detected) return detected.provider.name;
         for (const p of this.providers) {
             if (p.srcMarker && src.includes(p.srcMarker)) return p.name;
         }
@@ -675,10 +766,7 @@ export default class Embed extends Module {
      * Sync-side cleanup. Operates on a clone of editorEl, NOT live DOM.
      */
     cleanEmbedsForSync(clone) {
-        // Drop UI-only nodes (Edit button). Belt + suspenders: by attribute
-        // and by class, in case one of them gets stripped by the sanitizer
-        // somewhere along the way.
-        clone.querySelectorAll('[data-redactix-ui], .redactix-embed-edit-btn').forEach(el => el.remove());
+        clone.querySelectorAll('.redactix-embed-edit-btn').forEach(el => el.remove());
 
         clone.querySelectorAll('figure.redactix-embed').forEach(figure => {
             // Rebuild the frame's inline layout from scratch so the saved
@@ -687,28 +775,12 @@ export default class Embed extends Module {
             const frame = figure.querySelector(':scope > .redactix-embed-frame');
             if (frame) {
                 const aspect = figure.getAttribute('data-aspect') || 'auto';
-                const providerName = figure.getAttribute('data-provider') || '';
-                const provider = this.findProviderByName(providerName);
-                let initialHeight = 0;
-                if (aspect === 'auto' && provider) {
-                    initialHeight = typeof provider.defaultHeight === 'function'
-                        ? provider.defaultHeight() // no match available here
-                        : provider.defaultHeight;
-                }
+                const initialHeight = aspect === 'auto' ? this.heightForFigure(figure) : 0;
                 this.applyFrameLayout(frame, { aspect, initialHeight });
-
                 const iframe = frame.querySelector(':scope > iframe');
                 if (iframe) this.applyIframeLayout(iframe, { aspect });
             }
-
-            // Strip the legacy data-height attribute if it's still around.
-            figure.removeAttribute('data-height');
-
-            const figcaption = figure.querySelector(':scope > figcaption');
-            if (figcaption) {
-                const text = (figcaption.textContent || '').trim();
-                if (!text) figcaption.remove();
-            }
+            cleanCaptionForSync(figure);
         });
     }
 
@@ -732,96 +804,149 @@ export default class Embed extends Module {
         // Each provider:
         //   name            — internal id (matches data-provider attribute)
         //   label           — display name
-        //   aspect          — '16:9' | '4:3' | '1:1' | 'auto'
-        //   defaultHeight   — px height (number or fn(match)) for aspect="auto"
-        //   matchUrl        — RegExp; first match-group is usually the id
-        //   buildIframe(m,url) → { src, allow?, sandbox?, ... }
-        //   srcMarker       — substring used by guessProviderFromSrc()
+        //   aspect          — '16:9' | '4:3' | '1:1' | '9:16' | 'auto'
+        //                     (or fn(match, url))
+        //   defaultHeight   — px height (number or fn(match, url)) for
+        //                     aspect="auto"; persisted as data-height
+        //   matchUrl        — RegExp ANCHORED at the URL start (scheme
+        //                     optional). Must accept both the share URL a
+        //                     user types AND the provider's own embed src,
+        //                     so pasting saved output keeps the iframe.
+        //   buildIframe(m,url) → { src, allow?, sandbox?, ... } | null
+        //   srcMarker       — substring fallback for legacy migration
+        //   trackingParams  — extra share-tracking query keys to strip
+        const host = () => (typeof location !== 'undefined' && location.hostname) || 'localhost';
         return [
             {
-                name: 'youtube', label: 'YouTube', aspect: '16:9',
+                name: 'youtube', label: 'YouTube',
+                // Shorts are vertical.
+                aspect: (m) => (m && m.groups && m.groups.shorts ? '9:16' : '16:9'),
                 srcMarker: 'youtube.com/embed',
-                matchUrl: /(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/|music\.youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
-                buildIframe: (m) => ({
-                    src: `https://www.youtube.com/embed/${m[1]}`,
-                    allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
-                    allowfullscreen: true
-                })
+                matchUrl: /^(?:https?:\/\/)?(?:(?:www|m|music)\.)?(?:youtube(?:-nocookie)?\.com\/(?:(?:watch|attribution_link)\/?\?(?:[^#\s]*?&)?v=|(?:embed|v|e|live|(?<shorts>shorts))\/)(?<id>(?!videoseries)[\w-]{11})(?![\w-])|youtu\.be\/(?<shortId>[\w-]{11})(?![\w-])|youtube(?:-nocookie)?\.com\/(?:embed\/videoseries|playlist)\/?\?(?:[^#\s]*?&)?list=(?<list>[\w-]+))/i,
+                buildIframe: (m, url) => {
+                    const g = m.groups || {};
+                    const id = g.id || g.shortId;
+                    const q = urlParams(url);
+                    const params = new URLSearchParams();
+                    const list = g.list || q.get('list');
+                    if (list && /^[\w-]+$/.test(list)) params.set('list', list);
+                    const start = parseStartTime(q.get('t') || q.get('start'));
+                    if (start > 0) params.set('start', String(start));
+                    if (!id && !params.has('list')) return null;
+                    const base = `https://www.youtube.com/embed/${id || 'videoseries'}`;
+                    const qs = params.toString();
+                    return {
+                        src: qs ? `${base}?${qs}` : base,
+                        allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
+                        allowfullscreen: true
+                    };
+                }
             },
             {
                 name: 'vimeo', label: 'Vimeo', aspect: '16:9',
                 srcMarker: 'player.vimeo.com',
-                matchUrl: /(?:player\.)?vimeo\.com\/(?:video\/)?(\d+)/,
-                buildIframe: (m) => ({
-                    src: `https://player.vimeo.com/video/${m[1]}`,
-                    allow: 'autoplay; fullscreen; picture-in-picture',
-                    allowfullscreen: true
-                })
+                // vimeo.com/ID, /ID/HASH (unlisted), channels/x/ID,
+                // groups/x/videos/ID, album|showcase/N/video/ID, player.vimeo.com/video/ID?h=HASH
+                matchUrl: /^(?:https?:\/\/)?(?:www\.|player\.)?vimeo\.com\/(?:video\/|channels\/[\w-]+\/|groups\/[\w-]+\/videos\/|(?:album|showcase)\/\d+\/video\/)?(?<id>\d+)(?:\/(?<hash>[\da-f]+))?(?![\w-])/i,
+                buildIframe: (m, url) => {
+                    const g = m.groups || {};
+                    const hash = g.hash || urlParams(url).get('h');
+                    const h = hash && /^[\da-f]+$/i.test(hash) ? `?h=${hash}` : '';
+                    return {
+                        src: `https://player.vimeo.com/video/${g.id}${h}`,
+                        allow: 'autoplay; fullscreen; picture-in-picture',
+                        allowfullscreen: true
+                    };
+                }
             },
             {
                 name: 'spotify', label: 'Spotify', aspect: 'auto',
                 // Track / single episode → compact 152; album / playlist /
-                // show → tall visual player.
-                defaultHeight: (m) => (m && (m[1] === 'track' || m[1] === 'episode') ? 152 : 352),
+                // show / artist → tall visual player.
+                defaultHeight: (m) => {
+                    const type = m && m.groups ? m.groups.type.toLowerCase() : '';
+                    return type === 'track' || type === 'episode' ? 152 : 352;
+                },
                 srcMarker: 'open.spotify.com/embed',
-                matchUrl: /open\.spotify\.com\/(?:embed\/)?(?:intl-[a-z]+\/)?(track|album|playlist|episode|show)\/([a-zA-Z0-9]+)/,
+                matchUrl: /^(?:https?:\/\/)?open\.spotify\.com\/(?:embed\/)?(?:intl-[a-z-]+\/)?(?<type>track|album|playlist|episode|show|artist)\/(?<id>[a-zA-Z0-9]+)/i,
                 buildIframe: (m) => ({
-                    src: `https://open.spotify.com/embed/${m[1]}/${m[2]}`,
+                    src: `https://open.spotify.com/embed/${m.groups.type.toLowerCase()}/${m.groups.id}`,
                     allow: 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture',
                     loading: 'lazy'
                 })
             },
             {
-                name: 'apple-music', label: 'Apple Music', aspect: 'auto', defaultHeight: 175,
+                name: 'apple-music', label: 'Apple Music', aspect: 'auto',
+                // A single song (or ?i=track in an album URL) is the compact
+                // player; albums / playlists list their tracks.
+                defaultHeight: (m, url) => {
+                    const type = m && m.groups ? m.groups.type.toLowerCase() : '';
+                    if (type === 'song' || /^\d+$/.test(urlParams(url).get('i') || '')) return 175;
+                    return 450;
+                },
                 srcMarker: 'embed.music.apple.com',
-                matchUrl: /(?:embed\.)?music\.apple\.com\/([a-z]{2})\/(album|playlist|song)\/[^/]+\/([0-9]+)(?:\?i=([0-9]+))?/,
-                buildIframe: (m) => {
-                    const country = m[1];
-                    const type = m[2];
-                    const id = m[3];
-                    const i = m[4];
-                    const path = i ? `${country}/${type}/${id}?i=${i}` : `${country}/${type}/${id}`;
+                matchUrl: /^(?:https?:\/\/)?(?:embed\.)?music\.apple\.com\/(?<country>[a-z]{2})\/(?<type>album|playlist|song|music-video)\/(?:[^/?#\s]+\/)?(?<id>\d+|pl\.[\w-]+)(?![\w.-])/i,
+                buildIframe: (m, url) => {
+                    const g = m.groups;
+                    const i = urlParams(url).get('i');
+                    const qs = i && /^\d+$/.test(i) ? `?i=${i}` : '';
                     return {
-                        src: `https://embed.music.apple.com/${path}`,
+                        src: `https://embed.music.apple.com/${g.country.toLowerCase()}/${g.type.toLowerCase()}/${g.id}${qs}`,
                         allow: 'autoplay *; encrypted-media *; clipboard-write',
-                        sandbox: 'allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation'
+                        sandbox: 'allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation'
                     };
                 }
             },
             {
                 name: 'soundcloud', label: 'SoundCloud', aspect: 'auto', defaultHeight: 166,
                 srcMarker: 'w.soundcloud.com/player',
-                matchUrl: /(soundcloud\.com\/[^?\s]+)/,
-                buildIframe: (m) => ({
-                    src: `https://w.soundcloud.com/player/?url=${encodeURIComponent('https://' + m[1])}`,
-                    allow: 'autoplay'
-                })
+                matchUrl: /^(?:https?:\/\/)?(?:(?:(?:www|m)\.)?soundcloud\.com\/(?<path>[\w-]+\/[\w-]+(?:\/[\w-]+)?)|w\.soundcloud\.com\/player\/?\?(?:[^#\s]*?&)?url=(?<enc>[^&#\s]+))/i,
+                buildIframe: (m) => {
+                    const g = m.groups || {};
+                    let target = g.path ? `https://soundcloud.com/${g.path}` : safeDecode(g.enc || '');
+                    if (!/^https:\/\/(?:(?:www|api|m)\.)?soundcloud\.com\//i.test(target)) return null;
+                    return {
+                        src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(target)}`,
+                        allow: 'autoplay'
+                    };
+                }
             },
             {
                 name: 'bandcamp', label: 'Bandcamp', aspect: 'auto', defaultHeight: 120,
                 srcMarker: 'bandcamp.com/EmbeddedPlayer',
-                // Bandcamp doesn't expose ids in the URL — user should paste embed code
-                matchUrl: null,
-                buildIframe: () => null
+                // Share URLs don't expose ids — only the EmbeddedPlayer src
+                // (from Bandcamp's "Embed" dialog) is recognised.
+                matchUrl: /^(?:https?:\/\/)?bandcamp\.com\/EmbeddedPlayer\/(?<path>[\w=/,.-]+)/i,
+                buildIframe: (m) => ({
+                    src: `https://bandcamp.com/EmbeddedPlayer/${m.groups.path}`,
+                    loading: 'lazy'
+                })
             },
             {
                 name: 'twitch', label: 'Twitch', aspect: '16:9',
                 srcMarker: 'player.twitch.tv',
-                matchUrl: /twitch\.tv\/(?:videos\/(\d+)|([^/?\s]+)\/clip\/([^/?\s]+)|([^/?\s]+))/,
+                // parent= gets the editing host here; setupEmbeds() and
+                // embed-runtime.js append the RENDERING host when it differs
+                // (Twitch accepts several parent parameters).
+                matchUrl: /^(?:https?:\/\/)?(?:(?:(?:www|m)\.)?twitch\.tv\/(?:videos\/(?<video>\d+)|(?<clipChannel>[\w-]+)\/clip\/(?<clip>[\w-]+)|(?<channel>(?!(?:videos|directory|p|settings|downloads|jobs|search)(?:[/?#]|$))[\w-]+)\/?(?=$|[?#]))|clips\.twitch\.tv\/(?:embed\/?\?(?:[^#\s]*?&)?clip=(?<embedClip>[\w-]+)|(?<clipSlug>(?!embed(?:[/?#]|$))[\w-]+))|player\.twitch\.tv\/\?(?:[^#\s]*?&)?(?:video=v?(?<playerVideo>\d+)|channel=(?<playerChannel>[\w-]+)))/i,
                 buildIframe: (m) => {
-                    const parent = (typeof location !== 'undefined' ? location.hostname : '') || 'localhost';
-                    if (m[1]) return { src: `https://player.twitch.tv/?video=${m[1]}&parent=${parent}`, allowfullscreen: true };
-                    if (m[3]) return { src: `https://clips.twitch.tv/embed?clip=${m[3]}&parent=${parent}`, allowfullscreen: true };
-                    if (m[4]) return { src: `https://player.twitch.tv/?channel=${m[4]}&parent=${parent}`, allowfullscreen: true };
+                    const g = m.groups || {};
+                    const parent = encodeURIComponent(host());
+                    const video = g.video || g.playerVideo;
+                    const clip = g.clip || g.embedClip || g.clipSlug;
+                    const channel = g.channel || g.playerChannel;
+                    if (video) return { src: `https://player.twitch.tv/?video=${video}&parent=${parent}`, allowfullscreen: true };
+                    if (clip) return { src: `https://clips.twitch.tv/embed?clip=${clip}&parent=${parent}`, allowfullscreen: true };
+                    if (channel) return { src: `https://player.twitch.tv/?channel=${channel}&parent=${parent}`, allowfullscreen: true };
                     return null;
                 }
             },
             {
                 name: 'codepen', label: 'CodePen', aspect: 'auto', defaultHeight: 400,
                 srcMarker: 'codepen.io',
-                matchUrl: /codepen\.io\/([^/]+)\/(?:pen|details|full|embed)\/([a-zA-Z]+)/,
+                matchUrl: /^(?:https?:\/\/)?codepen\.io\/(?<user>[\w-]+)\/(?:pen|details|full|embed(?:\/preview)?)\/(?<id>[\w-]+)/i,
                 buildIframe: (m) => ({
-                    src: `https://codepen.io/${m[1]}/embed/${m[2]}?default-tab=result`,
+                    src: `https://codepen.io/${m.groups.user}/embed/${m.groups.id}?default-tab=result`,
                     allowfullscreen: true,
                     loading: 'lazy'
                 })
@@ -829,9 +954,9 @@ export default class Embed extends Module {
             {
                 name: 'loom', label: 'Loom', aspect: '16:9',
                 srcMarker: 'loom.com/embed',
-                matchUrl: /loom\.com\/(?:share|embed)\/([a-f0-9]+)/,
+                matchUrl: /^(?:https?:\/\/)?(?:www\.)?loom\.com\/(?:share|embed)\/(?<id>[a-f0-9]+)/i,
                 buildIframe: (m) => ({
-                    src: `https://www.loom.com/embed/${m[1]}`,
+                    src: `https://www.loom.com/embed/${m.groups.id}`,
                     allow: 'autoplay; fullscreen',
                     allowfullscreen: true
                 })
@@ -839,17 +964,22 @@ export default class Embed extends Module {
             {
                 name: 'mixcloud', label: 'Mixcloud', aspect: 'auto', defaultHeight: 120,
                 srcMarker: 'mixcloud.com/widget',
-                matchUrl: /mixcloud\.com\/([^/]+\/[^/?\s]+)\/?/,
-                buildIframe: (m) => ({
-                    src: `https://www.mixcloud.com/widget/iframe/?feed=${encodeURIComponent('/' + m[1] + '/')}`
-                })
+                matchUrl: /^(?:https?:\/\/)?(?:(?:www|m|player-widget)\.)?mixcloud\.com\/(?:widget\/iframe\/?\?(?:[^#\s]*?&)?feed=(?<feed>[^&#\s]+)|(?<path>(?!widget\/)[\w.-]+\/[\w.-]+)\/?(?=$|[?#]))/i,
+                buildIframe: (m) => {
+                    const g = m.groups || {};
+                    let feed = g.path ? `/${g.path}/` : safeDecode(g.feed || '');
+                    feed = feed.replace(/^https?:\/\/(?:www\.)?mixcloud\.com/i, '');
+                    if (!/^\/[\w.-]+\/[\w.-]+\/?$/.test(feed)) return null;
+                    if (!feed.endsWith('/')) feed += '/';
+                    return { src: `https://www.mixcloud.com/widget/iframe/?feed=${encodeURIComponent(feed)}` };
+                }
             },
             {
                 name: 'dailymotion', label: 'Dailymotion', aspect: '16:9',
                 srcMarker: 'dailymotion.com/embed',
-                matchUrl: /dailymotion\.com\/(?:video\/|embed\/video\/)([a-zA-Z0-9]+)/,
+                matchUrl: /^(?:https?:\/\/)?(?:(?:www|geo)\.)?(?:dailymotion\.com\/(?:video\/|embed\/video\/|player(?:\/[\w-]+)?\.html\?(?:[^#\s]*?&)?video=)|dai\.ly\/)(?<id>[a-zA-Z0-9]+)/i,
                 buildIframe: (m) => ({
-                    src: `https://www.dailymotion.com/embed/video/${m[1]}`,
+                    src: `https://www.dailymotion.com/embed/video/${m.groups.id}`,
                     allow: 'autoplay; fullscreen; picture-in-picture',
                     allowfullscreen: true
                 })
@@ -857,10 +987,10 @@ export default class Embed extends Module {
             {
                 name: 'google-maps', label: 'Google Maps', aspect: '4:3',
                 srcMarker: 'google.com/maps/embed',
-                // Accept the share-URL "Embed a map" iframe-src directly
-                matchUrl: /(google\.[a-z.]+\/maps\/embed[^"\s]+)/,
+                // The iframe src from Maps' "Embed a map" dialog.
+                matchUrl: /^(?:https?:\/\/)?(?:(?:www|maps)\.)?(?<path>google\.(?:com|[a-z]{2,3}|co\.[a-z]{2}|com\.[a-z]{2})\/maps\/embed(?:\/v1\/\w+)?\?[^"'<>\s]+)/i,
                 buildIframe: (m) => ({
-                    src: `https://${m[1]}`,
+                    src: `https://www.${m.groups.path}`,
                     loading: 'lazy',
                     referrerpolicy: 'no-referrer-when-downgrade'
                 })
@@ -868,18 +998,19 @@ export default class Embed extends Module {
             {
                 name: 'twitter', label: 'X (Twitter)', aspect: 'auto', defaultHeight: 600,
                 srcMarker: 'platform.twitter.com/embed',
-                matchUrl: /(?:twitter\.com|x\.com)\/[^/]+\/status\/(\d+)/,
+                trackingParams: ['s', 't'],
+                matchUrl: /^(?:https?:\/\/)?(?:(?:(?:www|mobile)\.)?(?:twitter|x)\.com\/(?:\w+|i\/web)\/status(?:es)?\/(?<id>\d+)|platform\.(?:twitter|x)\.com\/embed\/Tweet\.html\?(?:[^#\s]*?&)?id=(?<embedId>\d+))/i,
                 buildIframe: (m) => ({
-                    src: `https://platform.twitter.com/embed/Tweet.html?id=${m[1]}`,
+                    src: `https://platform.twitter.com/embed/Tweet.html?id=${m.groups.id || m.groups.embedId}`,
                     sandbox: 'allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin'
                 })
             },
             {
                 name: 'instagram', label: 'Instagram', aspect: 'auto', defaultHeight: 700,
                 srcMarker: 'instagram.com/p/',
-                matchUrl: /instagram\.com\/(?:p|reel|tv)\/([a-zA-Z0-9_-]+)/,
+                matchUrl: /^(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:[\w.]+\/)?(?:p|reel|reels|tv)\/(?<id>[\w-]+)/i,
                 buildIframe: (m) => ({
-                    src: `https://www.instagram.com/p/${m[1]}/embed/`,
+                    src: `https://www.instagram.com/p/${m.groups.id}/embed/`,
                     sandbox: 'allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin',
                     loading: 'lazy'
                 })
@@ -887,30 +1018,33 @@ export default class Embed extends Module {
             {
                 name: 'tiktok', label: 'TikTok', aspect: 'auto', defaultHeight: 750,
                 srcMarker: 'tiktok.com/embed',
-                matchUrl: /tiktok\.com\/@[^/]+\/video\/(\d+)/,
+                matchUrl: /^(?:https?:\/\/)?(?:(?:www|m)\.)?tiktok\.com\/(?:@[\w.-]+\/video\/|embed\/(?:v2\/)?|player\/v1\/)(?<id>\d+)/i,
                 buildIframe: (m) => ({
-                    src: `https://www.tiktok.com/embed/v2/${m[1]}`,
+                    src: `https://www.tiktok.com/embed/v2/${m.groups.id}`,
                     allow: 'encrypted-media; clipboard-write'
                 })
             },
             {
                 name: 'reddit', label: 'Reddit', aspect: 'auto', defaultHeight: 500,
                 srcMarker: 'redditmedia.com',
-                matchUrl: /reddit\.com\/r\/([^/]+)\/comments\/([a-z0-9]+)/i,
+                matchUrl: /^(?:https?:\/\/)?(?:(?:www|old|new|np)\.)?(?:reddit\.com|redditmedia\.com|embed\.reddit\.com)\/r\/(?<sub>\w+)\/comments\/(?<id>[a-z0-9]+)/i,
                 buildIframe: (m) => ({
-                    src: `https://www.redditmedia.com/r/${m[1]}/comments/${m[2]}/?embed=true`,
+                    src: `https://www.redditmedia.com/r/${m.groups.sub}/comments/${m.groups.id}/?embed=true`,
                     sandbox: 'allow-scripts allow-same-origin allow-popups'
                 })
             },
             {
                 name: 'bluesky', label: 'Bluesky', aspect: 'auto', defaultHeight: 500,
                 srcMarker: 'embed.bsky.app',
-                // bsky.app/profile/HANDLE/post/POSTID
-                matchUrl: /bsky\.app\/profile\/([^/]+)\/post\/([a-z0-9]+)/i,
-                buildIframe: (m) => ({
-                    src: `https://embed.bsky.app/embed/${m[1]}/app.bsky.feed.post/${m[2]}`,
-                    sandbox: 'allow-scripts allow-same-origin allow-popups'
-                })
+                // bsky.app/profile/HANDLE/post/POSTID, or the embed src itself
+                matchUrl: /^(?:https?:\/\/)?(?:bsky\.app\/profile\/(?<handle>[\w.:-]+)\/post\/(?<id>[a-z0-9]+)|embed\.bsky\.app\/embed\/(?<did>[\w.:%-]+)\/app\.bsky\.feed\.post\/(?<eid>[a-z0-9]+))/i,
+                buildIframe: (m) => {
+                    const g = m.groups || {};
+                    return {
+                        src: `https://embed.bsky.app/embed/${g.handle || g.did}/app.bsky.feed.post/${g.id || g.eid}`,
+                        sandbox: 'allow-scripts allow-same-origin allow-popups'
+                    };
+                }
             },
             // Custom must be last; it never auto-matches but is reachable
             // through the modal's "Custom HTML" tab.
@@ -920,5 +1054,72 @@ export default class Embed extends Module {
                 buildIframe: () => null
             }
         ];
+    }
+
+    // ---------- content lifecycle hooks (called by RedactixInstance) ----------
+
+    setupContent(root) {
+        this.migrate(root);
+        this.setupEmbeds(root);
+    }
+
+    cleanForSync(clone) {
+        this.cleanEmbedsForSync(clone);
+    }
+
+    ownsFigure(figure) {
+        return figure.classList.contains('redactix-embed') ||
+            figure.classList.contains('redactix-video-wrapper');
+    }
+
+    get pasteAllowedClasses() {
+        return this.instance.config.liteMode ? [] : ['redactix-embed', 'redactix-embed-frame'];
+    }
+
+    get pasteAllowedAttributes() {
+        return this.instance.config.liteMode ? [] : [{
+            selector: 'figure.redactix-embed',
+            attrs: ['data-provider', 'data-aspect', 'data-height', 'data-source-url']
+        }];
+    }
+
+    /**
+     * Paste: keep an iframe only when its src belongs to a registered
+     * provider. Wrapping an arbitrary iframe in figure.redactix-embed no
+     * longer vouches for it — anyone can write that markup. Kept iframes
+     * are normalised into the canonical figure > frame > iframe shape.
+     */
+    preparePaste(root, ctx) {
+        if (this.instance.config.liteMode) return;
+        Array.from(root.querySelectorAll('iframe')).forEach(iframe => {
+            const src = iframe.getAttribute('src') || '';
+            const detected = this.findProviderForIframeSrc(src);
+            if (!detected) return; // dropped by the forbidden-tag sweep
+            if (!this.sanitizeIframe(iframe)) return;
+            ctx.keep.add(iframe);
+
+            const { provider, match } = detected;
+            const existingFigure = iframe.closest('figure.redactix-embed');
+            if (existingFigure) {
+                existingFigure.setAttribute('data-provider', provider.name);
+                const aspect = existingFigure.getAttribute('data-aspect');
+                if (!ASPECTS.includes(aspect)) existingFigure.setAttribute('data-aspect', this.resolveAspect(provider, match, src));
+                return;
+            }
+            const figure = iframe.ownerDocument.createElement('figure');
+            figure.className = 'redactix-embed';
+            figure.setAttribute('data-provider', provider.name);
+            const aspect = this.resolveAspect(provider, match, src);
+            figure.setAttribute('data-aspect', aspect);
+            if (aspect === 'auto') {
+                const h = clampHeight(iframe.getAttribute('height')) || this.resolveHeight(provider, match, src);
+                if (h) figure.setAttribute('data-height', String(h));
+            }
+            const frame = iframe.ownerDocument.createElement('div');
+            frame.className = 'redactix-embed-frame';
+            iframe.parentNode.insertBefore(figure, iframe);
+            frame.appendChild(iframe);
+            figure.appendChild(frame);
+        });
     }
 }

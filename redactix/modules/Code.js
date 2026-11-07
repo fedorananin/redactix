@@ -1,7 +1,37 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
+import { selectGroup, textareaGroup } from '../ui/form-helpers.js';
+
+const LANGUAGES = [
+    { value: 'javascript', label: 'JavaScript' },
+    { value: 'typescript', label: 'TypeScript' },
+    { value: 'html', label: 'HTML' },
+    { value: 'css', label: 'CSS' },
+    { value: 'python', label: 'Python' },
+    { value: 'php', label: 'PHP' },
+    { value: 'java', label: 'Java' },
+    { value: 'csharp', label: 'C#' },
+    { value: 'cpp', label: 'C++' },
+    { value: 'c', label: 'C' },
+    { value: 'go', label: 'Go' },
+    { value: 'rust', label: 'Rust' },
+    { value: 'ruby', label: 'Ruby' },
+    { value: 'swift', label: 'Swift' },
+    { value: 'kotlin', label: 'Kotlin' },
+    { value: 'sql', label: 'SQL' },
+    { value: 'bash', label: 'Bash/Shell' },
+    { value: 'json', label: 'JSON' },
+    { value: 'xml', label: 'XML' },
+    { value: 'yaml', label: 'YAML' },
+    { value: 'markdown', label: 'Markdown' }
+];
+
+// language-xxx (HTML spec convention) and lang-xxx (highlight.js / prism alias).
+const LANGUAGE_CLASS = /^(?:language|lang)-(.+)$/;
 
 export default class Code extends Module {
+    static moduleName = 'Code';
+
     constructor(instance) {
         super(instance);
         this.currentCodeBlock = null;
@@ -10,8 +40,8 @@ export default class Code extends Module {
     init() {
         // Click on code block to edit
         this.instance.editorEl.addEventListener('click', (e) => {
-            const pre = e.target.closest('pre');
-            if (pre) {
+            const pre = e.target.closest ? e.target.closest('pre') : null;
+            if (pre && this.instance.editorEl.contains(pre)) {
                 e.preventDefault();
                 this.openModal(pre);
             }
@@ -30,192 +60,135 @@ export default class Code extends Module {
         ];
     }
 
+    /** Language of a <code> element from its class, or ''. */
+    getLanguage(codeEl) {
+        if (!codeEl) return '';
+        for (const cls of codeEl.classList) {
+            const m = cls.match(LANGUAGE_CLASS);
+            if (m) return m[1];
+        }
+        return '';
+    }
+
     openModal(existingPre = null) {
         this.instance.selection.save();
         this.currentCodeBlock = existingPre;
-        
+
         const isEditing = !!existingPre;
         let existingCode = '';
         let existingLanguage = '';
-        
+
         if (existingPre) {
             const codeEl = existingPre.querySelector('code');
-            if (codeEl) {
-                existingCode = codeEl.textContent || '';
-                // Extract language from class
-                const classList = codeEl.className.split(' ');
-                for (const cls of classList) {
-                    if (cls.startsWith('language-')) {
-                        existingLanguage = cls.replace('language-', '');
-                        break;
-                    }
-                }
-            } else {
-                existingCode = existingPre.textContent || '';
-            }
+            existingCode = (codeEl || existingPre).textContent || '';
+            existingLanguage = this.getLanguage(codeEl);
         }
 
         const form = document.createElement('div');
-        
-        // Language selection
-        const languageGroup = this.createSelectGroup(this.t('code.language'), existingLanguage, [
-            { value: '', label: this.t('code.languageNone') },
-            { value: 'javascript', label: 'JavaScript' },
-            { value: 'typescript', label: 'TypeScript' },
-            { value: 'html', label: 'HTML' },
-            { value: 'css', label: 'CSS' },
-            { value: 'python', label: 'Python' },
-            { value: 'php', label: 'PHP' },
-            { value: 'java', label: 'Java' },
-            { value: 'csharp', label: 'C#' },
-            { value: 'cpp', label: 'C++' },
-            { value: 'c', label: 'C' },
-            { value: 'go', label: 'Go' },
-            { value: 'rust', label: 'Rust' },
-            { value: 'ruby', label: 'Ruby' },
-            { value: 'swift', label: 'Swift' },
-            { value: 'kotlin', label: 'Kotlin' },
-            { value: 'sql', label: 'SQL' },
-            { value: 'bash', label: 'Bash/Shell' },
-            { value: 'json', label: 'JSON' },
-            { value: 'xml', label: 'XML' },
-            { value: 'yaml', label: 'YAML' },
-            { value: 'markdown', label: 'Markdown' }
-        ]);
-        const languageSelect = languageGroup.querySelector('select');
 
-        // Textarea for code
-        const codeGroup = this.createTextareaGroup(this.t('code.language'), existingCode);
-        const codeTextarea = codeGroup.querySelector('textarea');
-        codeTextarea.style.fontFamily = "'SF Mono', 'Consolas', 'Monaco', monospace";
-        codeTextarea.style.minHeight = '200px';
-        codeTextarea.style.tabSize = '2';
-        codeTextarea.placeholder = this.t('code.codePlaceholder');
-        
-        // Handle Tab in textarea
-        codeTextarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                const start = codeTextarea.selectionStart;
-                const end = codeTextarea.selectionEnd;
-                codeTextarea.value = codeTextarea.value.substring(0, start) + '  ' + codeTextarea.value.substring(end);
-                codeTextarea.selectionStart = codeTextarea.selectionEnd = start + 2;
-            }
+        // An unlisted language (diff, jsx, …) is kept as an extra option.
+        const languageGroup = selectGroup(this.t('code.language'), existingLanguage, [
+            { value: '', label: this.t('code.languageNone') },
+            ...LANGUAGES
+        ]);
+        const languageSelect = languageGroup.field;
+
+        const codeGroup = textareaGroup(this.t('code.code'), existingCode, {
+            rows: 10,
+            placeholder: this.t('code.codePlaceholder')
         });
-        
-        // Remove button (when editing)
+        const codeTextarea = codeGroup.field;
+        codeTextarea.classList.add('redactix-code-input');
+        codeTextarea.spellcheck = false;
+
+        // Tab inserts two spaces. insertText keeps the textarea's native
+        // undo stack intact (assigning .value wipes it); setRangeText is
+        // the fallback where execCommand isn't supported.
+        codeTextarea.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab' || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+            e.preventDefault();
+            const ok = document.queryCommandSupported && document.queryCommandSupported('insertText') &&
+                document.execCommand('insertText', false, '  ');
+            if (!ok) codeTextarea.setRangeText('  ', codeTextarea.selectionStart, codeTextarea.selectionEnd, 'end');
+        });
+
+        form.append(languageGroup, codeGroup);
+
+        const extraButtons = [];
         if (isEditing) {
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.textContent = this.t('code.removeCodeBlock');
-            removeBtn.style.marginTop = '15px';
-            removeBtn.style.background = '#dc2626';
-            removeBtn.style.color = 'white';
-            removeBtn.style.border = 'none';
-            removeBtn.style.padding = '8px 16px';
-            removeBtn.style.borderRadius = '4px';
-            removeBtn.style.cursor = 'pointer';
-            removeBtn.addEventListener('click', () => {
-                if (existingPre) {
-                    existingPre.remove();
-                    this.instance.sync();
+            extraButtons.push({
+                text: this.t('code.removeCodeBlock'),
+                danger: true,
+                onClick: () => {
+                    if (existingPre && this.instance.editorEl.contains(existingPre)) {
+                        this.transact(() => existingPre.remove());
+                    }
+                    this.instance.modal.close();
                 }
-                this.instance.modal.close();
             });
-            form.append(languageGroup, codeGroup, removeBtn);
-        } else {
-            form.append(languageGroup, codeGroup);
         }
 
         this.instance.modal.open({
             title: isEditing ? this.t('code.editTitle') : this.t('code.title'),
             body: form,
+            extraButtons,
             onSave: () => {
                 const language = languageSelect.value;
                 const code = codeTextarea.value;
+                if (!code.trim()) return;
 
-                if (code.trim()) {
-                    if (isEditing && existingPre) {
-                        this.updateCodeBlock(existingPre, code, language);
-                    } else {
-                        this.instance.selection.restore();
-                        this.insertCodeBlock(code, language);
-                    }
-                    this.instance.sync();
+                if (isEditing) {
+                    // Deleted / replaced (undo) while the modal was open.
+                    if (!this.instance.editorEl.contains(existingPre)) return;
+                    this.updateCodeBlock(existingPre, code, language);
+                } else {
+                    this.instance.selection.restore();
+                    this.insertCodeBlock(code, language);
                 }
             }
         });
     }
 
-    createSelectGroup(labelText, value = '', options = []) {
-        const div = document.createElement('div');
-        const label = document.createElement('label');
-        label.textContent = labelText;
-        const select = document.createElement('select');
-        select.style.width = '100%';
-        select.style.padding = '10px 12px';
-        select.style.marginBottom = '16px';
-        select.style.boxSizing = 'border-box';
-        select.style.border = '1px solid #e5e7eb';
-        select.style.borderRadius = '6px';
-        select.style.fontSize = '14px';
-        
-        options.forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt.value;
-            option.textContent = opt.label;
-            if (opt.value === value) {
-                option.selected = true;
-            }
-            select.appendChild(option);
-        });
-        
-        div.append(label, select);
-        return div;
-    }
-
-    createTextareaGroup(labelText, value = '') {
-        const div = document.createElement('div');
-        const label = document.createElement('label');
-        label.textContent = labelText;
-        const textarea = document.createElement('textarea');
-        textarea.value = value;
-        textarea.style.width = '100%';
-        textarea.style.minHeight = '100px';
-        textarea.style.padding = '8px';
-        textarea.style.border = '1px solid #e5e7eb';
-        textarea.style.borderRadius = '6px';
-        textarea.style.fontFamily = 'inherit';
-        textarea.style.fontSize = '14px';
-        textarea.style.resize = 'vertical';
-        textarea.style.boxSizing = 'border-box';
-        div.append(label, textarea);
-        return div;
-    }
-
+    /** Insert a code block at the caret (one undo step). */
     insertCodeBlock(code, language) {
         const pre = document.createElement('pre');
         pre.contentEditable = 'false';
-        
+
         const codeEl = document.createElement('code');
-        if (language) {
-            codeEl.className = `language-${language}`;
-        }
+        this.setLanguage(codeEl, language);
         codeEl.textContent = code;
         pre.appendChild(codeEl);
-        
-        this.instance.selection.insertNode(pre);
+
+        // insertNode applies the container rules (a <pre> can't live in a
+        // callout / quote-card / list → it lands after it) and puts the
+        // caret in the next editable block.
+        this.transact(() => {
+            this.instance.selection.insertNode(pre);
+            if (!pre.parentNode) this.instance.editorEl.appendChild(pre);
+        });
+        return pre;
     }
 
+    /** Update code and language of an existing block (one undo step). */
     updateCodeBlock(pre, code, language) {
-        let codeEl = pre.querySelector('code');
-        if (!codeEl) {
-            codeEl = document.createElement('code');
-            pre.innerHTML = '';
-            pre.appendChild(codeEl);
-        }
-        
-        codeEl.className = language ? `language-${language}` : '';
-        codeEl.textContent = code;
+        this.transact(() => {
+            let codeEl = pre.querySelector('code');
+            if (!codeEl) {
+                codeEl = document.createElement('code');
+                pre.innerHTML = '';
+                pre.appendChild(codeEl);
+            }
+            this.setLanguage(codeEl, language);
+            codeEl.textContent = code;
+        });
+    }
+
+    /** Swap the language class, keeping any other classes on <code>. */
+    setLanguage(codeEl, language) {
+        Array.from(codeEl.classList).forEach(cls => {
+            if (LANGUAGE_CLASS.test(cls)) codeEl.classList.remove(cls);
+        });
+        if (language) codeEl.classList.add(`language-${language}`);
+        if (codeEl.classList.length === 0) codeEl.removeAttribute('class');
     }
 }

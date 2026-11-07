@@ -1,410 +1,72 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
-import { sanitizeUrl, sanitizeImageSrc, sanitizeInlineHtml, composeLinkRel } from '../core/dom-utils.js';
+import { sanitizeUrl, sanitizeImageSrc, sanitizeSrcset, sanitizeRel, composeLinkRel, parseHtmlInert } from '../core/dom-utils.js';
+import { findInsertionPoint, TEXT_BLOCK_TAGS } from '../core/schema.js';
+import { upload, errorMessage } from '../core/media-client.js';
+import { readCaption, writeCaption } from '../core/figure-utils.js';
+import { createUploadPlaceholder, setPlaceholderLabel, showPlaceholderError, createUploadZone, createOrDivider, createMediaBrowsePanel } from '../ui/media-ui.js';
+import { inputGroup, textareaGroup, selectGroup, linkFields, statusLine } from '../ui/form-helpers.js';
+
+// Extensions for files rebuilt from pasted data: URLs. No SVG — the paste
+// sanitizer never keeps data:image/svg+xml in the first place.
+const DATA_URL_EXT = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/avif': 'avif',
+    'image/bmp': 'bmp',
+    'image/x-icon': 'ico'
+};
+
+// rel tokens the modal manages itself (checkboxes / target=_blank).
+const MANAGED_REL = new Set(['nofollow', 'noopener', 'noreferrer']);
 
 export default class Image extends Module {
+    static moduleName = 'Image';
+
     constructor(instance) {
         super(instance);
-        this.currentFigure = null; // For editing an existing image
-        this.liteMode = instance.config.liteMode || false; // Lite mode - simplified mode
-        this.uploadUrl = instance.config.uploadUrl || null; // URL for uploading images
-        this.browseUrl = instance.config.browseUrl || null; // URL for browsing images
-        this.allowDelete = instance.config.allowImageDelete || false; // Allow deleting images
+        const config = instance.config;
+        this.liteMode = !!config.liteMode; // Lite mode - simplified modal
+        this.uploadUrl = config.uploadUrl || null; // URL for uploading images
+        this.browseUrl = config.browseUrl || null; // URL for browsing images
+        // Delete in the browse panel needs BOTH this flag and the server's
+        // own allowDelete.
+        this.allowDelete = !!config.allowImageDelete;
+        // In-flight uploads started from the editor (drop / paste) — aborted
+        // on destroy.
+        this._uploads = new Set();
     }
 
     init() {
         // Click on image opens edit modal
         this.instance.editorEl.addEventListener('click', (e) => {
-            const img = e.target.closest('img');
-            if (img) {
-                // Photo galleries handle their own clicks (Gallery module).
-                // Quote-card author photos are managed by QuoteCard.
-                if (img.closest('figure.redactix-gallery')) return;
-                if (img.closest('figure.quote-card')) return;
-                e.preventDefault();
-                const figure = img.closest('figure');
-                if (figure) {
-                    this.openModal(figure);
-                } else {
-                    // If img is without figure - create figure and edit
-                    this.openModal(null, img);
-                }
-            }
-        });
-
-        // Drag & Drop upload (disabled in lite mode)
-        if (this.uploadUrl && !this.liteMode) {
-            this.initDragDrop();
-            this.initPasteUpload();
-        }
-
-        // Processing of base64 images after pasting (from Google Docs etc.)
-        // In lite mode base64 images are removed
-        this.initBase64Handler();
-    }
-
-    /**
-     * Processing base64 images after pasting
-     */
-    initBase64Handler() {
-        // Use MutationObserver to monitor new images
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach(mutation => {
-                mutation.addedNodes.forEach(node => {
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                        // Find all images with base64 src
-                        const images = node.tagName === 'IMG' ? [node] : node.querySelectorAll ? Array.from(node.querySelectorAll('img')) : [];
-                        images.forEach(img => {
-                            const src = img.getAttribute('src') || '';
-                            if (src.startsWith('data:image/')) {
-                                this.handleBase64Image(img);
-                            }
-                        });
-                    }
-                });
-            });
-        });
-
-        observer.observe(this.instance.editorEl, {
-            childList: true,
-            subtree: true
-        });
-
-        if (this.instance.onDestroy) {
-            this.instance.onDestroy(() => observer.disconnect());
-        }
-    }
-
-    /**
-     * Processing a single base64 image
-     */
-    async handleBase64Image(img) {
-        // In lite mode or if there is no uploadUrl - remove base64 image
-        if (!this.uploadUrl || this.liteMode) {
+            const img = e.target.closest && e.target.closest('img');
+            if (!img) return;
+            // Photo galleries handle their own clicks (Gallery module).
+            // Quote-card author photos are managed by QuoteCard.
+            if (img.closest('figure.redactix-gallery, figure.quote-card, .redactix-upload-placeholder')) return;
+            e.preventDefault();
             const figure = img.closest('figure');
             if (figure) {
-                figure.remove();
+                this.openModal(figure);
             } else {
-                img.remove();
-            }
-            this.instance.sync();
-            console.warn('Redactix: Base64 image removed' + (this.liteMode ? ' (lite mode)' : ' (no uploadUrl configured)'));
-            return;
-        }
-
-        const src = img.getAttribute('src');
-        if (!src || !src.startsWith('data:image/')) return;
-
-        // Show loading indicator
-        const figure = img.closest('figure');
-        if (figure) {
-            figure.classList.add('redactix-uploading');
-        }
-        img.style.opacity = '0.5';
-
-        try {
-            // Convert base64 to File
-            const file = this.base64ToFile(src);
-
-            // Upload to server
-            const formData = new FormData();
-            formData.append('image', file);
-
-            const response = await fetch(this.uploadUrl, {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok && response.status !== 400) {
-                throw new Error(`Server error (${response.status})`);
-            }
-
-            const result = await response.json();
-
-            if (result.success) {
-                // Replace src with server URL
-                img.setAttribute('src', result.src);
-                if (result.srcset) img.setAttribute('srcset', result.srcset);
-                if (result.alt) img.setAttribute('alt', result.alt);
-                if (result.title) img.setAttribute('title', result.title);
-
-                img.style.opacity = '';
-                if (figure) {
-                    figure.classList.remove('redactix-uploading');
-                }
-
-                this.instance.sync();
-            } else {
-                throw new Error(result.error || 'Upload failed');
-            }
-        } catch (error) {
-            console.error('Redactix: Failed to upload base64 image:', error);
-
-            // Show error and remove image
-            img.style.opacity = '';
-            if (figure) {
-                figure.classList.remove('redactix-uploading');
-                figure.remove();
-            } else {
-                img.remove();
-            }
-            this.instance.sync();
-        }
-    }
-
-    /**
-     * Converting base64 to File
-     */
-    base64ToFile(dataUrl) {
-        // Parse data URL
-        const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-        if (!matches) {
-            throw new Error('Invalid data URL');
-        }
-
-        const mimeType = matches[1];
-        const base64Data = matches[2];
-
-        // Decode base64
-        const byteString = atob(base64Data);
-        const byteArray = new Uint8Array(byteString.length);
-        for (let i = 0; i < byteString.length; i++) {
-            byteArray[i] = byteString.charCodeAt(i);
-        }
-
-        // Determine extension
-        const extMap = {
-            'image/jpeg': 'jpg',
-            'image/png': 'png',
-            'image/gif': 'gif',
-            'image/webp': 'webp',
-            'image/svg+xml': 'svg',
-            'image/avif': 'avif'
-        };
-        const ext = extMap[mimeType] || 'png';
-
-        // Create File
-        const blob = new Blob([byteArray], { type: mimeType });
-        return new File([blob], `pasted-image.${ext}`, { type: mimeType });
-    }
-
-    /**
-     * Initializing drag & drop upload
-     */
-    initDragDrop() {
-        const editor = this.instance.editorEl;
-
-        // Native dragstart inside contenteditable is silenced in Editor.js
-        // (bindEvents) unconditionally - only the upload zone remains here.
-
-        editor.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            editor.classList.add('redactix-dragover');
-        });
-
-        editor.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            // Verify that we actually left the editor
-            if (!editor.contains(e.relatedTarget)) {
-                editor.classList.remove('redactix-dragover');
+                // If img is without figure - create figure and edit
+                this.openModal(null, img);
             }
         });
 
-        editor.addEventListener('drop', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            editor.classList.remove('redactix-dragover');
-
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                // Filter only images
-                const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
-                if (imageFiles.length > 0) {
-                    // Save cursor position for insertion
-                    this.instance.selection.save();
-                    this.uploadFiles(imageFiles);
-                }
-            }
-        });
-    }
-
-    /**
-     * Initializing upload via paste (Ctrl+V)
-     */
-    initPasteUpload() {
-        // Use capture phase to intercept event before other handlers
-        this.instance.editorEl.addEventListener('paste', (e) => {
-            const items = e.clipboardData?.items;
-            if (!items) return;
-
-            const imageFiles = [];
-            for (const item of items) {
-                if (item.type.startsWith('image/')) {
-                    const file = item.getAsFile();
-                    if (file) {
-                        imageFiles.push(file);
-                    }
-                }
-            }
-
-            if (imageFiles.length > 0) {
-                // Fully block paste to prevent browser from inserting HTML with original link
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                this.uploadFilesAtCursor(imageFiles);
-            }
-        }, true); // capture: true - intercepting on capture phase
-    }
-
-    /**
-     * Uploading files to server (for drag&drop with position preservation)
-     */
-    async uploadFiles(files) {
-        for (const file of files) {
-            await this.uploadFile(file);
+        // Upload paths exist only with an upload URL (core nulls it in lite
+        // mode). Pasted data: images are dropped by the paste sanitizer when
+        // there is nowhere to upload them.
+        if (this.uploadUrl) {
+            this.initDragDrop();
+            this.initPasteUpload();
+            this.instance.on('contentInserted', () => this.uploadPastedImages());
         }
-    }
 
-    /**
-     * Uploading files to current cursor position (for paste)
-     */
-    async uploadFilesAtCursor(files) {
-        for (const file of files) {
-            await this.uploadFileAtCursor(file);
-        }
-    }
-
-    /**
-     * Uploading a single file (with position restore - for drag&drop)
-     */
-    async uploadFile(file) {
-        const placeholder = this.createUploadPlaceholder();
-        this.instance.selection.restore();
-        this.instance.selection.insertNode(placeholder);
-        this.instance.selection.save();
-
-        await this.processUpload(file, placeholder);
-    }
-
-    /**
-     * Uploading a single file at current cursor position (for paste)
-     */
-    async uploadFileAtCursor(file) {
-        const placeholder = this.createUploadPlaceholder();
-        this.instance.selection.insertNode(placeholder);
-
-        await this.processUpload(file, placeholder);
-    }
-
-    /**
-     * General file upload logic
-     */
-    async processUpload(file, placeholder) {
-        try {
-            const formData = new FormData();
-            formData.append('image', file);
-
-            const response = await fetch(this.uploadUrl, {
-                method: 'POST',
-                body: formData
-            });
-
-            // Check HTTP status
-            if (!response.ok && response.status !== 400) {
-                throw new Error(`Server error (${response.status})`);
-            }
-
-            // Try to parse JSON
-            let result;
-            try {
-                result = await response.json();
-            } catch (e) {
-                throw new Error('Invalid server response');
-            }
-
-            if (result.success) {
-                // Replace placeholder with real image
-                this.replacePlaceholderWithImage(placeholder, result);
-            } else {
-                // Error from server
-                this.showUploadError(placeholder, result.error || 'Upload failed');
-            }
-        } catch (error) {
-            // Network error or parsing error
-            this.showUploadError(placeholder, error.message || 'Connection error');
-        }
-    }
-
-    /**
-     * Creating placeholder during upload
-     */
-    createUploadPlaceholder() {
-        const placeholder = document.createElement('figure');
-        placeholder.className = 'redactix-upload-placeholder';
-        placeholder.contentEditable = 'false';
-        placeholder.innerHTML = `
-            <div class="redactix-upload-loading">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32">
-                        <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/>
-                    </circle>
-                </svg>
-                <span>${this.t('image.uploading')}</span>
-            </div>
-        `;
-        return placeholder;
-    }
-
-    /**
-     * Replacing placeholder with uploaded image
-     */
-    replacePlaceholderWithImage(placeholder, data) {
-        const figure = document.createElement('figure');
-        figure.contentEditable = 'false';
-
-        const img = document.createElement('img');
-        img.setAttribute('src', data.src);
-        if (data.srcset) img.setAttribute('srcset', data.srcset);
-        if (data.alt) img.setAttribute('alt', data.alt);
-        if (data.title) img.setAttribute('title', data.title);
-
-        figure.appendChild(img);
-
-        const figcaption = document.createElement('figcaption');
-        figcaption.contentEditable = 'true';
-        figcaption.innerHTML = data.caption || '<br>';
-        figure.appendChild(figcaption);
-
-        placeholder.replaceWith(figure);
-        this.instance.sync();
-        if (this.instance.core) this.instance.core.ensureTrailingParagraph();
-    }
-
-    /**
-     * Showing upload error
-     */
-    showUploadError(placeholder, message) {
-        placeholder.innerHTML = `
-            <div class="redactix-upload-error">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="15" y1="9" x2="9" y2="15"/>
-                    <line x1="9" y1="9" x2="15" y2="15"/>
-                </svg>
-                <span>${message}</span>
-                <button type="button" class="redactix-upload-error-close">${this.t('upload.remove')}</button>
-            </div>
-        `;
-
-        const closeBtn = placeholder.querySelector('.redactix-upload-error-close');
-        closeBtn.addEventListener('click', () => {
-            placeholder.remove();
-            this.instance.sync();
-        });
+        this.instance.onDestroy(() => this.abortUploads());
     }
 
     getButtons() {
@@ -419,1053 +81,660 @@ export default class Image extends Module {
         ];
     }
 
-    openModal(existingFigure = null, existingImg = null) {
-        // In lite mode, use simplified version of the modal
-        if (this.liteMode) {
-            this.openLiteModal(existingFigure, existingImg);
+    // ------------------------------------------------------------------
+    // Content lifecycle
+    // ------------------------------------------------------------------
+
+    cleanForSync(clone) {
+        // Upload-in-progress marker on a pasted image's figure.
+        clone.querySelectorAll('.redactix-uploading').forEach(el => {
+            el.classList.remove('redactix-uploading');
+            if (!el.classList.length) el.removeAttribute('class');
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // Uploads from the editor surface (drop, paste, pasted data: images)
+    // ------------------------------------------------------------------
+
+    /** Upload through the shared client; aborted on destroy. */
+    async runUpload(file, { onProgress } = {}) {
+        const controller = new AbortController();
+        this._uploads.add(controller);
+        try {
+            return await upload(this.uploadUrl, 'image', file, { signal: controller.signal, onProgress });
+        } finally {
+            this._uploads.delete(controller);
+        }
+    }
+
+    abortUploads() {
+        this._uploads.forEach(c => c.abort());
+        this._uploads.clear();
+    }
+
+    /**
+     * Pasted data: images. The paste sanitizer marks them with
+     * data-redactix-paste-upload (only when uploadUrl is set) and emits
+     * 'contentInserted' after insertion. Undo / redo / HTML mode never emit
+     * that event, so restored content is left alone.
+     */
+    uploadPastedImages() {
+        const images = Array.from(this.instance.editorEl.querySelectorAll('img[data-redactix-paste-upload]'));
+        images.forEach(img => {
+            img.removeAttribute('data-redactix-paste-upload');
+            this.uploadDataImage(img);
+        });
+    }
+
+    async uploadDataImage(img) {
+        const file = this.base64ToFile(img.getAttribute('src') || '');
+        if (!file) {
+            this.transact(() => this.removeImageNode(img));
             return;
         }
 
-        this.instance.selection.save();
-        this.currentFigure = existingFigure;
+        const figure = img.closest('figure');
+        if (figure) figure.classList.add('redactix-uploading');
 
-        // Extract existing data
-        let existingData = {
-            url: 'https://',
-            alt: '',
-            srcset: '',
-            title: '',
-            loading: '',
-            caption: '',
-            linkUrl: '',
-            isBlank: false,
-            isNofollow: false,
-            relExtra: '' // Additional rel values (except nofollow)
-        };
+        const result = await this.runUpload(file);
 
-        if (existingFigure) {
-            const img = existingFigure.querySelector('img');
-            const figcaption = existingFigure.querySelector('figcaption');
-            const link = existingFigure.querySelector('a');
+        if (figure) {
+            figure.classList.remove('redactix-uploading');
+            if (!figure.classList.length) figure.removeAttribute('class');
+        }
+        // Removed, undone or replaced while uploading — nothing to update.
+        if (!img.isConnected || !this.instance.editorEl.contains(img)) return;
 
-            if (img) {
-                existingData.url = img.getAttribute('src') || 'https://';
-                existingData.alt = img.getAttribute('alt') || '';
-                existingData.srcset = img.getAttribute('srcset') || '';
-                existingData.title = img.getAttribute('title') || '';
-                existingData.loading = img.getAttribute('loading') || '';
+        if (result.ok) {
+            const data = result.data;
+            this.transact(() => {
+                img.setAttribute('src', data.src);
+                if (data.srcset) img.setAttribute('srcset', data.srcset);
+                if (data.alt && !img.getAttribute('alt')) img.setAttribute('alt', data.alt);
+                if (data.title && !img.getAttribute('title')) img.setAttribute('title', data.title);
+            });
+        } else if (result.code !== 'aborted') {
+            console.warn('Redactix: failed to upload pasted image:', errorMessage(result, (k, p) => this.t(k, p)));
+            this.transact(() => this.removeImageNode(img));
+        }
+    }
+
+    /**
+     * Remove a single <img> — and only what it leaves empty: an image-only
+     * link around it, and a PLAIN image figure with nothing else in it.
+     * Galleries, quote-cards and other managed figures are never removed
+     * wholesale here (closest('figure').remove() used to delete them).
+     */
+    removeImageNode(img) {
+        const parent = img.parentElement;
+        const link = parent && parent.tagName === 'A' ? parent : null;
+        const figure = img.closest('figure');
+        img.remove();
+        if (link && !link.textContent.trim() && !link.querySelector('img, video, iframe')) link.remove();
+        if (figure && figure.isConnected && !this.instance.isManagedFigure(figure) &&
+            !figure.querySelector('img, video, iframe') && !(figure.textContent || '').trim()) {
+            figure.remove();
+        }
+    }
+
+    /**
+     * data: URL → File. Tolerates extra parameters (`;name=x.png;base64`),
+     * line breaks inside the payload and percent-encoded (non-base64) data.
+     * Returns null for anything that isn't a raster image.
+     */
+    base64ToFile(dataUrl) {
+        if (typeof dataUrl !== 'string') return null;
+        const m = dataUrl.trim().match(/^data:([^;,]+)((?:;[^;,]*)*),([\s\S]*)$/i);
+        if (!m) return null;
+        const mimeType = m[1].trim().toLowerCase();
+        const ext = DATA_URL_EXT[mimeType];
+        if (!ext) return null;
+        const isBase64 = /;base64$/i.test(m[2]);
+
+        let bytes;
+        try {
+            if (isBase64) {
+                const binary = atob(m[3].replace(/\s+/g, ''));
+                bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            } else {
+                bytes = new TextEncoder().encode(decodeURIComponent(m[3]));
             }
-            if (figcaption) {
-                // Remove <br> from caption for display
-                let caption = figcaption.innerHTML || '';
-                caption = caption.replace(/<br\s*\/?>/gi, '').trim();
-                existingData.caption = caption;
+        } catch (e) {
+            return null;
+        }
+        if (!bytes.length) return null;
+        return new File([bytes], `pasted-image.${ext}`, { type: mimeType });
+    }
+
+    /** Initializing drag & drop upload */
+    initDragDrop() {
+        const editor = this.instance.editorEl;
+
+        // Native dragstart inside contenteditable is silenced in Editor.js
+        // (bindEvents) unconditionally - only the upload zone remains here.
+        editor.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (hasFiles(e.dataTransfer)) editor.classList.add('redactix-dragover');
+        });
+
+        editor.addEventListener('dragleave', (e) => {
+            // Verify that we actually left the editor
+            if (!editor.contains(e.relatedTarget)) {
+                editor.classList.remove('redactix-dragover');
             }
-            if (link) {
-                existingData.linkUrl = link.getAttribute('href') || '';
-                existingData.isBlank = link.target === '_blank';
-                existingData.isNofollow = (link.rel || '').includes('nofollow');
-                // Extract additional rel values (except nofollow)
-                existingData.relExtra = (link.rel || '').split(/\s+/).filter(r => r && r !== 'nofollow').join(' ');
-            }
-        } else if (existingImg) {
-            existingData.url = existingImg.getAttribute('src') || 'https://';
-            existingData.alt = existingImg.getAttribute('alt') || '';
-            existingData.srcset = existingImg.getAttribute('srcset') || '';
-            existingData.title = existingImg.getAttribute('title') || '';
-            existingData.loading = existingImg.getAttribute('loading') || '';
+        });
 
-            const link = existingImg.closest('a');
-            if (link) {
-                existingData.linkUrl = link.getAttribute('href') || '';
-                existingData.isBlank = link.target === '_blank';
-                existingData.isNofollow = (link.rel || '').includes('nofollow');
-                existingData.relExtra = (link.rel || '').split(/\s+/).filter(r => r && r !== 'nofollow').join(' ');
-            }
-        }
-
-        const isEditing = existingFigure || existingImg;
-
-        const form = document.createElement('div');
-
-        // File upload block (if uploadUrl is present)
-        let fileInput = null;
-        let uploadStatus = null;
-
-        if (this.uploadUrl) {
-            const uploadGroup = document.createElement('div');
-            uploadGroup.className = 'redactix-upload-group';
-            uploadGroup.style.marginBottom = '16px';
-            uploadGroup.style.padding = '16px';
-            uploadGroup.style.border = '2px dashed var(--redactix-border)';
-            uploadGroup.style.borderRadius = '8px';
-            uploadGroup.style.textAlign = 'center';
-            uploadGroup.style.transition = 'border-color 0.2s, background-color 0.2s';
-
-            const uploadLabel = document.createElement('label');
-            uploadLabel.style.display = 'block';
-            uploadLabel.style.cursor = 'pointer';
-            uploadLabel.innerHTML = `
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 8px; color: var(--redactix-text-placeholder);">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17 8 12 3 7 8"/>
-                    <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>
-                <div style="color: var(--redactix-text-muted); font-size: 14px;">${isEditing ? this.t('image.uploadReplace') : this.t('image.uploadClick')}</div>
-                <div style="color: var(--redactix-text-placeholder); font-size: 12px; margin-top: 4px;">${this.t('image.uploadFormats')}</div>
-            `;
-
-            fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = 'image/*';
-            fileInput.style.display = 'none';
-            uploadLabel.appendChild(fileInput);
-
-            uploadStatus = document.createElement('div');
-            uploadStatus.style.marginTop = '8px';
-            uploadStatus.style.fontSize = '13px';
-            uploadStatus.style.display = 'none';
-
-            uploadGroup.appendChild(uploadLabel);
-            uploadGroup.appendChild(uploadStatus);
-
-            // Drag & drop for upload zone
-            uploadGroup.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadGroup.style.borderColor = 'var(--redactix-primary)';
-                uploadGroup.style.backgroundColor = 'var(--redactix-dragover-bg)';
-            });
-
-            uploadGroup.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                uploadGroup.style.borderColor = 'var(--redactix-border)';
-                uploadGroup.style.backgroundColor = '';
-            });
-
-            uploadGroup.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadGroup.style.borderColor = 'var(--redactix-border)';
-                uploadGroup.style.backgroundColor = '';
-
-                const files = e.dataTransfer.files;
-                if (files.length > 0 && files[0].type.startsWith('image/')) {
-                    fileInput.files = files;
-                    fileInput.dispatchEvent(new Event('change'));
-                }
-            });
-
-            form.appendChild(uploadGroup);
-        }
-
-        // Image browser block (if browseUrl is present)
-        let browseContainer = null;
-        if (this.browseUrl) {
-            browseContainer = document.createElement('div');
-            browseContainer.style.marginBottom = '16px';
-
-            const browseBtn = document.createElement('button');
-            browseBtn.type = 'button';
-            browseBtn.textContent = this.t('image.chooseFromUploaded');
-            browseBtn.style.width = '100%';
-            browseBtn.style.padding = '10px';
-            browseBtn.style.background = 'var(--redactix-bg-hover)';
-            browseBtn.style.border = '1px solid var(--redactix-border)';
-            browseBtn.style.borderRadius = '6px';
-            browseBtn.style.cursor = 'pointer';
-            browseBtn.style.fontSize = '14px';
-            browseBtn.style.color = 'var(--redactix-text)';
-            browseBtn.style.transition = 'background 0.15s';
-
-            browseBtn.addEventListener('mouseenter', () => {
-                browseBtn.style.background = 'var(--redactix-bg-active)';
-            });
-            browseBtn.addEventListener('mouseleave', () => {
-                browseBtn.style.background = 'var(--redactix-bg-hover)';
-            });
-
-            browseBtn.addEventListener('click', () => {
-                this.openBrowsePanel(browseContainer, (imageData) => {
-                    // Fill inputs with selected image data
-                    if (urlInput) urlInput.value = imageData.src;
-                    if (srcsetInput && imageData.srcset) srcsetInput.value = imageData.srcset;
-                    if (altInput && imageData.alt) altInput.value = imageData.alt;
-                    if (titleInput && imageData.title) titleInput.value = imageData.title;
-                });
-            });
-
-            browseContainer.appendChild(browseBtn);
-            form.appendChild(browseContainer);
-        }
-
-        // Divider "or" (if upload or browse is present)
-        if (this.uploadUrl || this.browseUrl) {
-            const orDivider = document.createElement('div');
-            orDivider.style.textAlign = 'center';
-            orDivider.style.color = 'var(--redactix-text-placeholder)';
-            orDivider.style.fontSize = '13px';
-            orDivider.style.margin = '12px 0';
-            orDivider.style.position = 'relative';
-            orDivider.innerHTML = `
-                <span style="background: var(--redactix-bg); padding: 0 12px; position: relative; z-index: 1;">${this.t('image.orEnterUrl')}</span>
-                <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--redactix-bg-active); z-index: 0;"></div>
-            `;
-            form.appendChild(orDivider);
-        }
-
-        // Fields grid (2 columns on PC, 1 on mobile)
-        const grid = document.createElement('div');
-        grid.className = 'redactix-modal-grid';
-
-        // Main fields
-        const urlGroup = this.createInputGroup(this.t('image.url') + ' *', 'text', existingData.url);
-        urlGroup.className = 'redactix-modal-full-width';
-        const urlInput = urlGroup.querySelector('input');
-
-        const altGroup = this.createInputGroup(this.t('image.alt'), 'text', existingData.alt);
-        const altInput = altGroup.querySelector('input');
-
-        const titleGroup = this.createInputGroup(this.t('image.title_attr'), 'text', existingData.title);
-        const titleInput = titleGroup.querySelector('input');
-
-        const srcsetGroup = this.createInputGroup(this.t('image.srcset'), 'text', existingData.srcset);
-        srcsetGroup.className = 'redactix-modal-full-width';
-        const srcsetInput = srcsetGroup.querySelector('input');
-        srcsetInput.placeholder = this.t('image.srcsetPlaceholder');
-
-        // Loading attribute
-        const loadingGroup = this.createSelectGroup(this.t('image.loading'), existingData.loading, [
-            { value: '', label: this.t('image.loadingDefault') },
-            { value: 'lazy', label: this.t('image.loadingLazy') },
-            { value: 'eager', label: this.t('image.loadingEager') }
-        ]);
-        const loadingSelect = loadingGroup.querySelector('select');
-
-        // Caption (signature)
-        const captionGroup = this.createTextareaGroup(this.t('image.caption'), existingData.caption);
-        captionGroup.className = 'redactix-modal-full-width';
-        const captionInput = captionGroup.querySelector('textarea');
-        captionInput.placeholder = this.t('image.captionPlaceholder');
-
-        // Добавляем поля в сетку
-        grid.append(urlGroup, altGroup, titleGroup, srcsetGroup, loadingGroup, captionGroup);
-
-        // Divider - link section
-        const linkSection = document.createElement('div');
-        linkSection.className = 'redactix-modal-full-width';
-        linkSection.style.borderTop = '1px solid var(--redactix-border)';
-        linkSection.style.marginTop = '8px';
-        linkSection.style.paddingTop = '15px';
-
-        const linkTitle = document.createElement('div');
-        linkTitle.textContent = this.t('image.linkSection');
-        linkTitle.style.fontWeight = '600';
-        linkTitle.style.marginBottom = '10px';
-        linkTitle.style.fontSize = '14px';
-        linkSection.appendChild(linkTitle);
-
-        // Grid for link fields
-        const linkGrid = document.createElement('div');
-        linkGrid.className = 'redactix-modal-grid';
-
-        // Link for image
-        const linkGroup = this.createInputGroup(this.t('image.linkUrl'), 'text', existingData.linkUrl);
-        const linkInput = linkGroup.querySelector('input');
-        linkInput.placeholder = this.t('image.linkUrlPlaceholder');
-
-        // Rel (additional values)
-        const relGroup = this.createInputGroup(this.t('image.relExceptNofollow'), 'text', existingData.relExtra);
-        const relInput = relGroup.querySelector('input');
-        relInput.placeholder = this.t('image.relPlaceholder');
-
-        linkGrid.append(linkGroup, relGroup);
-        linkSection.appendChild(linkGrid);
-
-        // Checkboxes for link
-        const checksDiv = document.createElement('div');
-        checksDiv.style.marginTop = '10px';
-
-        const targetLabel = document.createElement('label');
-        targetLabel.style.fontWeight = 'normal';
-        targetLabel.style.display = 'inline-flex';
-        targetLabel.style.alignItems = 'center';
-        targetLabel.style.marginRight = '15px';
-        targetLabel.style.cursor = 'pointer';
-        const targetCheck = document.createElement('input');
-        targetCheck.type = 'checkbox';
-        targetCheck.style.width = 'auto';
-        targetCheck.style.marginRight = '5px';
-        targetCheck.checked = existingData.isBlank;
-        targetLabel.append(targetCheck, this.t('image.openNewWindow'));
-
-        const nofollowLabel = document.createElement('label');
-        nofollowLabel.style.fontWeight = 'normal';
-        nofollowLabel.style.display = 'inline-flex';
-        nofollowLabel.style.alignItems = 'center';
-        nofollowLabel.style.cursor = 'pointer';
-        const nofollowCheck = document.createElement('input');
-        nofollowCheck.type = 'checkbox';
-        nofollowCheck.style.width = 'auto';
-        nofollowCheck.style.marginRight = '5px';
-        nofollowCheck.checked = existingData.isNofollow;
-        nofollowLabel.append(nofollowCheck, this.t('image.nofollow'));
-
-        checksDiv.append(targetLabel, nofollowLabel);
-        linkSection.appendChild(checksDiv);
-
-        // Добавляем секцию ссылки в основную сетку
-        grid.appendChild(linkSection);
-
-        form.appendChild(grid);
-
-        // Handler for file upload in modal
-        if (fileInput) {
-            fileInput.addEventListener('change', async () => {
-                const file = fileInput.files[0];
-                if (!file) return;
-
-                uploadStatus.style.display = 'block';
-                uploadStatus.style.color = 'var(--redactix-primary)';
-                uploadStatus.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 6px; animation: spin 1s linear infinite;">
-                        <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32">
-                            <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/>
-                        </circle>
-                    </svg>
-                    ${this.t('image.uploading')}
-                `;
-
-                try {
-                    const formData = new FormData();
-                    formData.append('image', file);
-
-                    const response = await fetch(this.uploadUrl, {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    // Check HTTP status
-                    if (!response.ok && response.status !== 400) {
-                        throw new Error(`Server error (${response.status})`);
-                    }
-
-                    // Try to parse JSON
-                    let result;
-                    try {
-                        result = await response.json();
-                    } catch (e) {
-                        throw new Error('Invalid server response');
-                    }
-
-                    if (result.success) {
-                        uploadStatus.style.color = '#10b981';
-                        uploadStatus.innerHTML = `
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
-                                <polyline points="20 6 9 17 4 12"/>
-                            </svg>
-                            ${this.t('image.uploadSuccess')}
-                        `;
-
-                        // Fill inputs with server data
-                        urlInput.value = result.src;
-                        if (result.srcset) srcsetInput.value = result.srcset;
-                        if (result.alt) altInput.value = result.alt;
-                        if (result.title) titleInput.value = result.title;
-                        if (result.caption) captionInput.value = result.caption;
-                    } else {
-                        // Error from server
-                        uploadStatus.style.color = 'var(--redactix-danger)';
-                        uploadStatus.textContent = result.error || 'Upload failed';
-                    }
-                } catch (error) {
-                    // Network error or parsing error
-                    uploadStatus.style.color = 'var(--redactix-danger)';
-                    uploadStatus.textContent = error.message || 'Connection error';
-                }
-            });
-        }
-
-        // Preparing additional buttons (Delete for editing)
-        const extraButtons = [];
-        if (isEditing) {
-            extraButtons.push({
-                text: this.t('image.removeImage'),
-                danger: true,
-                onClick: () => {
-                    if (existingFigure) {
-                        existingFigure.remove();
-                    } else if (existingImg) {
-                        const link = existingImg.closest('a');
-                        if (link) {
-                            link.remove();
-                        } else {
-                            existingImg.remove();
-                        }
-                    }
-                    this.instance.sync();
-                    this.instance.modal.close();
-                }
-            });
-        }
-
-        this.instance.modal.open({
-            title: isEditing ? this.t('image.editTitle') : this.t('image.title'),
-            body: form,
-            extraButtons: extraButtons,
-            onSave: () => {
-                const url = urlInput.value;
-                const alt = altInput.value;
-                const title = titleInput.value;
-                const srcset = srcsetInput.value;
-                const loading = loadingSelect.value;
-                const caption = captionInput.value;
-                const linkUrl = linkInput.value;
-                const isBlank = targetCheck.checked;
-                const isNofollow = nofollowCheck.checked;
-                const relExtra = relInput.value.trim();
-
-                if (url && url !== 'https://') {
-                    if (isEditing) {
-                        // Update existing image
-                        this.updateImage(existingFigure, existingImg, {
-                            url,
-                            alt,
-                            title,
-                            srcset,
-                            loading,
-                            caption,
-                            linkUrl,
-                            isBlank,
-                            isNofollow,
-                            relExtra
-                        });
-                    } else {
-                        this.instance.selection.restore();
-                        this.insertImage({
-                            url,
-                            alt,
-                            title,
-                            srcset,
-                            loading,
-                            caption,
-                            linkUrl,
-                            isBlank,
-                            isNofollow,
-                            relExtra
-                        });
-                    }
-                    this.instance.sync();
-                }
-            }
+        editor.addEventListener('drop', (e) => {
+            editor.classList.remove('redactix-dragover');
+            const files = Array.from((e.dataTransfer && e.dataTransfer.files) || [])
+                .filter(file => (file.type || '').startsWith('image/'));
+            if (files.length === 0) return;
+            e.preventDefault();
+            // Insert where the files were dropped, not at the old caret.
+            this.editor.placeCaretAtPoint(e.clientX, e.clientY);
+            this.uploadFiles(files);
         });
     }
 
     /**
-     * Simplified modal for lite mode
-     * Only URL and alt, without upload, srcset, links, etc.
+     * Upload via paste (Ctrl+V) of image FILES (screenshots, "copy image").
+     *
+     * Only intercepts when the clipboard has no HTML, or the HTML is just a
+     * single <img>. Excel / Word / Google Sheets put a PNG rendering of the
+     * selection next to the real text/html — those pastes belong to the
+     * normal paste handler, not to an image upload.
      */
-    openLiteModal(existingFigure = null, existingImg = null) {
-        this.instance.selection.save();
-        this.currentFigure = existingFigure;
+    initPasteUpload() {
+        this.instance.editorEl.addEventListener('paste', (e) => {
+            const cd = e.clipboardData;
+            if (!cd) return;
+            const files = clipboardImageFiles(cd);
+            if (files.length === 0) return;
+            const html = cd.getData('text/html');
+            if (html && !isSingleImageHtml(html)) return;
 
-        // Extract existing data
-        let existingData = {
-            url: 'https://',
-            alt: ''
-        };
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            this.uploadFiles(files);
+        }, true); // capture: runs before the core paste handler
+    }
 
-        if (existingFigure) {
-            const img = existingFigure.querySelector('img');
-            if (img) {
-                existingData.url = img.getAttribute('src') || 'https://';
-                existingData.alt = img.getAttribute('alt') || '';
-            }
-        } else if (existingImg) {
-            existingData.url = existingImg.getAttribute('src') || 'https://';
-            existingData.alt = existingImg.getAttribute('alt') || '';
-        }
-
-        const isEditing = existingFigure || existingImg;
-
-        const form = document.createElement('div');
-
-        // Only URL and Alt - simple form
-        const urlGroup = this.createInputGroup(this.t('image.url') + ' *', 'text', existingData.url);
-        const urlInput = urlGroup.querySelector('input');
-        urlInput.placeholder = 'https://example.com/image.jpg';
-
-        const altGroup = this.createInputGroup(this.t('image.altDescription'), 'text', existingData.alt);
-        const altInput = altGroup.querySelector('input');
-        altInput.placeholder = '';
-
-        form.append(urlGroup, altGroup);
-
-        // Preparing additional buttons (Delete for editing)
-        const extraButtons = [];
-        if (isEditing) {
-            extraButtons.push({
-                text: this.t('image.removeImage'),
-                danger: true,
-                onClick: () => {
-                    if (existingFigure) {
-                        existingFigure.remove();
-                    } else if (existingImg) {
-                        existingImg.remove();
-                    }
-                    this.instance.sync();
-                    this.instance.modal.close();
-                }
-            });
-        }
-
-        this.instance.modal.open({
-            title: isEditing ? this.t('image.editTitle') : this.t('image.title'),
-            body: form,
-            extraButtons: extraButtons,
-            onSave: () => {
-                const url = urlInput.value;
-                const alt = altInput.value;
-
-                if (url && url !== 'https://') {
-                    if (isEditing) {
-                        // Update existing image (simplified)
-                        this.updateImageLite(existingFigure, existingImg, { url, alt });
-                    } else {
-                        this.instance.selection.restore();
-                        this.insertImageLite({ url, alt });
-                    }
-                    this.instance.sync();
-                }
-            }
+    /**
+     * Upload files at the caret. All placeholders are inserted first so the
+     * images end up in the order they were dropped / pasted.
+     */
+    async uploadFiles(files) {
+        const placeholders = files.map(() => {
+            const placeholder = createUploadPlaceholder(this.t('image.uploading'));
+            this.instance.selection.insertNode(placeholder);
+            return placeholder;
         });
-    }
-
-    /**
-     * Update image in lite mode
-     */
-    updateImageLite(existingFigure, existingImg, options) {
-        const { alt } = options;
-        const url = sanitizeImageSrc(options.url);
-        if (!url) return;
-
-        if (existingFigure) {
-            let img = existingFigure.querySelector('img');
-            if (!img) {
-                img = document.createElement('img');
-                img.setAttribute('loading', 'lazy'); // Default lazy in lite mode
-                existingFigure.insertBefore(img, existingFigure.firstChild);
-            }
-            img.setAttribute('src', url);
-            if (alt) img.setAttribute('alt', alt); else img.removeAttribute('alt');
-            // Ensure that loading="lazy" is set
-            if (!img.hasAttribute('loading')) {
-                img.setAttribute('loading', 'lazy');
-            }
-        } else if (existingImg) {
-            // Wrap in figure for consistency
-            const figure = document.createElement('figure');
-            figure.contentEditable = 'false';
-
-            existingImg.setAttribute('src', url);
-            if (alt) existingImg.setAttribute('alt', alt); else existingImg.removeAttribute('alt');
-            existingImg.setAttribute('loading', 'lazy');
-
-            existingImg.parentNode.insertBefore(figure, existingImg);
-            figure.appendChild(existingImg);
-
-            // Add empty figcaption
-            const figcaption = document.createElement('figcaption');
-            figcaption.contentEditable = 'true';
-            figcaption.innerHTML = '<br>';
-            figure.appendChild(figcaption);
+        for (let i = 0; i < files.length; i++) {
+            await this.uploadIntoPlaceholder(files[i], placeholders[i]);
         }
     }
 
-    /**
-     * Insert image in lite mode
-     */
-    insertImageLite(options) {
-        const { alt } = options;
-        const url = sanitizeImageSrc(options.url);
-        if (!url) return;
+    async uploadIntoPlaceholder(file, placeholder) {
+        const result = await this.runUpload(file, {
+            onProgress: (f) => setPlaceholderLabel(placeholder, this.t('upload.progress', { percent: Math.round(f * 100) }))
+        });
+        if (!placeholder.isConnected) return; // removed / undone meanwhile
+        if (result.ok) {
+            // One undo step: the placeholder is UI (not in snapshots), so
+            // undo removes exactly the uploaded image.
+            this.transact(() => placeholder.replaceWith(this.buildFigure(result.data)));
+        } else if (result.code !== 'aborted') {
+            showPlaceholderError(placeholder, errorMessage(result, (k, p) => this.t(k, p)), this.t('upload.remove'));
+        }
+    }
 
-        // Create figure for consistency with full version
+    /** Plain image figure from a sanitised media record (see media-client). */
+    buildFigure(data) {
         const figure = document.createElement('figure');
         figure.contentEditable = 'false';
-
         const img = document.createElement('img');
-        img.setAttribute('src', url);
-        img.setAttribute('loading', 'lazy'); // Default lazy in lite mode
-        if (alt) img.setAttribute('alt', alt);
-
+        img.setAttribute('src', data.src);
+        if (data.srcset) img.setAttribute('srcset', data.srcset);
+        if (data.alt) img.setAttribute('alt', data.alt);
+        if (data.title) img.setAttribute('title', data.title);
+        if (data.loading) img.setAttribute('loading', data.loading);
         figure.appendChild(img);
+        writeCaption(figure, data.caption || '', { keepEmpty: true });
+        return figure;
+    }
 
-        // Add empty figcaption to allow caption input
-        const figcaption = document.createElement('figcaption');
-        figcaption.contentEditable = 'true';
-        figcaption.innerHTML = '<br>';
-        figure.appendChild(figcaption);
+    // ------------------------------------------------------------------
+    // Modal
+    // ------------------------------------------------------------------
 
-        this.instance.selection.insertNode(figure);
-        if (this.instance.core) this.instance.core.ensureTrailingParagraph();
+    /**
+     * The image a figure / standalone img stands for. Lookups are scoped to
+     * the figure's own children: an unscoped querySelector('a') used to pick
+     * up a link inside the figcaption, and clearing the link field then
+     * moved the image into the caption and deleted it.
+     */
+    resolveTarget(figure, img) {
+        if (figure) {
+            const own = figure.querySelector(':scope > img, :scope > a > img');
+            const link = own && own.parentElement !== figure ? own.parentElement : null;
+            return { figure, img: own, link };
+        }
+        if (img) {
+            const parent = img.parentElement;
+            // Only an image-only link counts as "the image's link". An image
+            // sitting inside a text link doesn't own that link.
+            const link = parent && parent.tagName === 'A' && !parent.textContent.trim() &&
+                parent.querySelectorAll('img').length === 1 ? parent : null;
+            return { figure: null, img, link };
+        }
+        return { figure: null, img: null, link: null };
+    }
+
+    readImageData({ figure, img, link }) {
+        const rel = link ? (link.getAttribute('rel') || '') : '';
+        const relTokens = rel.split(/\s+/).filter(Boolean);
+        return {
+            url: img ? (img.getAttribute('src') || '') : '',
+            alt: img ? (img.getAttribute('alt') || '') : '',
+            srcset: img ? (img.getAttribute('srcset') || '') : '',
+            title: img ? (img.getAttribute('title') || '') : '',
+            loading: img ? (img.getAttribute('loading') || '') : '',
+            caption: figure ? readCaption(figure) : '',
+            linkUrl: link ? (link.getAttribute('href') || '') : '',
+            isBlank: link ? link.getAttribute('target') === '_blank' : false,
+            isNofollow: relTokens.includes('nofollow'),
+            // Additional rel values (sponsored, ugc …) — the managed ones are
+            // re-derived from the checkboxes.
+            relExtra: relTokens.filter(r => !MANAGED_REL.has(r.toLowerCase())).join(' ')
+        };
     }
 
     /**
-     * Open panel for browsing uploaded images
+     * Insert / edit modal. Lite mode shows only URL + alt; every other value
+     * of an edited image is preserved as is.
      */
-    openBrowsePanel(container, onSelect) {
-        // Clear container and show loading
-        container.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: var(--redactix-text-muted);">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; display: inline-block;">
-                    <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32">
-                        <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/>
-                    </circle>
-                </svg>
-                <div style="margin-top: 8px;">${this.t('image.loadingImages')}</div>
-            </div>
-        `;
+    openModal(existingFigure = null, existingImg = null) {
+        this.instance.selection.save();
 
-        const browseFormData = new FormData();
-        browseFormData.append('action', 'browse');
+        const t = (k, p) => this.t(k, p);
+        const full = !this.liteMode;
+        const target = this.resolveTarget(existingFigure, existingImg);
+        const data = this.readImageData(target);
+        const isEditing = !!(existingFigure || existingImg);
 
-        fetch(this.browseUrl, {
-            method: 'POST',
-            body: browseFormData
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (!data.success) {
-                    this.setStatusMessage(container,
-                        `Error: ${data.error || 'Failed to load images'}`,
-                        'color: var(--redactix-danger); padding: 10px;');
-                    return;
-                }
+        const form = document.createElement('div');
+        const status = statusLine('', { error: true });
+        const modalUploads = new AbortController();
+        let pendingUploads = 0;
+        let browsePanel = null;
 
-                if (data.images.length === 0) {
-                    this.setStatusMessage(container, this.t('image.noImages'),
-                        'color: var(--redactix-text-muted); padding: 20px; text-align: center;');
-                    return;
-                }
+        const urlGroup = inputGroup(t('image.url') + ' *', 'text', data.url, { placeholder: 'https://example.com/image.jpg' });
+        const altGroup = inputGroup(full ? t('image.alt') : t('image.altDescription'), 'text', data.alt);
+        const fields = { url: urlGroup.field, alt: altGroup.field };
 
-                this.renderBrowseGrid(container, data.images, data.allowDelete, onSelect);
-            })
-            .catch(error => {
-                this.setStatusMessage(container, 'Connection error',
-                    'color: var(--redactix-danger); padding: 10px;');
-            });
-    }
-
-    /**
-     * Render grid of images for selection
-     */
-    renderBrowseGrid(container, images, allowDelete, onSelect) {
-        container.innerHTML = '';
-
-        const grid = document.createElement('div');
-        grid.style.display = 'grid';
-        grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(100px, 1fr))';
-        grid.style.gap = '8px';
-        grid.style.maxHeight = '250px';
-        grid.style.overflowY = 'auto';
-        grid.style.padding = '8px';
-        grid.style.background = 'var(--redactix-bg-secondary)';
-        grid.style.borderRadius = '8px';
-        grid.style.border = '1px solid var(--redactix-border)';
-
-        images.forEach(img => {
-            const item = document.createElement('div');
-            item.style.position = 'relative';
-            item.style.aspectRatio = '1';
-            item.style.borderRadius = '6px';
-            item.style.overflow = 'hidden';
-            item.style.cursor = 'pointer';
-            item.style.border = '2px solid transparent';
-            item.style.transition = 'border-color 0.15s, transform 0.15s';
-            item.style.background = 'var(--redactix-bg)';
-
-            // Image preview
-            const preview = document.createElement('img');
-            preview.src = img.src;
-            preview.style.width = '100%';
-            preview.style.height = '100%';
-            preview.style.objectFit = 'cover';
-            preview.alt = img.filename;
-
-            // Tooltip with information
-            item.title = `${img.filename}\n${img.size}`;
-
-            // Hover effect
-            item.addEventListener('mouseenter', () => {
-                item.style.borderColor = 'var(--redactix-primary)';
-                item.style.transform = 'scale(1.02)';
-            });
-            item.addEventListener('mouseleave', () => {
-                item.style.borderColor = 'transparent';
-                item.style.transform = 'scale(1)';
-            });
-
-            // Click to select
-            item.addEventListener('click', () => {
-                onSelect(img);
-                // Close the panel after selection
-                this.setStatusMessage(container,
-                    `${this.t('image.imageSelected')}: ${img.filename}`,
-                    'color: #10b981; padding: 10px; text-align: center;');
-                setTimeout(() => {
-                    // Restore browse button
-                    this.restoreBrowseButton(container, onSelect);
-                }, 1500);
-            });
-
-            item.appendChild(preview);
-
-            // Delete button (if allowed)
-            if (allowDelete) {
-                const deleteBtn = document.createElement('button');
-                deleteBtn.type = 'button';
-                deleteBtn.innerHTML = '×';
-                deleteBtn.style.position = 'absolute';
-                deleteBtn.style.top = '4px';
-                deleteBtn.style.right = '4px';
-                deleteBtn.style.width = '20px';
-                deleteBtn.style.height = '20px';
-                deleteBtn.style.padding = '0';
-                deleteBtn.style.background = 'rgba(220, 38, 38, 0.9)';
-                deleteBtn.style.color = 'white';
-                deleteBtn.style.border = 'none';
-                deleteBtn.style.borderRadius = '50%';
-                deleteBtn.style.cursor = 'pointer';
-                deleteBtn.style.fontSize = '14px';
-                deleteBtn.style.lineHeight = '1';
-                deleteBtn.title = this.t('image.deleteTooltip');
-
-                // On touch devices there is no hover - the button is always visible.
-                const hoverable = window.matchMedia && window.matchMedia('(hover: hover)').matches;
-                deleteBtn.style.display = hoverable ? 'none' : 'block';
-                if (hoverable) {
-                    item.addEventListener('mouseenter', () => {
-                        deleteBtn.style.display = 'block';
-                    });
-                    item.addEventListener('mouseleave', () => {
-                        deleteBtn.style.display = 'none';
-                    });
-                }
-
-                deleteBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (confirm(this.t('image.confirmDelete', { filename: img.filename }))) {
-                        this.deleteImage(img.filename, container, onSelect);
+        if (full) {
+            // File upload block (if uploadUrl is present)
+            if (this.uploadUrl) {
+                const zone = createUploadZone({
+                    title: isEditing ? t('image.uploadReplace') : t('image.uploadClick'),
+                    hint: t('image.uploadFormats'),
+                    accept: 'image/*',
+                    onFiles: async ([file]) => {
+                        pendingUploads++;
+                        zone.setStatus(t('image.uploading'), 'progress');
+                        const result = await upload(this.uploadUrl, 'image', file, {
+                            signal: modalUploads.signal,
+                            onProgress: (f) => zone.setStatus(t('upload.progress', { percent: Math.round(f * 100) }), 'progress')
+                        });
+                        pendingUploads--;
+                        if (result.ok) {
+                            zone.setStatus(t('image.uploadSuccess'), 'success');
+                            status.textContent = '';
+                            this.fillFields(fields, result.data);
+                        } else if (result.code !== 'aborted') {
+                            zone.setStatus(errorMessage(result, t), 'error');
+                        }
                     }
                 });
-
-                item.appendChild(deleteBtn);
+                form.appendChild(zone.element);
             }
 
-            // File information
-            const info = document.createElement('div');
-            info.style.position = 'absolute';
-            info.style.bottom = '0';
-            info.style.left = '0';
-            info.style.right = '0';
-            info.style.background = 'linear-gradient(transparent, rgba(0,0,0,0.7))';
-            info.style.color = 'white';
-            info.style.padding = '20px 6px 6px';
-            info.style.fontSize = '10px';
-            info.style.whiteSpace = 'nowrap';
-            info.style.overflow = 'hidden';
-            info.style.textOverflow = 'ellipsis';
-            info.textContent = img.size;
+            // Image browser block (if browseUrl is present)
+            if (this.browseUrl) {
+                browsePanel = this.createBrowsePanel((item) => this.fillFields(fields, item));
+                form.appendChild(browsePanel.element);
+            }
 
-            item.appendChild(info);
-            grid.appendChild(item);
-        });
+            if (this.uploadUrl || this.browseUrl) {
+                form.appendChild(createOrDivider(t('image.orEnterUrl')));
+            }
 
-        container.appendChild(grid);
+            // Fields grid (2 columns on PC, 1 on mobile)
+            const grid = document.createElement('div');
+            grid.className = 'redactix-modal-grid';
 
-        // "Close" button
-        const closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.textContent = this.t('image.closeGallery');
-        closeBtn.style.width = '100%';
-        closeBtn.style.marginTop = '8px';
-        closeBtn.style.padding = '8px';
-        closeBtn.style.background = 'var(--redactix-bg-active)';
-        closeBtn.style.border = 'none';
-        closeBtn.style.borderRadius = '6px';
-        closeBtn.style.cursor = 'pointer';
-        closeBtn.style.fontSize = '13px';
-        closeBtn.style.color = 'var(--redactix-text)';
+            urlGroup.classList.add('redactix-modal-full-width');
+            const titleGroup = inputGroup(t('image.title_attr'), 'text', data.title);
+            const srcsetGroup = inputGroup(t('image.srcset'), 'text', data.srcset, { placeholder: t('image.srcsetPlaceholder') });
+            srcsetGroup.classList.add('redactix-modal-full-width');
+            const loadingGroup = selectGroup(t('image.loading'), data.loading, [
+                { value: '', label: t('image.loadingDefault') },
+                { value: 'lazy', label: t('image.loadingLazy') },
+                { value: 'eager', label: t('image.loadingEager') }
+            ]);
+            const captionGroup = textareaGroup(t('image.caption'), data.caption, { placeholder: t('image.captionPlaceholder') });
+            captionGroup.classList.add('redactix-modal-full-width');
+            grid.append(urlGroup, altGroup, titleGroup, srcsetGroup, loadingGroup, captionGroup);
 
-        closeBtn.addEventListener('click', () => {
-            this.restoreBrowseButton(container, onSelect);
-        });
-
-        container.appendChild(closeBtn);
-    }
-
-    /**
-     * Restore browse button
-     */
-    restoreBrowseButton(container, onSelect) {
-        container.innerHTML = '';
-
-        const browseBtn = document.createElement('button');
-        browseBtn.type = 'button';
-        browseBtn.textContent = this.t('image.chooseFromUploaded');
-        browseBtn.style.width = '100%';
-        browseBtn.style.padding = '10px';
-        browseBtn.style.background = 'var(--redactix-bg-hover)';
-        browseBtn.style.border = '1px solid var(--redactix-border)';
-        browseBtn.style.borderRadius = '6px';
-        browseBtn.style.cursor = 'pointer';
-        browseBtn.style.fontSize = '14px';
-        browseBtn.style.color = 'var(--redactix-text)';
-        browseBtn.style.transition = 'background 0.15s';
-
-        browseBtn.addEventListener('mouseenter', () => {
-            browseBtn.style.background = 'var(--redactix-bg-active)';
-        });
-        browseBtn.addEventListener('mouseleave', () => {
-            browseBtn.style.background = 'var(--redactix-bg-hover)';
-        });
-
-        browseBtn.addEventListener('click', () => {
-            this.openBrowsePanel(container, onSelect);
-        });
-
-        container.appendChild(browseBtn);
-    }
-
-    /**
-     * Delete image
-     */
-    deleteImage(filename, container, onSelect) {
-        const formData = new FormData();
-        formData.append('action', 'delete');
-        formData.append('file', filename);
-
-        fetch(this.browseUrl, {
-            method: 'POST',
-            body: formData
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Reload the list
-                    this.openBrowsePanel(container, onSelect);
-                } else {
-                    alert(data.error || 'Failed to delete image');
-                }
-            })
-            .catch(() => {
-                alert('Connection error');
+            // Link section
+            const linkSection = document.createElement('div');
+            linkSection.className = 'redactix-modal-full-width redactix-image-link-section';
+            const linkTitle = document.createElement('div');
+            linkTitle.className = 'redactix-image-link-title';
+            linkTitle.textContent = t('image.linkSection');
+            const link = linkFields({
+                urlLabel: t('image.linkUrl'),
+                blankLabel: t('image.openNewWindow'),
+                nofollowLabel: t('image.nofollow'),
+                url: data.linkUrl,
+                blank: data.isBlank,
+                nofollow: data.isNofollow,
+                placeholder: t('image.linkUrlPlaceholder')
             });
-    }
+            const relGroup = inputGroup(t('image.relExceptNofollow'), 'text', data.relExtra, { placeholder: t('image.relPlaceholder') });
+            linkSection.append(linkTitle, link.element, relGroup);
+            grid.appendChild(linkSection);
 
-    createInputGroup(labelText, type, value = '') {
-        const div = document.createElement('div');
-        const label = document.createElement('label');
-        label.textContent = labelText;
-        const input = document.createElement('input');
-        input.type = type;
-        input.value = value;
-        div.append(label, input);
-        return div;
-    }
+            form.appendChild(grid);
+            Object.assign(fields, {
+                title: titleGroup.field,
+                srcset: srcsetGroup.field,
+                loading: loadingGroup.field,
+                caption: captionGroup.field,
+                linkUrl: link.url,
+                isBlank: link.blank,
+                isNofollow: link.nofollow,
+                relExtra: relGroup.field
+            });
+        } else {
+            form.append(urlGroup, altGroup);
+        }
+        form.appendChild(status);
 
-    createTextareaGroup(labelText, value = '') {
-        const div = document.createElement('div');
-        const label = document.createElement('label');
-        label.textContent = labelText;
-        const textarea = document.createElement('textarea');
-        textarea.value = value;
-        textarea.style.width = '100%';
-        textarea.style.minHeight = '60px';
-        textarea.style.padding = '8px';
-        textarea.style.border = '1px solid var(--redactix-border)';
-        textarea.style.borderRadius = '6px';
-        textarea.style.fontFamily = 'inherit';
-        textarea.style.fontSize = '14px';
-        textarea.style.resize = 'vertical';
-        textarea.style.boxSizing = 'border-box';
-        div.append(label, textarea);
-        return div;
-    }
+        const showError = (key, field) => {
+            status.textContent = t(key);
+            if (field) field.focus();
+            return false;
+        };
 
-    createSelectGroup(labelText, value = '', options = []) {
-        const div = document.createElement('div');
-        const label = document.createElement('label');
-        label.textContent = labelText;
-        const select = document.createElement('select');
-        select.style.width = '100%';
-        select.style.padding = '10px 12px';
-        select.style.marginBottom = '16px';
-        select.style.boxSizing = 'border-box';
-        select.style.border = '1px solid var(--redactix-border)';
-        select.style.borderRadius = '6px';
-        select.style.fontSize = '14px';
+        const extraButtons = [];
+        if (isEditing) {
+            extraButtons.push({
+                text: t('image.removeImage'),
+                danger: true,
+                onClick: () => {
+                    this.transact(() => this.removeTarget(target));
+                    this.instance.modal.close();
+                }
+            });
+        }
 
-        options.forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt.value;
-            option.textContent = opt.label;
-            if (opt.value === value) {
-                option.selected = true;
+        this.instance.modal.open({
+            title: isEditing ? t('image.editTitle') : t('image.title'),
+            body: form,
+            extraButtons,
+            onClose: () => {
+                modalUploads.abort();
+                if (browsePanel) browsePanel.destroy();
+            },
+            onSave: () => {
+                if (pendingUploads > 0) return showError('upload.pending');
+
+                // Hidden fields (lite mode) keep the image's current values.
+                const values = { ...data };
+                values.url = fields.url.value.trim();
+                values.alt = fields.alt.value;
+                if (full) {
+                    values.title = fields.title.value;
+                    values.srcset = fields.srcset.value.trim();
+                    values.loading = fields.loading.value;
+                    values.caption = fields.caption.value;
+                    values.linkUrl = fields.linkUrl.value.trim();
+                    values.isBlank = fields.isBlank.checked;
+                    values.isNofollow = fields.isNofollow.checked;
+                    values.relExtra = fields.relExtra.value.trim();
+                } else if (!isEditing || !values.loading) {
+                    values.loading = 'lazy'; // lite mode default
+                }
+
+                if (!values.url || values.url === 'https://' || !sanitizeImageSrc(values.url)) {
+                    return showError('image.invalidUrl', fields.url);
+                }
+                if (values.linkUrl && sanitizeUrl(values.linkUrl) === null) {
+                    return showError('image.invalidLinkUrl', fields.linkUrl);
+                }
+
+                if (isEditing) {
+                    this.transact(() => this.updateImage(existingFigure, existingImg, values));
+                } else {
+                    this.instance.selection.restore();
+                    this.transact(() => this.insertImage(values));
+                }
             }
-            select.appendChild(option);
         });
-
-        div.append(label, select);
-        return div;
     }
 
-    updateImage(existingFigure, existingImg, options) {
-        const { alt, title, srcset, loading, isBlank, isNofollow, relExtra } = options;
+    /** Fill modal fields from an upload / browse record (sanitised). */
+    fillFields(fields, item) {
+        if (item.src) fields.url.value = item.src;
+        if (item.alt) fields.alt.value = item.alt;
+        if (fields.srcset && item.srcset) fields.srcset.value = item.srcset;
+        if (fields.title && item.title) fields.title.value = item.title;
+        if (fields.caption && item.caption) fields.caption.value = item.caption;
+    }
 
+    /** "Choose from uploaded images" panel for this editor's browseUrl. */
+    createBrowsePanel(onSelect, options = {}) {
+        return createMediaBrowsePanel({
+            t: (k, p) => this.t(k, p),
+            type: 'image',
+            url: this.browseUrl,
+            allowDelete: this.allowDelete,
+            onSelect,
+            ...options
+        });
+    }
+
+    /**
+     * Back-compat entry point (QuoteCard's author-photo picker): replaces
+     * `container`'s contents with an open browse panel.
+     */
+    openBrowsePanel(container, onSelect) {
+        if (!this.browseUrl) return null;
+        const panel = this.createBrowsePanel(onSelect);
+        container.replaceChildren(panel.element);
+        panel.open();
+        return panel;
+    }
+
+    removeTarget({ figure, img, link }) {
+        if (figure) {
+            figure.remove();
+            return;
+        }
+        if (!img) return;
+        // Remove only the image: a link that held nothing else goes with it,
+        // a text link around it stays.
+        if (link) link.remove();
+        else img.remove();
+    }
+
+    applyImageAttributes(img, src, values) {
+        img.setAttribute('src', src);
+        const set = (name, value) => {
+            if (value) img.setAttribute(name, value);
+            else img.removeAttribute(name);
+        };
+        set('alt', values.alt);
+        set('title', values.title);
+        set('srcset', sanitizeSrcset(values.srcset || ''));
+        set('loading', ['lazy', 'eager'].includes(values.loading) ? values.loading : '');
+    }
+
+    /**
+     * Create / update / remove the link around `img`. Returns the link or null.
+     */
+    applyLink(img, link, values) {
+        const href = values.linkUrl ? sanitizeUrl(values.linkUrl) : null;
+        if (href) {
+            if (!link) {
+                link = document.createElement('a');
+                img.parentNode.insertBefore(link, img);
+                link.appendChild(img);
+            }
+            link.setAttribute('href', href);
+            if (values.isBlank) link.setAttribute('target', '_blank');
+            else link.removeAttribute('target');
+            const rel = composeLinkRel({ nofollow: values.isNofollow, blank: values.isBlank, extra: sanitizeRel(values.relExtra || '') });
+            if (rel) link.setAttribute('rel', rel);
+            else link.removeAttribute('rel');
+            return link;
+        }
+        if (link) {
+            // Remove link, keep img
+            link.parentNode.insertBefore(img, link);
+            link.remove();
+        }
+        return null;
+    }
+
+    updateImage(existingFigure, existingImg, values) {
         // Same sanitization as on paste path: src - only http(s)/
         // relative/raster data:, href link - safe schema,
         // rel is built via composeLinkRel (noopener for _blank).
-        const url = sanitizeImageSrc(options.url);
-        if (!url) return;
-        const linkUrl = options.linkUrl ? sanitizeUrl(options.linkUrl) : null;
-        const caption = sanitizeInlineHtml(options.caption || '');
-        const rel = composeLinkRel({ nofollow: isNofollow, blank: isBlank, extra: relExtra });
+        const src = sanitizeImageSrc(values.url);
+        if (!src) return false;
 
         if (existingFigure) {
-            // Update figure
-            existingFigure.contentEditable = 'false';
-            let img = existingFigure.querySelector('img');
-            let link = existingFigure.querySelector('a');
-            let figcaption = existingFigure.querySelector('figcaption');
-
-            // Update or create img
+            const figure = existingFigure;
+            let { img, link } = this.resolveTarget(figure, null);
             if (!img) {
                 img = document.createElement('img');
+                figure.insertBefore(img, figure.firstChild);
             }
-            img.setAttribute('src', url);
-            if (alt) img.setAttribute('alt', alt); else img.removeAttribute('alt');
-            if (title) img.setAttribute('title', title); else img.removeAttribute('title');
-            if (srcset) img.setAttribute('srcset', srcset); else img.removeAttribute('srcset');
-            if (loading) img.setAttribute('loading', loading); else img.removeAttribute('loading');
-
-            // Process the link
-            if (linkUrl) {
-                if (!link) {
-                    link = document.createElement('a');
-                    // Insert link wrapping img
-                    if (img.parentNode === existingFigure) {
-                        existingFigure.insertBefore(link, img);
-                    } else {
-                        existingFigure.insertBefore(link, existingFigure.firstChild);
-                    }
-                    link.appendChild(img);
-                }
-                link.href = linkUrl;
-                if (isBlank) link.target = '_blank'; else link.removeAttribute('target');
-                if (rel) link.rel = rel; else link.removeAttribute('rel');
-            } else if (link) {
-                // Remove link, keep img
-                link.parentNode.insertBefore(img, link);
-                link.remove();
-            }
-
-            // Ensure that img/link is in figure
-            if (!link && img.parentNode !== existingFigure) {
-                existingFigure.insertBefore(img, existingFigure.firstChild);
-            }
-
-            // There is always a figcaption
-            if (!figcaption) {
-                figcaption = document.createElement('figcaption');
-                existingFigure.appendChild(figcaption);
-            }
-            figcaption.contentEditable = 'true';
-            figcaption.innerHTML = caption || '<br>';
-        } else if (existingImg) {
-            // Update standalone img (without figure) - turn into figure
-            const figure = document.createElement('figure');
+            this.applyImageAttributes(img, src, values);
+            this.applyLink(img, link, values);
             figure.contentEditable = 'false';
-
-            existingImg.setAttribute('src', url);
-            if (alt) existingImg.setAttribute('alt', alt); else existingImg.removeAttribute('alt');
-            if (title) existingImg.setAttribute('title', title); else existingImg.removeAttribute('title');
-            if (srcset) existingImg.setAttribute('srcset', srcset); else existingImg.removeAttribute('srcset');
-            if (loading) existingImg.setAttribute('loading', loading); else existingImg.removeAttribute('loading');
-
-            let imgOrLink = existingImg;
-            const oldLink = existingImg.closest('a');
-
-            if (linkUrl) {
-                const link = oldLink || document.createElement('a');
-                link.href = linkUrl;
-                if (isBlank) link.target = '_blank'; else link.removeAttribute('target');
-                if (rel) link.rel = rel; else link.removeAttribute('rel');
-                if (!oldLink) {
-                    link.appendChild(existingImg);
-                }
-                imgOrLink = link;
-            } else if (oldLink) {
-                // Remove the link
-                oldLink.parentNode.insertBefore(existingImg, oldLink);
-                oldLink.remove();
-                imgOrLink = existingImg;
-            }
-
-            // Replace img/link with figure
-            const parent = imgOrLink.parentNode;
-            parent.insertBefore(figure, imgOrLink);
-            figure.appendChild(imgOrLink);
-
-            // Always add figcaption
-            const figcaption = document.createElement('figcaption');
-            figcaption.contentEditable = 'true';
-            figcaption.innerHTML = caption || '<br>';
-            figure.appendChild(figcaption);
+            writeCaption(figure, values.caption, { keepEmpty: true });
+            return true;
         }
+
+        if (existingImg) {
+            this.figureFromStandalone(existingImg, src, values);
+            return true;
+        }
+        return false;
     }
 
-    insertImage(options) {
-        const { alt, srcset, isBlank, isNofollow, relExtra, title, loading } = options;
+    /**
+     * Turn a standalone <img> (e.g. inside a paragraph) into a figure placed
+     * NEXT TO its block — wrapping it in place produced <p><figure>, which
+     * is invalid HTML and breaks on the next parse.
+     */
+    figureFromStandalone(img, src, values) {
+        const root = this.instance.editorEl;
+        const { link: ownLink } = this.resolveTarget(null, img);
+        const node = ownLink || img;
+        const point = findInsertionPoint(node, ['FIGURE'], root);
 
-        // Sanitization - same as in updateImage.
-        const url = sanitizeImageSrc(options.url);
-        if (!url) return;
-        const linkUrl = options.linkUrl ? sanitizeUrl(options.linkUrl) : null;
-        const caption = sanitizeInlineHtml(options.caption || '');
-
-        // Create image
-        const img = document.createElement('img');
-        img.setAttribute('src', url);
-        if (alt) img.setAttribute('alt', alt);
-        if (srcset) img.setAttribute('srcset', srcset);
-        if (title) img.setAttribute('title', title);
-        if (loading) img.setAttribute('loading', loading);
-
-        let imgOrLink = img;
-
-        // If link exists - wrap it
-        if (linkUrl) {
-            const a = document.createElement('a');
-            a.href = linkUrl;
-            if (isBlank) a.target = '_blank';
-            const rel = composeLinkRel({ nofollow: isNofollow, blank: isBlank, extra: relExtra });
-            if (rel) a.rel = rel;
-            a.appendChild(img);
-            imgOrLink = a;
+        let host;
+        let ref;
+        if (point && point.block !== node) {
+            host = point.host;
+            ref = isAtBlockStart(point.block, node) ? point.block : point.block.nextSibling;
+        } else {
+            host = node.parentNode;
+            ref = node.nextSibling;
         }
+
+        const figure = document.createElement('figure');
+        figure.contentEditable = 'false';
+        figure.appendChild(img);
+        if (ownLink) ownLink.remove();
+        this.applyImageAttributes(img, src, values);
+        this.applyLink(img, null, values);
+        writeCaption(figure, values.caption, { keepEmpty: true });
+        host.insertBefore(figure, ref && ref.parentNode === host ? ref : null);
+
+        // The paragraph the image lived in may now be empty.
+        const block = point && point.block !== node ? point.block : null;
+        if (block && block.isConnected && TEXT_BLOCK_TAGS.includes(block.tagName) &&
+            !block.textContent.trim() && !block.querySelector('img, video, iframe')) {
+            block.remove();
+        }
+        return figure;
+    }
+
+    insertImage(values) {
+        const src = sanitizeImageSrc(values.url);
+        if (!src) return false;
 
         // Always create figure (even without caption)
         const figure = document.createElement('figure');
         figure.contentEditable = 'false';
-        figure.appendChild(imgOrLink);
-
-        // If caption exists - add figcaption
-        const figcaption = document.createElement('figcaption');
-        figcaption.contentEditable = 'true';
-        figcaption.innerHTML = caption || '<br>'; // Empty figcaption to allow input
-        figure.appendChild(figcaption);
+        const img = document.createElement('img');
+        figure.appendChild(img);
+        this.applyImageAttributes(img, src, values);
+        this.applyLink(img, null, values);
+        // Empty figcaption to allow caption input
+        writeCaption(figure, values.caption, { keepEmpty: true });
 
         this.instance.selection.insertNode(figure);
-        if (this.instance.core) this.instance.core.ensureTrailingParagraph();
+        return true;
     }
+}
+
+// ----------------------------------------------------------------------
+// helpers
+// ----------------------------------------------------------------------
+
+function hasFiles(dt) {
+    return !!dt && Array.from(dt.types || []).includes('Files');
+}
+
+/** Image files on a clipboard (deduplicated across items / files). */
+function clipboardImageFiles(cd) {
+    const files = [];
+    Array.from(cd.items || []).forEach(item => {
+        if (item.kind === 'file' && (item.type || '').startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) files.push(file);
+        }
+    });
+    if (files.length === 0) {
+        Array.from(cd.files || []).forEach(file => {
+            if ((file.type || '').startsWith('image/')) files.push(file);
+        });
+    }
+    return files;
+}
+
+/** Is the clipboard HTML nothing but one <img> ("Copy image" in a browser)? */
+function isSingleImageHtml(html) {
+    const body = parseHtmlInert(html);
+    body.querySelectorAll('meta, style, script, title, link').forEach(el => el.remove());
+    if ((body.textContent || '').trim()) return false;
+    return body.querySelectorAll('img').length === 1 &&
+        !body.querySelector('table, iframe, video, svg, canvas');
+}
+
+/** Is `node` preceded by nothing visible inside `block`? */
+function isAtBlockStart(block, node) {
+    const range = document.createRange();
+    range.setStart(block, 0);
+    range.setEndBefore(node);
+    if (range.toString().trim()) return false;
+    return !range.cloneContents().querySelector('img, video, iframe');
 }

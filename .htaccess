@@ -1,0 +1,73 @@
+# Redactix — production hardening for the repository root (Apache 2.2 / 2.4).
+#
+# Lets you upload the whole repository to a public site: the demo
+# (index.html, redactix/, uploads/, redactix_images_demo.php) stays
+# reachable, everything that is development-only or unsafe without your own
+# authentication is closed.
+#
+# nginx / other servers: replicate the same rules in the server config.
+
+# No directory listings. Requires "AllowOverride Options" — if your host
+# answers with HTTP 500, remove this line (all sensitive paths are still
+# denied below).
+Options -Indexes
+
+# ----------------------------------------------------------------------------
+# Real upload endpoint: no authentication, no CSRF protection, writes and
+# deletes files. Never expose it publicly as is — wire your own endpoint with
+# auth (see README → Security → Uploads) or remove this block only on a
+# protected admin host. The demo endpoint (redactix_images_demo.php) never
+# writes to disk and stays available for index.html.
+# ----------------------------------------------------------------------------
+<Files "redactix_images.php">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</Files>
+
+# ----------------------------------------------------------------------------
+# Documentation, development and editor files: *.md (README, CLAUDE.md,
+# style.md), test runner, logs, backups, any dot-file (.gitignore,
+# .gitattributes, .DS_Store, .htaccess itself).
+# ----------------------------------------------------------------------------
+<FilesMatch "(?i)(\.(md|markdown|mjs|log|bak|old|orig|swp|swo|dist|ini|sh|sql|lock)|~)$|^\.(?!well-known$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ----------------------------------------------------------------------------
+# Directories: tests/ and every dot-directory (.git, .claude, .idea …).
+# .well-known stays open (ACME / Let's Encrypt). tests/ additionally has its
+# own .htaccess, so it stays closed even without mod_rewrite.
+# ----------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_URI} !/\.well-known/
+    RewriteRule (^|/)\. - [F,L]
+    RewriteRule ^tests(/|$) - [F,L]
+</IfModule>
+<IfModule !mod_rewrite.c>
+    <IfModule mod_alias.c>
+        RedirectMatch 404 /\.(?!well-known/)
+        RedirectMatch 404 /tests(/|$)
+    </IfModule>
+</IfModule>
+
+# ----------------------------------------------------------------------------
+# Baseline security headers.
+# ----------------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    # The editor demo may be framed only by this site (clickjacking).
+    Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>

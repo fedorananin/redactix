@@ -1,26 +1,44 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
+import { pushEscapeLayer } from '../core/layers.js';
+
+// Page-scroll lock shared by every editor on the page. With two editors in
+// fullscreen, whichever exited first used to unlock the page under the other
+// one — now the lock is released only when the last one leaves.
+let scrollLockCount = 0;
+
+function lockPageScroll() {
+    scrollLockCount += 1;
+    if (scrollLockCount === 1) {
+        document.body.classList.add('redactix-fullscreen-active');
+    }
+}
+
+function unlockPageScroll() {
+    if (scrollLockCount === 0) return;
+    scrollLockCount -= 1;
+    if (scrollLockCount === 0) {
+        document.body.classList.remove('redactix-fullscreen-active');
+    }
+}
 
 export default class Fullscreen extends Module {
+    static moduleName = 'Fullscreen';
+
     constructor(instance) {
         super(instance);
         this.isFullscreen = false;
         this.originalMaxHeight = null;
+        this.popEscape = null;
+    }
 
-        // If the instance is destroyed in fullscreen mode — remove
-        // the Escape listener and class from <body>, otherwise the page will
-        // remain "locked" under fullscreen.
-        if (instance.onDestroy) {
-            instance.onDestroy(() => {
-                if (this.escHandler) {
-                    document.removeEventListener('keydown', this.escHandler);
-                    this.escHandler = null;
-                }
-                if (this.isFullscreen) {
-                    document.body.classList.remove('redactix-fullscreen-active');
-                }
-            });
-        }
+    init() {
+        // If the instance is destroyed in fullscreen mode, release the
+        // Escape layer and the page scroll lock — otherwise the page stays
+        // "locked" under a fullscreen editor that no longer exists.
+        this.instance.onDestroy(() => {
+            if (this.isFullscreen) this.exit();
+        });
     }
 
     getButtons() {
@@ -28,7 +46,7 @@ export default class Fullscreen extends Module {
         if (this.instance.config.liteMode) {
             return [];
         }
-        
+
         return [
             {
                 name: 'fullscreen',
@@ -40,62 +58,71 @@ export default class Fullscreen extends Module {
     }
 
     toggleFullscreen() {
-        this.isFullscreen = !this.isFullscreen;
+        if (this.isFullscreen) this.exit();
+        else this.enter();
+    }
+
+    enter() {
+        if (this.isFullscreen) return;
+        this.isFullscreen = true;
         const wrapper = this.instance.wrapper;
         const editor = this.instance.editorEl;
-        const btn = this.instance.toolbar.buttons.get('fullscreen');
 
-        if (this.isFullscreen) {
-            // Enable fullscreen mode
-            wrapper.classList.add('redactix-fullscreen');
-            document.body.classList.add('redactix-fullscreen-active');
-            
-            // Save original maxHeight and reset it
-            this.originalMaxHeight = editor.style.maxHeight;
-            editor.style.maxHeight = '';
-            
-            // Reset sticky state of toolbar (if present)
-            if (this.instance.toolbar.updateStickyState) {
-                this.instance.toolbar.updateStickyState();
-            }
-            
-            if (btn) {
-                btn.classList.add('active');
-                btn.innerHTML = Icons.fullscreenExit;
-            }
-            
-            // Listen for Escape to exit
-            this.escHandler = (e) => {
-                if (e.key === 'Escape') {
-                    this.toggleFullscreen();
-                }
-            };
-            document.addEventListener('keydown', this.escHandler);
-        } else {
-            // Disable fullscreen mode
-            wrapper.classList.remove('redactix-fullscreen');
-            document.body.classList.remove('redactix-fullscreen-active');
-            
-            // Restore original maxHeight
-            if (this.originalMaxHeight) {
-                editor.style.maxHeight = this.originalMaxHeight;
-            }
-            
-            // Restore sticky state of toolbar (if it was active)
-            if (this.instance.toolbar.updateStickyState) {
-                setTimeout(() => this.instance.toolbar.updateStickyState(), 0);
-            }
-            
-            if (btn) {
-                btn.classList.remove('active');
-                btn.innerHTML = Icons.fullscreen;
-            }
-            
-            // Remove Escape listener
-            if (this.escHandler) {
-                document.removeEventListener('keydown', this.escHandler);
-                this.escHandler = null;
-            }
+        wrapper.classList.add('redactix-fullscreen');
+        lockPageScroll();
+
+        // Save original maxHeight and reset it
+        this.originalMaxHeight = editor.style.maxHeight;
+        editor.style.maxHeight = '';
+
+        // Reset sticky state of toolbar (if present)
+        if (this.instance.toolbar.updateStickyState) {
+            this.instance.toolbar.updateStickyState();
         }
+
+        this.updateButton();
+
+        // Escape exits — through the shared layer stack, so a modal / menu
+        // opened on top of the fullscreen editor closes first.
+        this.popEscape = pushEscapeLayer(() => this.exit());
+    }
+
+    exit() {
+        if (!this.isFullscreen) return;
+        this.isFullscreen = false;
+        const wrapper = this.instance.wrapper;
+        const editor = this.instance.editorEl;
+
+        wrapper.classList.remove('redactix-fullscreen');
+        unlockPageScroll();
+
+        // Restore original maxHeight (also when it was empty)
+        if (this.originalMaxHeight != null) {
+            editor.style.maxHeight = this.originalMaxHeight;
+        }
+        this.originalMaxHeight = null;
+
+        if (this.popEscape) {
+            this.popEscape();
+            this.popEscape = null;
+        }
+
+        if (this.instance.destroyed) return;
+
+        // Restore sticky state of toolbar (if it was active)
+        if (this.instance.toolbar.updateStickyState) {
+            setTimeout(() => {
+                if (!this.instance.destroyed) this.instance.toolbar.updateStickyState();
+            }, 0);
+        }
+
+        this.updateButton();
+    }
+
+    updateButton() {
+        const btn = this.instance.toolbar.buttons.get('fullscreen');
+        if (!btn) return;
+        btn.classList.toggle('active', this.isFullscreen);
+        btn.innerHTML = this.isFullscreen ? Icons.fullscreenExit : Icons.fullscreen;
     }
 }

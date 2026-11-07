@@ -1,24 +1,41 @@
 import Module from '../core/Module.js';
-import Icons from '../ui/Icons.js';
+import HandleLayer from './block-control/HandleLayer.js';
+import BlockMenu from './block-control/BlockMenu.js';
+import BlockCommands from './block-control/BlockCommands.js';
+import DragController from './block-control/DragController.js';
+import { resolveHover, probeRow } from './block-control/BlockResolver.js';
 
+/**
+ * Block handles, block menu and block drag & drop.
+ *
+ * This class only wires the pieces together:
+ *   block-control/BlockResolver   — pointer / element → block, drop target
+ *   block-control/HandleLayer     — the three handles and their placement
+ *   block-control/BlockMenu       — the context menu
+ *   block-control/BlockCommands   — delete / duplicate / transform … (undoable)
+ *   block-control/DragController  — pointer-events drag & drop
+ *
+ * Public surface (kept for tests and other modules): currentBlock /
+ * currentList / currentContainer, deleteBlock(), duplicateBlock(),
+ * insertElementAfter(), transformBlock(tag), convertListType(tag),
+ * setPresetClass(cls, presets), hideMenu(), hideUI(), isDragging.
+ */
 export default class BlockControl extends Module {
+    static moduleName = 'BlockControl';
+
     constructor(instance) {
         super(instance);
-        this.handle = null;        // Main handle (for blocks and LI)
-        this.listHandle = null;    // Handle for the entire UL/OL
-        this.menu = null;
-        this.currentBlock = null;
-        this.currentList = null;   // Current list for listHandle
-        this.isDragging = false;
-        this.dragPlaceholder = null;
-        this.dragGhost = null;
-        this.activeHandle = null;  // Which handle is active
-        this.liteMode = instance.config.liteMode || false; // Lite mode
-        this.emojiInput = null;    // Emoji input popup for callouts
+        this.currentBlock = null;      // main handle target (block or LI)
+        this.currentList = null;       // list handle target (UL/OL)
+        this.currentContainer = null;  // container handle target (aside / quote-card)
+        this.activeHandle = null;      // kind of the handle the menu was opened from
+        this.liteMode = instance.config.liteMode || false;
+        this._hoverFrame = null;
+        this._hoverEvent = null;
+        this._suppressClickUntil = 0;
 
-        // Resolved preset arrays come from Redactix.js (it merges user
-        // input with defaults — see resolvePresets()). We always prepend a
-        // "no style" entry so users can clear the styling.
+        // Resolved preset arrays come from Redactix.js (resolvePresets()).
+        // A "no style" entry is prepended so users can clear the styling.
         this.calloutPresets = [
             { name: 'none', label: this.t('blockControl.noStyle'), class: null },
             ...(instance.config.calloutPresets || [])
@@ -29,1832 +46,209 @@ export default class BlockControl extends Module {
         ];
     }
 
+    get isDragging() {
+        return !!(this.drag && this.drag.active);
+    }
+
+    // Backwards-compatible accessors for the handle / menu elements.
+    get handle() { return this.handles.el('block'); }
+    get listHandle() { return this.handles.el('list'); }
+    get containerHandle() { return this.handles.el('container'); }
+
     init() {
-        this.createHandle();
-        this.createListHandle();
-        this.createContainerHandle();
-        this.createMenu();
+        this.handles = new HandleLayer(this);
+        this.menu = new BlockMenu(this);
+        this.commands = new BlockCommands(this);
+        this.drag = new DragController(this);
 
-        // Listen to mouse movements on the editor to display the handle
-        this.instance.editorEl.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        const editor = this.instance.editorEl;
 
-        // Update handle positions when scrolling the editor (for maxHeight)
-        this.instance.editorEl.addEventListener('scroll', () => {
-            if (this.currentBlock && this.handle.style.display !== 'none') {
-                this.showHandle(this.currentBlock);
-            }
-            if (this.currentList && this.listHandle.style.display !== 'none') {
-                this.showListHandle(this.currentList);
-            }
-            if (this.currentContainer && this.containerHandle.style.display !== 'none') {
-                this.showContainerHandle(this.currentContainer);
-            }
+        ['block', 'list', 'container'].forEach(kind => {
+            const el = this.handles.el(kind);
+            el.addEventListener('pointerdown', (e) => this.drag.onPointerDown(e, kind));
+            el.addEventListener('click', (e) => this.onHandleClick(e, kind));
+            // Leaving a handle for somewhere that is neither the editor nor
+            // the menu hides it (unless the menu is open).
+            el.addEventListener('mouseleave', (e) => {
+                const to = e.relatedTarget;
+                if (to && (editor.contains(to) || this.menu.contains(to) || this.handles.contains(to))) return;
+                if (!this.menu.isOpen && !this.isDragging) this.handles.hide(kind);
+            });
         });
 
-        // Click on callout emoji area to edit
-        this.instance.editorEl.addEventListener('click', (e) => {
-            const aside = e.target.closest ? e.target.closest('aside[data-emoji]') : null;
-            if (aside && this.instance.editorEl.contains(aside)) {
-                const asideRect = aside.getBoundingClientRect();
-                const emojiAreaWidth = parseFloat(window.getComputedStyle(aside).paddingLeft);
-                if (e.clientX - asideRect.left < emojiAreaWidth) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.currentBlock = aside;
-                    this.showEmojiInput();
-                }
-            }
+        // Hover → handles. Coalesced to one resolve per animation frame.
+        editor.addEventListener('mousemove', (e) => this.scheduleHover(e));
+
+        // On touch devices there is no hover: show handles for the tapped block.
+        if (window.matchMedia && window.matchMedia('(hover: none)').matches) {
+            editor.addEventListener('click', (e) => {
+                if (!this.isDragging) this.processHover(e.target, e.clientY);
+            });
+        }
+
+        // Editor scroll (maxHeight): handles follow their blocks.
+        editor.addEventListener('scroll', () => {
+            if (!this.isDragging) this.handles.reposition();
+        }, { passive: true });
+
+        this.instance.wrapper.addEventListener('mouseleave', (e) => {
+            const to = e.relatedTarget;
+            if (to && (this.handles.contains(to) || this.menu.contains(to))) return;
+            if (!this.isDragging && !this.menu.isOpen) this.clearHandles();
         });
 
-        // Hide the menu when clicking anywhere
+        // Click anywhere else closes the menu.
         this.instance.listen(document, 'click', (e) => {
-            if (this.menu && !this.menu.contains(e.target) &&
-                !this.handle.contains(e.target) &&
-                !this.listHandle.contains(e.target) &&
-                !this.containerHandle.contains(e.target)) {
+            if (this.menu.isOpen && !this.menu.contains(e.target) && !this.handles.contains(e.target)) {
                 this.hideMenu();
             }
         });
 
-        // The menu is portaled to <body> and positioned via `fixed`,
-        // so when scrolling the page / editor it stays in place
-        // while the handle moves. We close it on any scroll —
-        // capture: true to catch inner scrollable containers as well
-        // (editor with maxHeight, fullscreen, any wrapper on the
-        // integration side).
+        // The menu is position:fixed in <body>; it would stay put while its
+        // handle scrolls away — close it on any scroll (capture: inner
+        // scroll containers too).
         this.instance.listen(window, 'scroll', () => {
-            if (this.menu && this.menu.style.display === 'block') {
-                this.hideMenu();
-            }
+            if (this.menu.isOpen) this.hideMenu();
         }, { capture: true, passive: true });
 
-        // On touch devices mousemove (the main path for handles appearing)
-        // is unreliable — we show the handle for the tapped block on click.
-        // onMouseMove accepts any object with clientX/clientY/target.
-        if (window.matchMedia && window.matchMedia('(hover: none)').matches) {
-            this.instance.editorEl.addEventListener('click', (e) => {
-                if (this.isDragging) return;
-                this.onMouseMove(e);
-            });
-        }
-
-        // Hide handles if the mouse leaves the editor
-        this.instance.wrapper.addEventListener('mouseleave', (e) => {
-            // Check that the mouse has not moved to the handles or menu
-            const relatedTarget = e.relatedTarget;
-            if (relatedTarget && (
-                this.handle.contains(relatedTarget) ||
-                this.listHandle.contains(relatedTarget) ||
-                this.containerHandle.contains(relatedTarget) ||
-                (this.menu && this.menu.contains(relatedTarget))
-            )) {
-                return;
-            }
-
-            if (!this.isDragging && (!this.menu || this.menu.style.display === 'none')) {
-                this.hideHandle();
-                this.hideListHandle();
-                this.hideContainerHandle();
-            }
+        this.instance.onDestroy(() => {
+            if (this._hoverFrame != null) cancelAnimationFrame(this._hoverFrame);
         });
+        this.instance.on('contentReplaced', () => this.hideUI());
+    }
 
-        // Prevent hiding the handle when the mouse is on it
-        this.handle.addEventListener('mouseenter', () => {
-            this.handle.style.display = 'flex';
-        });
+    // ------------------------------------------------------------------
+    // Hover
+    // ------------------------------------------------------------------
 
-        this.listHandle.addEventListener('mouseenter', () => {
-            this.listHandle.style.display = 'flex';
-        });
-
-        this.containerHandle.addEventListener('mouseenter', () => {
-            this.containerHandle.style.display = 'flex';
-        });
-
-        // When the mouse leaves the handle - check where it goes
-        this.handle.addEventListener('mouseleave', (e) => {
-            const relatedTarget = e.relatedTarget;
-            // If moved to the editor or the current block - do not hide
-            if (relatedTarget && (
-                this.instance.editorEl.contains(relatedTarget) ||
-                (this.menu && this.menu.contains(relatedTarget))
-            )) {
-                return;
-            }
-            // Otherwise hide if the menu is not open
-            if (!this.menu || this.menu.style.display === 'none') {
-                this.hideHandle();
-            }
-        });
-
-        this.listHandle.addEventListener('mouseleave', (e) => {
-            const relatedTarget = e.relatedTarget;
-            if (relatedTarget && (
-                this.instance.editorEl.contains(relatedTarget) ||
-                (this.menu && this.menu.contains(relatedTarget))
-            )) {
-                return;
-            }
-            if (!this.menu || this.menu.style.display === 'none') {
-                this.hideListHandle();
-            }
-        });
-
-        this.containerHandle.addEventListener('mouseleave', (e) => {
-            const relatedTarget = e.relatedTarget;
-            if (relatedTarget && (
-                this.instance.editorEl.contains(relatedTarget) ||
-                (this.menu && this.menu.contains(relatedTarget))
-            )) {
-                return;
-            }
-            if (!this.menu || this.menu.style.display === 'none') {
-                this.hideContainerHandle();
-            }
+    scheduleHover(e) {
+        this._hoverEvent = { target: e.target, y: e.clientY };
+        if (this._hoverFrame != null) return;
+        this._hoverFrame = requestAnimationFrame(() => {
+            this._hoverFrame = null;
+            const ev = this._hoverEvent;
+            this._hoverEvent = null;
+            if (ev && !this.instance.destroyed) this.processHover(ev.target, ev.y);
         });
     }
 
-    createHandle() {
-        this.handle = document.createElement('div');
-        this.handle.className = 'redactix-block-handle';
-        this.handle.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-            <circle cx="9" cy="6" r="1.5"/>
-            <circle cx="15" cy="6" r="1.5"/>
-            <circle cx="9" cy="12" r="1.5"/>
-            <circle cx="15" cy="12" r="1.5"/>
-            <circle cx="9" cy="18" r="1.5"/>
-            <circle cx="15" cy="18" r="1.5"/>
-        </svg>`;
-        this.handle.contentEditable = false;
+    processHover(target, y) {
+        if (this.isDragging || this.menu.isOpen) return;
+        const root = this.instance.editorEl;
+        if (target === root) target = probeRow(root, y) || root;
 
-        this.handle.addEventListener('mousedown', (e) => {
-            this.activeHandle = 'block';
-            this.onDragStart(e);
-        });
-        this.handle.addEventListener('click', (e) => {
-            this.activeHandle = 'block';
-            this.onHandleClick(e);
-        });
-
-        // Touch events for mobile
-        this.handle.addEventListener('touchstart', (e) => {
-            this.activeHandle = 'block';
-            this.onTouchStart(e);
-        }, { passive: false });
-
-        this.instance.wrapper.appendChild(this.handle);
-    }
-
-    createListHandle() {
-        this.listHandle = document.createElement('div');
-        this.listHandle.className = 'redactix-block-handle redactix-list-handle';
-        this.listHandle.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-            <rect x="6" y="4" width="12" height="2" rx="1"/>
-            <rect x="6" y="11" width="12" height="2" rx="1"/>
-            <rect x="6" y="18" width="12" height="2" rx="1"/>
-        </svg>`;
-        this.listHandle.contentEditable = false;
-        this.listHandle.title = this.t('blockControl.dragEntireList');
-
-        this.listHandle.addEventListener('mousedown', (e) => {
-            this.activeHandle = 'list';
-            this.currentBlock = this.currentList;
-            this.onDragStart(e);
-        });
-        this.listHandle.addEventListener('click', (e) => {
-            this.activeHandle = 'list';
-            this.currentBlock = this.currentList;
-            this.onHandleClick(e);
-        });
-
-        // Touch events for mobile
-        this.listHandle.addEventListener('touchstart', (e) => {
-            this.activeHandle = 'list';
-            this.currentBlock = this.currentList;
-            this.onTouchStart(e);
-        }, { passive: false });
-
-        this.instance.wrapper.appendChild(this.listHandle);
-    }
-
-    /**
-     * Container handle — shown for the outermost callout / quote-card while
-     * the cursor is anywhere inside one. Sits in the editor's left padding,
-     * outside the container itself, so it never collides with inner-block
-     * handles (which live in the container's own left padding).
-     */
-    createContainerHandle() {
-        this.containerHandle = document.createElement('div');
-        this.containerHandle.className = 'redactix-block-handle redactix-container-handle';
-        this.containerHandle.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-            <circle cx="9" cy="6" r="1.5"/>
-            <circle cx="15" cy="6" r="1.5"/>
-            <circle cx="9" cy="12" r="1.5"/>
-            <circle cx="15" cy="12" r="1.5"/>
-            <circle cx="9" cy="18" r="1.5"/>
-            <circle cx="15" cy="18" r="1.5"/>
-        </svg>`;
-        this.containerHandle.contentEditable = false;
-
-        this.containerHandle.addEventListener('mousedown', (e) => {
-            this.activeHandle = 'container';
-            this.currentBlock = this.currentContainer;
-            this.onDragStart(e);
-        });
-        this.containerHandle.addEventListener('click', (e) => {
-            this.activeHandle = 'container';
-            this.currentBlock = this.currentContainer;
-            this.onHandleClick(e);
-        });
-        this.containerHandle.addEventListener('touchstart', (e) => {
-            this.activeHandle = 'container';
-            this.currentBlock = this.currentContainer;
-            this.onTouchStart(e);
-        }, { passive: false });
-
-        this.instance.wrapper.appendChild(this.containerHandle);
-    }
-
-    createMenu() {
-        this.menu = document.createElement('div');
-        this.menu.className = 'redactix-block-menu';
-        this.menu.style.display = 'none';
-        // Portal to <body> so the menu can render outside the editor /
-        // demo-wrapper bounds (which often have overflow:hidden for
-        // rounded corners). Position is set with `fixed` against the
-        // viewport in showMenu().
-        document.body.appendChild(this.menu);
-
-        // The portal lives outside the wrapper — remove it manually during destroy().
-        if (this.instance.onDestroy) {
-            this.instance.onDestroy(() => this.menu.remove());
-        }
-    }
-
-    buildMenu() {
-        this.menu.innerHTML = '';
-
-        if (!this.currentBlock) return;
-
-        const tag = this.currentBlock.tagName;
-        const parentTag = this.currentBlock.parentElement?.tagName;
-        const isQuoteCard = tag === 'FIGURE' &&
-            this.currentBlock.classList.contains('quote-card');
-        const isCallout = tag === 'ASIDE';
-
-        // True if currentBlock is a child block inside a callout or quote-card.
-        // The container itself (aside / figure.quote-card) is excluded.
-        const ancestorAside = !isCallout && this.currentBlock.closest
-            ? this.currentBlock.parentElement && this.currentBlock.parentElement.closest('aside')
-            : null;
-        const ancestorCard = !isQuoteCard && this.currentBlock.closest
-            ? this.currentBlock.parentElement && this.currentBlock.parentElement.closest('figure.quote-card')
-            : null;
-        const isInnerBlock = !!(ancestorAside || ancestorCard);
-
-        // Group: Block transformation (only text types, not for callout/quote-card)
-        if (['P', 'H1', 'H2', 'H3', 'ASIDE'].includes(tag)) {
-            const transformGroup = this.createMenuGroup(this.t('blockControl.transformTo'));
-            const transforms = [
-                { label: this.t('blockControl.paragraph'), tag: 'P', icon: '¶' },
-                { label: this.t('blockControl.heading1'), tag: 'H1', icon: 'H1' },
-                { label: this.t('blockControl.heading2'), tag: 'H2', icon: 'H2' },
-                { label: this.t('blockControl.heading3'), tag: 'H3', icon: 'H3' }
-            ];
-            // ASIDE option only for top-level blocks (no nested callouts)
-            if (!isInnerBlock) {
-                transforms.push({ label: this.t('blockControl.callout'), tag: 'ASIDE', icon: '💡' });
-            }
-
-            transforms.forEach(t => {
-                if (t.tag !== tag) {
-                    const item = this.createMenuItem(t.icon, t.label, () => {
-                        this.transformBlock(t.tag);
-                    });
-                    transformGroup.appendChild(item);
-                }
-            });
-            this.menu.appendChild(transformGroup);
-            this.menu.appendChild(this.createMenuDivider());
-        }
-
-        // Group: Callout presets (aside)
-        if (tag === 'ASIDE') {
-            const presetGroup = this.createMenuGroup(this.t('blockControl.calloutStyle'));
-            const currentClass = this.getCurrentPresetClass(this.calloutPresets);
-
-            this.calloutPresets.forEach(preset => {
-                const isActive = (preset.class === null && !currentClass) ||
-                    (preset.class === currentClass);
-                const icon = isActive ? '✓' : ' ';
-                const item = this.createMenuItem(icon, preset.label, () => {
-                    this.setPresetClass(preset.class, this.calloutPresets);
-                });
-                if (isActive) {
-                    item.style.fontWeight = '600';
-                }
-                presetGroup.appendChild(item);
-            });
-            this.menu.appendChild(presetGroup);
-            this.menu.appendChild(this.createMenuDivider());
-
-            // Emoji for callout
-            const hasEmoji = this.currentBlock.hasAttribute('data-emoji');
-            const emojiLabel = hasEmoji
-                ? this.t('blockControl.changeEmoji')
-                : this.t('blockControl.addEmoji');
-            const emojiIcon = hasEmoji ? '✎' : '😀';
-
-            const emojiItem = this.createMenuItem(emojiIcon, emojiLabel, () => {
-                this.showEmojiInput();
-            });
-            this.menu.appendChild(emojiItem);
-
-            if (hasEmoji) {
-                const removeItem = this.createMenuItem('✕', this.t('blockControl.removeEmoji'), () => {
-                    this.removeCalloutEmoji();
-                });
-                this.menu.appendChild(removeItem);
-            }
-
-            this.menu.appendChild(this.createMenuDivider());
-        }
-
-        // Group: quote-card settings (figure.quote-card)
-        if (isQuoteCard) {
-            const quoteCardModule = this.instance.modules.find(m => m.constructor.name === 'QuoteCard');
-            const card = this.currentBlock;
-
-            // Quote styles — presets are applied to figure
-            const presetGroup = this.createMenuGroup(this.t('blockControl.quoteStyle'));
-            const currentClass = this.getCurrentPresetClass(this.quotePresets);
-
-            this.quotePresets.forEach(preset => {
-                const isActive = (preset.class === null && !currentClass) ||
-                    (preset.class === currentClass);
-                const icon = isActive ? '✓' : ' ';
-                const item = this.createMenuItem(icon, preset.label, () => {
-                    this.setPresetClass(preset.class, this.quotePresets);
-                });
-                if (isActive) {
-                    item.style.fontWeight = '600';
-                }
-                presetGroup.appendChild(item);
-            });
-            this.menu.appendChild(presetGroup);
-            this.menu.appendChild(this.createMenuDivider());
-
-            // Caption (текстовая подпись)
-            if (quoteCardModule) {
-                const captionGroup = this.createMenuGroup(this.t('quoteCard.menuCaption'));
-                const hasText = quoteCardModule.hasCaptionText(card);
-                const captionLabel = hasText
-                    ? this.t('quoteCard.removeCaption')
-                    : this.t('quoteCard.addCaption');
-                const captionIcon = hasText ? '✕' : '✎';
-                captionGroup.appendChild(this.createMenuItem(captionIcon, captionLabel, () => {
-                    if (hasText) quoteCardModule.removeCaption(card);
-                    else quoteCardModule.addCaption(card);
-                }));
-                this.menu.appendChild(captionGroup);
-
-                // Author photo (только не в lite mode)
-                if (!this.liteMode) {
-                    const photoGroup = this.createMenuGroup(this.t('quoteCard.menuPhoto'));
-                    const hasPhoto = quoteCardModule.hasAuthorPhoto(card);
-                    const editLabel = hasPhoto
-                        ? this.t('quoteCard.editAuthor')
-                        : this.t('quoteCard.addAuthor');
-                    photoGroup.appendChild(this.createMenuItem('🖼', editLabel, () => {
-                        quoteCardModule.openAuthorModal(card);
-                    }));
-                    if (hasPhoto) {
-                        photoGroup.appendChild(this.createMenuItem('✕', this.t('quoteCard.removePhoto'), () => {
-                            quoteCardModule.removeAuthorPhoto(card);
-                        }));
-                    }
-                    this.menu.appendChild(photoGroup);
-                }
-                this.menu.appendChild(this.createMenuDivider());
-            }
-        }
-
-        // Group: editing embed (figure.redactix-embed)
-        if (tag === 'FIGURE' && this.currentBlock.classList.contains('redactix-embed') && !this.liteMode) {
-            const embedModule = this.instance.modules.find(m => m.constructor.name === 'Embed');
-            if (embedModule) {
-                const editGroup = this.createMenuGroup(this.t('embed.menuGroup'));
-                editGroup.appendChild(this.createMenuItem('✎', this.t('embed.edit'), () => {
-                    embedModule.openModal(this.currentBlock);
-                }));
-                this.menu.appendChild(editGroup);
-                this.menu.appendChild(this.createMenuDivider());
-            }
-        }
-
-        // Group: editing video (figure.redactix-video)
-        if (tag === 'FIGURE' && this.currentBlock.classList.contains('redactix-video')) {
-            const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
-            if (videoModule) {
-                const editGroup = this.createMenuGroup(this.t('video.menuGroup'));
-                editGroup.appendChild(this.createMenuItem('✎', this.t('video.edit'), () => {
-                    videoModule.openModal(this.currentBlock);
-                }));
-                this.menu.appendChild(editGroup);
-                this.menu.appendChild(this.createMenuDivider());
-            }
-        }
-
-        // Group: editing photo gallery (figure.redactix-gallery)
-        if (tag === 'FIGURE' && this.currentBlock.classList.contains('redactix-gallery') && !this.liteMode) {
-            const galleryModule = this.instance.modules.find(m => m.constructor.name === 'Gallery');
-            if (galleryModule) {
-                const editGroup = this.createMenuGroup(this.t('gallery.menuGroup'));
-                editGroup.appendChild(this.createMenuItem('✎', this.t('gallery.edit'), () => {
-                    galleryModule.openModal(this.currentBlock);
-                }));
-                this.menu.appendChild(editGroup);
-                this.menu.appendChild(this.createMenuDivider());
-            }
-        }
-
-        // Group: List transformation
-        if (tag === 'LI' || tag === 'UL' || tag === 'OL') {
-            const listGroup = this.createMenuGroup(this.t('blockControl.listType'));
-            const currentListType = tag === 'LI' ? parentTag : tag;
-
-            if (currentListType !== 'UL') {
-                listGroup.appendChild(this.createMenuItem('•', this.t('blockControl.bulleted'), () => {
-                    this.convertListType('UL');
-                }));
-            }
-            if (currentListType !== 'OL') {
-                listGroup.appendChild(this.createMenuItem('1.', this.t('blockControl.numbered'), () => {
-                    this.convertListType('OL');
-                }));
-            }
-
-            this.menu.appendChild(listGroup);
-            this.menu.appendChild(this.createMenuDivider());
-        }
-
-        // Group: Actions
-        const actionsGroup = this.createMenuGroup(this.t('blockControl.actions'));
-
-        actionsGroup.appendChild(this.createMenuItem('⊕', this.t('blockControl.insertBlockBelow'), () => {
-            this.insertElementAfter();
-        }));
-
-        actionsGroup.appendChild(this.createMenuItem('⧉', this.t('blockControl.duplicate'), () => {
-            this.duplicateBlock();
-        }));
-
-        // Do not show attributes in lite mode
-        if (!this.liteMode) {
-            actionsGroup.appendChild(this.createMenuItem('⚙', this.t('blockControl.attributes'), () => {
-                const attributesModule = this.instance.modules.find(m => m.constructor.name === 'Attributes');
-                if (attributesModule) {
-                    let target = this.currentBlock;
-                    // If this is a separator wrapper, edit the HR itself
-                    if (target.classList.contains('redactix-separator')) {
-                        const hr = target.querySelector('hr');
-                        if (hr) target = hr;
-                    }
-                    attributesModule.openModal(target);
-                }
-            }));
-        }
-
-        actionsGroup.appendChild(this.createMenuItem('🗑', this.t('delete'), () => {
-            this.deleteBlock();
-        }, true));
-
-        this.menu.appendChild(actionsGroup);
-    }
-
-    createMenuGroup(title) {
-        const group = document.createElement('div');
-        group.className = 'redactix-menu-group';
-
-        const label = document.createElement('div');
-        label.className = 'redactix-menu-group-label';
-        label.textContent = title;
-        group.appendChild(label);
-
-        return group;
-    }
-
-    createMenuItem(icon, label, action, isDanger = false) {
-        const item = document.createElement('div');
-        item.className = 'redactix-menu-item' + (isDanger ? ' redactix-menu-item-danger' : '');
-        item.innerHTML = `<span class="redactix-menu-icon">${icon}</span><span>${label}</span>`;
-        item.addEventListener('click', (e) => {
-            e.stopPropagation();
-            action();
-            this.hideMenu();
-        });
-        return item;
-    }
-
-    createMenuDivider() {
-        const divider = document.createElement('div');
-        divider.className = 'redactix-menu-divider';
-        return divider;
-    }
-
-    onMouseMove(e) {
-        if (this.isDragging || (this.menu && this.menu.style.display === 'block')) return;
-
-        let target = e.target;
-
-        // Hovering an editor-UI overlay (the floating "Edit" button on
-        // embeds and videos) — hide every handle so they don't visually
-        // collide with the overlay. The overlay handles its own click.
-        if (target && target.closest && target.closest('[data-redactix-ui]')) {
-            this.hideHandle();
-            this.hideListHandle();
-            this.hideContainerHandle();
-            this.currentBlock = null;
-            this.currentList = null;
-            this.currentContainer = null;
+        const hit = resolveHover(target, y, root);
+        if (hit.suppress) {
+            this.clearHandles();
             return;
         }
 
-        // If the cursor is over the editor (for example, in the left padding),
-        // we try to find content along the Y axis. We iterate through several X-points
-        // to catch centered blocks (max-width embeds, big quote
-        // cards, etc.) that do not align with the left edge.
-        if (target === this.instance.editorEl) {
-            const editorRect = this.instance.editorEl.getBoundingClientRect();
-            const xs = [
-                editorRect.left + 60,
-                editorRect.left + editorRect.width / 2,
-                editorRect.right - 60
-            ];
-            for (const x of xs) {
-                const el = document.elementFromPoint(x, e.clientY);
-                if (el && this.instance.editorEl.contains(el) && el !== this.instance.editorEl) {
-                    target = el;
-                    break;
-                }
-            }
-        }
+        this.currentContainer = hit.container;
+        this.currentBlock = hit.block;
+        this.currentList = hit.list;
 
-        // Hover on an embed iframe → promote to its figure (the iframe
-        // swallows mouse events anyway; we want the handle on the embed
-        // as a whole). Same trick as for blockquote inside quote-card.
-        if (target && target.tagName === 'IFRAME') {
-            const embed = target.closest('figure.redactix-embed');
-            if (embed) target = embed;
-        }
-        // Hovering the embed-frame wrapper → also promote to figure.
-        if (target && target.classList && target.classList.contains('redactix-embed-frame')) {
-            const embed = target.closest('figure.redactix-embed');
-            if (embed) target = embed;
-        }
-        // Same for native <video> — its editor CSS sets display:block so
-        // the walk-up below would stop on the video itself and render a
-        // duplicate handle next to it.
-        if (target && target.tagName === 'VIDEO') {
-            const figure = target.closest('figure.redactix-video');
-            if (figure) target = figure;
-        }
-        // Hover an individual image / link inside a photo gallery →
-        // promote to the gallery figure. Otherwise the walk-up would
-        // attach the handle to the inner img, not the whole gallery.
-        if (target && (target.tagName === 'IMG' || target.tagName === 'A')) {
-            const gallery = target.closest && target.closest('figure.redactix-gallery');
-            if (gallery) target = gallery;
-        }
-        if (target && target.classList && target.classList.contains('redactix-gallery-grid')) {
-            const gallery = target.closest('figure.redactix-gallery');
-            if (gallery) target = gallery;
-        }
-
-        // Whenever the cursor sits anywhere inside an aside or
-        // figure.quote-card, show the container-level handle. It lives in
-        // the editor's left padding so it never collides with inner-block
-        // handles (which sit in the container's own left padding).
-        const containerAncestor = target && target.closest
-            ? target.closest('aside, figure.quote-card')
-            : null;
-        if (containerAncestor && this.instance.editorEl.contains(containerAncestor)) {
-            this.currentContainer = containerAncestor;
-            this.showContainerHandle(containerAncestor);
-        } else {
-            this.hideContainerHandle();
-            this.currentContainer = null;
-        }
-
-        // If we are inside a callout or quote-card, decide what the main
-        // handle should track based on the element under the cursor —
-        // independently of where the block-level walk-up below would land.
-        if (containerAncestor) {
-            // Author photo / name area — suppress the main handle entirely;
-            // only the container handle remains.
-            const inFigcaption = e.target && e.target.closest &&
-                e.target.closest('figure.quote-card > figcaption');
-            if (inFigcaption) {
-                this.hideHandle();
-                this.hideListHandle();
-                this.currentBlock = null;
-                this.currentList = null;
-                return;
-            }
-
-            // Try to attach the main handle to the inner block at this Y.
-            const inner = this.findInnerBlockAtY(containerAncestor, e.clientY);
-            if (inner) {
-                if (inner.tagName === 'LI') {
-                    this.currentBlock = inner;
-                    this.showHandle(inner);
-                    const parentList = inner.parentElement;
-                    if (parentList && (parentList.tagName === 'UL' || parentList.tagName === 'OL')) {
-                        this.currentList = parentList;
-                        this.showListHandle(parentList);
-                    }
-                    return;
-                }
-                this.currentBlock = inner;
-                this.showHandle(inner);
-                this.hideListHandle();
-                this.currentList = null;
-                return;
-            }
-
-            // Nothing on this Y → cursor is in pure padding above/below the
-            // content. Only the container handle should be visible — hide
-            // the main handle so the two don't stack on top of each other.
-            this.hideHandle();
-            this.hideListHandle();
-            this.currentBlock = null;
-            this.currentList = null;
-            return;
-        }
-
-        // Walk up to the block element.
-        // figcaption is part of its <figure> — never treat it as a separate
-        // draggable block.
-        while (target && target !== this.instance.editorEl) {
-            if (target.tagName === 'FIGCAPTION') {
-                target = target.parentNode;
-                continue;
-            }
-            const display = window.getComputedStyle(target).display;
-            if (display === 'block' || display === 'list-item' || display === 'table' || target.tagName === 'LI' || target.tagName === 'HR') {
-                break;
-            }
-            target = target.parentNode;
-        }
-
-        // For lists: show two handles - for LI and for UL/OL
-        if (target && target.tagName === 'LI') {
-            // Found LI - show handle for it
-            this.currentBlock = target;
-            this.showHandle(target);
-
-            // Also show handle for parent list
-            const parentList = target.parentElement;
-            if (parentList && (parentList.tagName === 'UL' || parentList.tagName === 'OL')) {
-                // Always show list handle (even for nested ones)
-                this.currentList = parentList;
-                this.showListHandle(parentList);
-            }
-        } else if (target && (target.tagName === 'UL' || target.tagName === 'OL')) {
-            // Hovered on the list itself (not on inner LI)
-            const listItems = Array.from(target.children).filter(child => child.tagName === 'LI');
-            const mouseY = e.clientY;
-
-            // Look for LI under cursor
-            const closestLi = listItems.find(li => {
-                const r = li.getBoundingClientRect();
-                return mouseY >= r.top && mouseY <= r.bottom;
-            });
-
-            if (closestLi) {
-                this.currentBlock = closestLi;
-                this.showHandle(closestLi);
-
-                this.currentList = target;
-                this.showListHandle(target);
-            } else {
-                // No LI under cursor - show only list handle
-                this.currentBlock = target;
-                this.currentList = target;
-                this.showHandle(target);
-                this.hideListHandle();
-            }
-        } else if (target && target !== this.instance.editorEl) {
-            // Standard block
-            this.currentBlock = target;
-            this.showHandle(target);
-            this.hideListHandle();
-            this.currentList = null;
-        } else {
-            this.hideHandle();
-            this.hideListHandle();
-        }
+        this.handles.setTargets({ block: hit.block, list: hit.list, container: hit.container });
     }
 
-    showHandle(block) {
-        const rect = block.getBoundingClientRect();
-        const wrapperRect = this.instance.wrapper.getBoundingClientRect();
-        const editorRect = this.instance.editorEl.getBoundingClientRect();
-
-        let offset = 0;
-
-        // For inner blocks of a callout / quote-card, place the handle
-        // INSIDE the container's left padding (which we widened in CSS for
-        // exactly this purpose). For top-level blocks the handle sits in
-        // the editor's left padding, outside the block.
-        const container = this.getInnerContainer(block);
-        let leftPos;
-        if (container) {
-            const leftRefEl = container.tagName === 'BLOCKQUOTE'
-                ? container.parentElement // figure.quote-card
-                : container; // aside
-            const leftRefRect = leftRefEl.getBoundingClientRect();
-            // Past the emoji on aside[data-emoji], otherwise just past the
-            // border / inner edge.
-            const innerOffset = (leftRefEl.tagName === 'ASIDE' &&
-                leftRefEl.hasAttribute('data-emoji'))
-                ? 32
-                : 6;
-            leftPos = (leftRefRect.left - wrapperRect.left) + innerOffset;
-        } else if (block.tagName === 'FIGURE' && block.classList.contains('redactix-embed')) {
-            // Embeds may be centered (max-width + margin auto) so anchoring
-            // to figure.left would put the handle in the middle of nowhere.
-            // Park it in the editor's left padding instead.
-            const editorRect = this.instance.editorEl.getBoundingClientRect();
-            leftPos = (editorRect.left - wrapperRect.left) + 8;
-        } else {
-            leftPos = (rect.left - wrapperRect.left) - 30;
-        }
-
-        // Clamp minimum position so it doesn't move off screen
-        if (leftPos < 2) leftPos = 2;
-
-        if (block.tagName === 'UL' || block.tagName === 'OL') {
-            offset = 5;
-        } else if (block.classList.contains('redactix-separator')) {
-            offset = 2;
-        } else if (block.tagName === 'HR') {
-            offset = -8;
-        } else if (block.tagName === 'LI') {
-            const style = window.getComputedStyle(block);
-            const paddingTop = parseFloat(style.paddingTop) || 0;
-            let lineHeight = parseFloat(style.lineHeight);
-
-            if (isNaN(lineHeight)) {
-                const fontSize = parseFloat(style.fontSize) || 16;
-                lineHeight = fontSize * 1.2;
-            }
-            const handleHeight = 24;
-            offset = paddingTop + (lineHeight - handleHeight) / 2;
-        } else {
-            const style = window.getComputedStyle(block);
-            const paddingTop = parseFloat(style.paddingTop) || 0;
-            let lineHeight = parseFloat(style.lineHeight);
-
-            if (isNaN(lineHeight)) {
-                const fontSize = parseFloat(style.fontSize) || 16;
-                lineHeight = fontSize * 1.2;
-            }
-            const handleHeight = 24;
-            offset = paddingTop + (lineHeight - handleHeight) / 2;
-        }
-
-        // Position relative to wrapper (handles are absolutely positioned in wrapper)
-        const top = rect.top - wrapperRect.top + offset;
-
-        // Check if the block is visible in the editor area (for maxHeight mode)
-        const isVisible = rect.bottom > editorRect.top && rect.top < editorRect.bottom;
-
-        if (isVisible) {
-            this.handle.style.display = 'flex';
-            this.handle.style.top = `${top}px`;
-            this.handle.style.left = `${leftPos}px`;
-        } else {
-            this.handle.style.display = 'none';
-        }
-    }
-
-    hideHandle() {
-        this.handle.style.display = 'none';
-    }
-
-    showListHandle(list) {
-        const rect = list.getBoundingClientRect();
-        const wrapperRect = this.instance.wrapper.getBoundingClientRect();
-        const editorRect = this.instance.editorEl.getBoundingClientRect();
-
-        // Lists nested inside a callout / quote-card: handle goes INSIDE
-        // the container's left padding (mirrors showHandle).
-        const container = this.getInnerContainer(list);
-        let leftPos;
-        if (container) {
-            const leftRefEl = container.tagName === 'BLOCKQUOTE'
-                ? container.parentElement
-                : container;
-            const leftRefRect = leftRefEl.getBoundingClientRect();
-            const innerOffset = (leftRefEl.tagName === 'ASIDE' &&
-                leftRefEl.hasAttribute('data-emoji'))
-                ? 32
-                : 6;
-            leftPos = (leftRefRect.left - wrapperRect.left) + innerOffset;
-        } else {
-            leftPos = (rect.left - wrapperRect.left) - 30;
-        }
-
-        // Clamp minimum
-        if (leftPos < 2) leftPos = 2;
-
-        // Position relative to wrapper
-        const top = rect.top - wrapperRect.top + 2;
-
-        // Check if the list is visible in the editor area
-        const isVisible = rect.bottom > editorRect.top && rect.top < editorRect.bottom;
-
-        if (isVisible) {
-            this.listHandle.style.display = 'flex';
-            this.listHandle.style.top = `${top}px`;
-            this.listHandle.style.left = `${leftPos}px`;
-        } else {
-            this.listHandle.style.display = 'none';
-        }
-    }
-
-    hideListHandle() {
-        this.listHandle.style.display = 'none';
-    }
-
-    /**
-     * Show the container-level handle for an aside / figure.quote-card.
-     * It sits in the editor's left padding (outside the container) and is
-     * vertically anchored to the top of the container.
-     */
-    showContainerHandle(container) {
-        const rect = container.getBoundingClientRect();
-        const wrapperRect = this.instance.wrapper.getBoundingClientRect();
-        const editorRect = this.instance.editorEl.getBoundingClientRect();
-
-        // Anchor a few pixels above the container's top edge so it doesn't
-        // overlap with the first inner block's handle.
-        let leftPos = (rect.left - wrapperRect.left) - 30;
-        if (leftPos < 2) leftPos = 2;
-        const top = (rect.top - wrapperRect.top) + 4;
-
-        const isVisible = rect.bottom > editorRect.top && rect.top < editorRect.bottom;
-        if (isVisible) {
-            this.containerHandle.style.display = 'flex';
-            this.containerHandle.style.top = `${top}px`;
-            this.containerHandle.style.left = `${leftPos}px`;
-        } else {
-            this.containerHandle.style.display = 'none';
-        }
-    }
-
-    hideContainerHandle() {
-        this.containerHandle.style.display = 'none';
-    }
-
-    /** Hide all module overlays (called when entering HTML mode). */
-    hideUI() {
-        this.hideHandle();
-        this.hideListHandle();
-        this.hideContainerHandle();
-        this.hideMenu();
-        this.hideEmojiInput();
+    clearHandles() {
+        this.handles.hideAll();
         this.currentBlock = null;
         this.currentList = null;
         this.currentContainer = null;
     }
 
-    onHandleClick(e) {
+    /** Target element of a handle kind. */
+    getTarget(kind) {
+        if (kind === 'list') return this.currentList;
+        if (kind === 'container') return this.currentContainer;
+        return this.currentBlock;
+    }
+
+    /** Hide all module overlays (HTML mode, content replaced, deletes). */
+    hideUI() {
+        if (this.drag) this.drag.finish();
+        if (this.menu) this.hideMenu();
+        if (this.handles) this.clearHandles();
+        this.activeHandle = null;
+    }
+
+    // ------------------------------------------------------------------
+    // Menu
+    // ------------------------------------------------------------------
+
+    suppressNextClick() {
+        this._suppressClickUntil = Date.now() + 500;
+    }
+
+    onHandleClick(e, kind) {
         e.stopPropagation();
         e.preventDefault();
-
-        // If the menu is already open, close it
-        if (this.menu.style.display === 'block') {
+        if (Date.now() < this._suppressClickUntil) {
+            this._suppressClickUntil = 0;
+            return;
+        }
+        if (this.menu.isOpen) {
             this.hideMenu();
             return;
         }
-
-        this.showMenu();
+        this.openMenu(kind);
     }
 
-    showMenu() {
-        this.buildMenu();
-
-        // Mirror theme / RTL / lite-mode classes from the wrapper so the
-        // CSS variables that style the menu still resolve while it lives
-        // detached in <body>. `redactix-wrapper` itself defines those
-        // variables, so we add it to the menu element too.
-        const themeClasses = ['redactix-block-menu', 'redactix-wrapper'];
-        ['redactix-dark', 'redactix-auto', 'redactix-rtl', 'redactix-lite-mode']
-            .forEach(c => { if (this.instance.wrapper.classList.contains(c)) themeClasses.push(c); });
-        this.menu.className = themeClasses.join(' ');
-
-        const handleRect = this.getActiveHandleEl().getBoundingClientRect();
-
-        this.menu.style.display = 'block';
-        const menuRect = this.menu.getBoundingClientRect();
-
-        // Viewport-relative coordinates (position: fixed).
-        let top = handleRect.bottom + 5;
-        let left = handleRect.left;
-
-        // Flip up if the menu wouldn't fit below the handle but would fit above.
-        const spaceBelow = window.innerHeight - handleRect.bottom;
-        const spaceAbove = handleRect.top;
-        if (spaceBelow < menuRect.height && spaceAbove > menuRect.height) {
-            top = handleRect.top - menuRect.height - 5;
+    /** Open the block menu for the target of handle `kind`. */
+    openMenu(kind = 'block') {
+        const target = this.getTarget(kind);
+        if (!target || !this.instance.editorEl.contains(target)) {
+            this.clearHandles();
+            return;
         }
+        this.activeHandle = kind;
+        // Menu actions operate on currentBlock.
+        this.currentBlock = target;
+        this.menu.open(target, this.handles.el(kind));
+    }
 
-        // Clamp to viewport with a small margin.
-        if (left < 5) left = 5;
-        const maxLeft = window.innerWidth - menuRect.width - 5;
-        if (left > maxLeft) left = maxLeft;
-
-        this.menu.style.top = `${top}px`;
-        this.menu.style.left = `${left}px`;
+    /** Kept for compatibility: opens the menu for currentBlock. */
+    showMenu() {
+        this.openMenu(this.activeHandle || 'block');
     }
 
     hideMenu() {
-        if (this.menu) {
-            this.menu.style.display = 'none';
-        }
+        if (this.menu) this.menu.hide();
     }
 
-    // --- Actions ---
+    // ------------------------------------------------------------------
+    // Commands (operate on currentBlock; each is one undo step)
+    // ------------------------------------------------------------------
 
     deleteBlock() {
-        if (this.currentBlock) {
-            this.beginHistoryBatch();
-
-            const parent = this.currentBlock.parentElement;
-            this.currentBlock.remove();
-
-            // If the last LI in the list is deleted, remove the list as well
-            if (parent && (parent.tagName === 'UL' || parent.tagName === 'OL')) {
-                if (parent.children.length === 0) {
-                    parent.remove();
-                }
-            }
-
-            this.currentBlock = null;
-            this.hideHandle();
-            this.instance.sync();
-            this.endHistoryBatch();
-        }
+        this.commands.delete(this.currentBlock);
     }
 
     duplicateBlock() {
-        if (this.currentBlock) {
-            this.beginHistoryBatch();
-
-            const clone = this.currentBlock.cloneNode(true);
-            if (clone.classList && clone.classList.length === 0) {
-                clone.removeAttribute('class');
-            }
-            this.currentBlock.parentNode.insertBefore(clone, this.currentBlock.nextSibling);
-            this.instance.sync();
-            this.endHistoryBatch();
-        }
+        this.commands.duplicate(this.currentBlock);
     }
 
     insertElementAfter() {
-        if (this.currentBlock) {
-            this.beginHistoryBatch();
-
-            const isListItem = this.currentBlock.tagName === 'LI';
-            const tag = isListItem ? 'li' : 'p';
-
-            const newEl = document.createElement(tag);
-            newEl.innerHTML = '<br>';
-
-            if (this.currentBlock.nextSibling) {
-                this.currentBlock.parentNode.insertBefore(newEl, this.currentBlock.nextSibling);
-            } else {
-                this.currentBlock.parentNode.appendChild(newEl);
-            }
-
-            // Place the cursor in the new element
-            const range = document.createRange();
-            const sel = window.getSelection();
-            range.setStart(newEl, 0);
-            range.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(range);
-
-            this.instance.sync();
-            this.endHistoryBatch();
-        }
+        const el = this.commands.insertAfter(this.currentBlock);
+        if (el) this.clearHandles();
     }
 
     transformBlock(newTag) {
-        if (!this.currentBlock) return;
-
-        this.beginHistoryBatch();
-
-        const newEl = document.createElement(newTag);
-
-        while (this.currentBlock.firstChild) {
-            newEl.appendChild(this.currentBlock.firstChild);
+        const el = this.commands.transform(this.currentBlock, newTag);
+        if (el) {
+            this.currentBlock = el;
+            this.handles.hideAll();
         }
-
-        // Copy classes if present
-        if (this.currentBlock.className) {
-            newEl.className = this.currentBlock.className;
-        }
-
-        this.currentBlock.parentNode.replaceChild(newEl, this.currentBlock);
-        this.currentBlock = newEl;
-
-        this.instance.sync();
-        this.endHistoryBatch();
     }
 
     convertListType(newListTag) {
-        if (!this.currentBlock) return;
-
-        this.beginHistoryBatch();
-
-        // Find the list
-        let list = this.currentBlock;
-        if (list.tagName === 'LI') {
-            list = list.parentElement;
-        }
-
-        if (!list || (list.tagName !== 'UL' && list.tagName !== 'OL')) return;
-
-        // Create a new list
-        const newList = document.createElement(newListTag);
-
-        // Transfer all LIs
-        while (list.firstChild) {
-            newList.appendChild(list.firstChild);
-        }
-
-        // Copy classes
-        if (list.className) {
-            newList.className = list.className;
-        }
-
-        list.parentNode.replaceChild(newList, list);
-        this.instance.sync();
-        this.endHistoryBatch();
-    }
-
-    convertListToParagraph() {
-        if (!this.currentBlock) return;
-
-        let list = this.currentBlock;
-        let targetLi = null;
-
-        if (list.tagName === 'LI') {
-            targetLi = list;
-            list = list.parentElement;
-        }
-
-        if (!list || (list.tagName !== 'UL' && list.tagName !== 'OL')) return;
-
-        if (targetLi) {
-            // Transform only one LI to a paragraph
-            const p = document.createElement('p');
-            while (targetLi.firstChild) {
-                p.appendChild(targetLi.firstChild);
-            }
-            if (!p.innerHTML.trim()) p.innerHTML = '<br>';
-
-            // Insert after the list
-            list.parentNode.insertBefore(p, list.nextSibling);
-            targetLi.remove();
-
-            // If the list is empty, delete it
-            if (list.children.length === 0) {
-                list.remove();
-            }
-        } else {
-            // Transform the entire list
-            const fragment = document.createDocumentFragment();
-            Array.from(list.children).forEach(li => {
-                if (li.tagName === 'LI') {
-                    const p = document.createElement('p');
-                    while (li.firstChild) {
-                        p.appendChild(li.firstChild);
-                    }
-                    if (!p.innerHTML.trim()) p.innerHTML = '<br>';
-                    fragment.appendChild(p);
-                }
-            });
-            list.parentNode.replaceChild(fragment, list);
-        }
-
-        this.currentBlock = null;
-        this.hideHandle();
-        this.instance.sync();
-    }
-
-    /**
-     * Find the inner child of an aside or figure.quote-card whose vertical
-     * range contains the given client Y. If the container is a figure, we
-     * actually look inside its <blockquote>. Returns the LI when the inner
-     * child is a list and there's a matching item, otherwise the inner
-     * block itself. Returns null if Y falls in pure padding / margin.
-     */
-    findInnerBlockAtY(container, clientY) {
-        let host = container;
-        if (container.tagName === 'FIGURE' && container.classList.contains('quote-card')) {
-            host = container.querySelector(':scope > blockquote');
-        }
-        if (!host) return null;
-
-        const inRange = (el) => {
-            const r = el.getBoundingClientRect();
-            return clientY >= r.top && clientY <= r.bottom;
-        };
-
-        const inner = Array.from(host.children).find(inRange);
-        if (!inner) return null;
-
-        // Drill into a list to pick the actual LI under the cursor
-        if (inner.tagName === 'UL' || inner.tagName === 'OL') {
-            const items = Array.from(inner.children).filter(c => c.tagName === 'LI');
-            const li = items.find(inRange);
-            if (li) return li;
-        }
-        return inner;
-    }
-
-    /**
-     * Walk up to the nearest <aside> or <figure class="quote-card"> ancestor.
-     * Returns null if `block` is at the top level of the editor.
-     * Used by drag handlers to forbid drops that would mix containers.
-     */
-    getContainerAncestor(block) {
-        let current = block && block.parentElement;
-        while (current && current !== this.instance.editorEl) {
-            if (current.tagName === 'ASIDE') return current;
-            if (current.tagName === 'FIGURE' && current.classList.contains('quote-card')) {
-                return current;
-            }
-            current = current.parentElement;
-        }
-        return null;
-    }
-
-    /**
-     * If `block` lives directly inside an <aside> or inside a quote-card's
-     * <blockquote>, return the container element; otherwise null.
-     * Used to constrain drag scope so inner blocks never escape their card.
-     */
-    getInnerContainer(block) {
-        if (!block || !block.parentElement) return null;
-        const parent = block.parentElement;
-        if (parent.tagName === 'ASIDE') return parent;
-        if (parent.tagName === 'BLOCKQUOTE') {
-            const figure = parent.parentElement;
-            if (figure && figure.tagName === 'FIGURE' && figure.classList.contains('quote-card')) {
-                return parent;
-            }
-        }
-        return null;
-    }
-
-    getCurrentPresetClass(presets) {
-        if (!this.currentBlock) return null;
-
-        for (const preset of presets) {
-            if (preset.class && this.currentBlock.classList.contains(preset.class)) {
-                return preset.class;
-            }
-        }
-        return null;
-    }
-
-    // --- Callout Emoji ---
-
-    showEmojiInput() {
-        if (!this.currentBlock || this.currentBlock.tagName !== 'ASIDE') return;
-
-        // Remove existing emoji input if any
-        this.hideEmojiInput();
-
-        const aside = this.currentBlock;
-        const currentEmoji = aside.getAttribute('data-emoji') || '';
-
-        // Create the input popup
-        this.emojiInput = document.createElement('div');
-        this.emojiInput.className = 'redactix-emoji-input';
-        this.emojiInput.contentEditable = 'false';
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = currentEmoji;
-        input.maxLength = 10;
-
-        // Detect OS for emoji picker shortcut hint
-        const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const shortcut = isMac ? '⌘ + ⌃ + Space' : 'Win + .';
-
-        const hint = document.createElement('div');
-        hint.className = 'redactix-emoji-hint';
-        hint.innerHTML = `${this.t('blockControl.emojiOnly')} &middot; <kbd>${shortcut}</kbd>`;
-
-        this.emojiInput.appendChild(input);
-        this.emojiInput.appendChild(hint);
-
-        // Position near the aside
-        const asideRect = aside.getBoundingClientRect();
-        const wrapperRect = this.instance.wrapper.getBoundingClientRect();
-
-        let top = asideRect.top - wrapperRect.top - 44;
-        let left = asideRect.left - wrapperRect.left;
-
-        // If above would go off-screen, show below
-        if (top < 0) {
-            top = asideRect.bottom - wrapperRect.top + 5;
-        }
-        if (left < 5) left = 5;
-
-        this.emojiInput.style.top = `${top}px`;
-        this.emojiInput.style.left = `${left}px`;
-
-        this.instance.wrapper.appendChild(this.emojiInput);
-
-        input.focus();
-        input.select();
-
-        this._emojiHistoryStarted = false;
-
-        // Save handler
-        const save = () => {
-            const value = input.value.trim();
-            if (!value) {
-                // Empty = remove emoji
-                if (aside.hasAttribute('data-emoji')) {
-                    if (!this._emojiHistoryStarted) {
-                        this.beginHistoryBatch();
-                        this._emojiHistoryStarted = true;
-                    }
-                    aside.removeAttribute('data-emoji');
-                }
-                this.hideEmojiInput();
-                if (this._emojiHistoryStarted) {
-                    this.instance.sync();
-                    this.endHistoryBatch();
-                }
-            } else if (this.isValidEmoji(value)) {
-                if (!this._emojiHistoryStarted) {
-                    this.beginHistoryBatch();
-                    this._emojiHistoryStarted = true;
-                }
-                aside.setAttribute('data-emoji', value);
-                this.hideEmojiInput();
-                this.instance.sync();
-                this.endHistoryBatch();
-            } else {
-                // Show error
-                hint.classList.add('is-error');
-                input.classList.add('invalid');
-            }
-        };
-
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                save();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                this.hideEmojiInput();
-            }
-        });
-
-        input.addEventListener('input', () => {
-            // Reset error on new input
-            hint.classList.remove('is-error');
-            input.classList.remove('invalid');
-        });
-
-        input.addEventListener('blur', () => {
-            // Small delay to allow Enter keydown to fire first
-            setTimeout(() => {
-                if (this.emojiInput) {
-                    save();
-                }
-            }, 150);
-        });
-
-        // Prevent clicks inside from propagating
-        this.emojiInput.addEventListener('mousedown', (e) => {
-            e.stopPropagation();
-        });
-    }
-
-    hideEmojiInput() {
-        if (this.emojiInput) {
-            this.emojiInput.remove();
-            this.emojiInput = null;
-        }
-    }
-
-    removeCalloutEmoji() {
-        if (!this.currentBlock || this.currentBlock.tagName !== 'ASIDE') return;
-
-        this.beginHistoryBatch();
-        this.currentBlock.removeAttribute('data-emoji');
-        this.instance.sync();
-        this.endHistoryBatch();
-    }
-
-    isValidEmoji(str) {
-        const trimmed = str.trim();
-        if (!trimmed) return false;
-
-        // Remove all valid emoji characters, modifiers, ZWJ, variation selectors
-        const withoutEmoji = trimmed.replace(/[\p{Extended_Pictographic}\p{Emoji_Component}\u200D\uFE0F\uFE0E]/gu, '');
-        return withoutEmoji.length === 0;
+        const wasList = this.currentBlock && this.currentBlock.tagName !== 'LI';
+        const list = this.commands.convertList(this.currentBlock, newListTag);
+        if (list && wasList) this.currentBlock = list;
+        if (list) this.handles.hideAll();
     }
 
     setPresetClass(newClass, presets) {
-        if (!this.currentBlock) return;
-
-        this.beginHistoryBatch();
-
-        // Remove all preset classes
-        presets.forEach(preset => {
-            if (preset.class) {
-                this.currentBlock.classList.remove(preset.class);
-            }
-        });
-
-        // Add new class if not null
-        if (newClass) {
-            this.currentBlock.classList.add(newClass);
-        }
-
-        // Remove empty class attribute
-        if (this.currentBlock.classList.length === 0) {
-            this.currentBlock.removeAttribute('class');
-        }
-
-        this.instance.sync();
-        this.endHistoryBatch();
-    }
-
-    // --- Drag & Drop ---
-
-    getActiveHandleEl() {
-        return this.activeHandle === 'container' ? this.containerHandle
-            : this.activeHandle === 'list' ? this.listHandle
-            : this.handle;
-    }
-
-    onDragStart(e) {
-        // Check that this is not a right click (for menu)
-        if (e.button !== 0) return;
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        // Start batch operation (saves state BEFORE changes)
-        this.beginHistoryBatch();
-
-        this.isDragging = true;
-        this.getActiveHandleEl().classList.add('dragging');
-        this.currentBlock.classList.add('redactix-block-dragging');
-
-        // Create placeholder
-        this.dragPlaceholder = document.createElement('div');
-        this.dragPlaceholder.className = 'redactix-drag-placeholder';
-
-        // Create ghost element for drag visualization
-        this.dragGhost = document.createElement('div');
-        this.dragGhost.className = 'redactix-drag-ghost';
-        this.dragGhost.textContent = this.currentBlock.textContent.substring(0, 50) + (this.currentBlock.textContent.length > 50 ? '...' : '');
-        document.body.appendChild(this.dragGhost);
-
-        const moveHandler = (moveEvent) => this.onDragMove(moveEvent);
-        const upHandler = () => {
-            this.onDragEnd();
-            document.removeEventListener('mousemove', moveHandler);
-            document.removeEventListener('mouseup', upHandler);
-        };
-
-        document.addEventListener('mousemove', moveHandler);
-        document.addEventListener('mouseup', upHandler);
-    }
-
-    onDragMove(e) {
-        // Обновляем позицию призрака
-        if (this.dragGhost) {
-            this.dragGhost.style.left = `${e.clientX + 10}px`;
-            this.dragGhost.style.top = `${e.clientY + 10}px`;
-        }
-
-        // Hide active handle during elementFromPoint and return its
-        // PREVIOUS state: previously 'flex' was forced on
-        // the main handle, and when dragging by the container/list
-        // handle the main one popped up in the outdated position.
-        const activeHandleEl = this.getActiveHandleEl();
-        const prevHandleDisplay = activeHandleEl.style.display;
-        activeHandleEl.style.display = 'none';
-        let elementBelow = document.elementFromPoint(e.clientX, e.clientY);
-        activeHandleEl.style.display = prevHandleDisplay;
-
-        if (!elementBelow) return;
-
-        // Prevent dragging outside the editor
-        if (!this.instance.editorEl.contains(elementBelow) && elementBelow !== this.instance.editorEl) return;
-
-        // Hard-refuse drops aimed at a quote-card figcaption — that area
-        // can only contain <img> and <span>, never a draggable block.
-        if (elementBelow.closest && elementBelow.closest('figure.quote-card > figcaption')) return;
-
-        // Find target block. figcaption is transparent for drop targeting —
-        // we never want to insert siblings between figure and its figcaption.
-        let targetBlock = elementBelow;
-        while (targetBlock && targetBlock !== this.instance.editorEl) {
-            if (targetBlock.tagName === 'FIGCAPTION') {
-                targetBlock = targetBlock.parentNode;
-                continue;
-            }
-            const display = window.getComputedStyle(targetBlock).display;
-            if (display === 'block' || display === 'list-item') {
-                break;
-            }
-            targetBlock = targetBlock.parentNode;
-        }
-
-        if (targetBlock && targetBlock !== this.instance.editorEl && targetBlock !== this.currentBlock) {
-            const currentTag = this.currentBlock.tagName;
-            let targetTag = targetBlock.tagName;
-
-            // If target landed on a quote-card's blockquote (the wrapper),
-            // re-pick the inner block at this Y. Otherwise insertion would
-            // happen at blockquote.parentNode = figure, putting the drop
-            // between blockquote and figcaption.
-            if (targetTag === 'BLOCKQUOTE') {
-                const card = targetBlock.closest('figure.quote-card');
-                if (card) {
-                    const inner = this.findInnerBlockAtY(card, e.clientY);
-                    if (!inner) return;
-                    targetBlock = inner;
-                    targetTag = targetBlock.tagName;
-                }
-            }
-
-            // Container constraint: drops can only happen INSIDE the same
-            // callout / quote-card the source belongs to (or outside any
-            // such container if the source is top-level). This blocks both
-            // "escape" (inner block out) and "intrude" (top-level block in,
-            // even between blockquote and figcaption of a quote-card).
-            const sourceCard = this.getContainerAncestor(this.currentBlock);
-            const targetCard = this.getContainerAncestor(targetBlock);
-            if (sourceCard !== targetCard) return;
-
-            // Movement rules:
-            if (currentTag === 'LI') {
-                // LI can only be moved to other LIs inside lists
-                if (targetTag === 'LI') {
-                    // Move LI to another LI - insert into the same list
-                    const rect = targetBlock.getBoundingClientRect();
-                    const offset = e.clientY - rect.top;
-
-                    if (offset < rect.height / 2) {
-                        targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock);
-                    } else {
-                        targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock.nextSibling);
-                    }
-                    this.showHandle(this.currentBlock);
-                    return;
-                } else if (targetTag === 'UL' || targetTag === 'OL') {
-                    // If hovered on the list itself - find the nearest LI or append to the end
-                    const items = targetBlock.querySelectorAll(':scope > li');
-                    if (items.length === 0) {
-                        targetBlock.appendChild(this.currentBlock);
-                        this.showHandle(this.currentBlock);
-                    }
-                    return;
-                } else {
-                    // LI cannot be dragged to standard blocks
-                    return;
-                }
-            } else if (currentTag === 'UL' || currentTag === 'OL') {
-                // UL/OL can be moved to other block elements (not inside lists)
-                if (targetTag === 'LI') {
-                    // Insert the list next to the parent list of LI
-                    const parentList = targetBlock.parentElement;
-                    if (parentList) {
-                        const rect = parentList.getBoundingClientRect();
-                        const offset = e.clientY - rect.top;
-
-                        if (offset < rect.height / 2) {
-                            parentList.parentNode.insertBefore(this.currentBlock, parentList);
-                        } else {
-                            parentList.parentNode.insertBefore(this.currentBlock, parentList.nextSibling);
-                        }
-                        this.showHandle(this.currentBlock);
-                    }
-                    return;
-                } else if (targetTag === 'UL' || targetTag === 'OL') {
-                    // List to list - insert next to it
-                    const rect = targetBlock.getBoundingClientRect();
-                    const offset = e.clientY - rect.top;
-
-                    if (offset < rect.height / 2) {
-                        targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock);
-                    } else {
-                        targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock.nextSibling);
-                    }
-                    this.showHandle(this.currentBlock);
-                    return;
-                }
-                // Otherwise - to standard blocks, continue below
-            } else {
-                // Standard blocks cannot be dragged inside lists
-                if (targetTag === 'LI') return;
-                if (targetTag === 'UL' || targetTag === 'OL') {
-                    // Place next to lists, not inside
-                    const rect = targetBlock.getBoundingClientRect();
-                    const offset = e.clientY - rect.top;
-
-                    if (offset < rect.height / 2) {
-                        targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock);
-                    } else {
-                        targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock.nextSibling);
-                    }
-                    this.showHandle(this.currentBlock);
-                    return;
-                }
-
-                // Check that the target is not inside a list
-                if (targetBlock.parentNode &&
-                    (targetBlock.parentNode.tagName === 'UL' ||
-                        targetBlock.parentNode.tagName === 'OL' ||
-                        targetBlock.parentNode.tagName === 'LI')) {
-                    return;
-                }
-            }
-
-            // Final check - do not insert into list
-            if (targetBlock.parentNode &&
-                (targetBlock.parentNode.tagName === 'UL' ||
-                    targetBlock.parentNode.tagName === 'OL')) {
-                return;
-            }
-
-            const rect = targetBlock.getBoundingClientRect();
-            const offset = e.clientY - rect.top;
-
-            if (offset < rect.height / 2) {
-                targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock);
-            } else {
-                targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock.nextSibling);
-            }
-
-            this.showHandle(this.currentBlock);
-        }
-    }
-
-    onDragEnd() {
-        this.isDragging = false;
-        this.handle.classList.remove('dragging');
-        this.containerHandle.classList.remove('dragging');
-        this.listHandle.classList.remove('dragging');
-
-        if (this.currentBlock) {
-            this.currentBlock.classList.remove('redactix-block-dragging');
-            if (this.currentBlock.classList.length === 0) {
-                this.currentBlock.removeAttribute('class');
-            }
-        }
-
-        if (this.dragPlaceholder) {
-            this.dragPlaceholder.remove();
-            this.dragPlaceholder = null;
-        }
-
-        if (this.dragGhost) {
-            this.dragGhost.remove();
-            this.dragGhost = null;
-        }
-
-        this.instance.sync();
-
-        // End batch operation
-        this.endHistoryBatch();
-    }
-
-    // Helper methods for working with history
-    getHistoryModule() {
-        return this.instance.modules.find(m => m.constructor.name === 'History');
-    }
-
-    beginHistoryBatch() {
-        const history = this.getHistoryModule();
-        if (history) {
-            history.beginBatch();
-        }
-    }
-
-    endHistoryBatch() {
-        const history = this.getHistoryModule();
-        if (history) {
-            history.endBatch();
-        }
-    }
-
-    // --- Touch Events ---
-
-    onTouchStart(e) {
-        // Prevent default to avoid scrolling while dragging
-        e.preventDefault();
-
-        const touch = e.touches[0];
-        this.touchStartX = touch.clientX;
-        this.touchStartY = touch.clientY;
-        this.touchStartTime = Date.now();
-        this.touchMoved = false;
-
-        // Timer for detecting long press (opening the menu)
-        this.touchHoldTimer = setTimeout(() => {
-            if (!this.touchMoved) {
-                // Long press - open the menu
-                this.onHandleClick(e);
-            }
-        }, 500);
-
-        const touchMoveHandler = (moveEvent) => this.onTouchMove(moveEvent);
-        const touchEndHandler = (endEvent) => {
-            this.onTouchEnd(endEvent);
-            document.removeEventListener('touchmove', touchMoveHandler);
-            document.removeEventListener('touchend', touchEndHandler);
-            document.removeEventListener('touchcancel', touchEndHandler);
-        };
-
-        document.addEventListener('touchmove', touchMoveHandler, { passive: false });
-        document.addEventListener('touchend', touchEndHandler);
-        document.addEventListener('touchcancel', touchEndHandler);
-    }
-
-    onTouchMove(e) {
-        if (!this.currentBlock) return;
-
-        const touch = e.touches[0];
-        const deltaX = Math.abs(touch.clientX - this.touchStartX);
-        const deltaY = Math.abs(touch.clientY - this.touchStartY);
-
-        // If the movement is significant enough - start drag
-        if (deltaX > 10 || deltaY > 10) {
-            this.touchMoved = true;
-
-            // Cancel long press timer
-            if (this.touchHoldTimer) {
-                clearTimeout(this.touchHoldTimer);
-                this.touchHoldTimer = null;
-            }
-
-            // If drag has not started yet - start it
-            if (!this.isDragging) {
-                this.startTouchDrag(e);
-            }
-
-            // Perform drag move
-            this.onTouchDragMove(e);
-        }
-
-        e.preventDefault();
-    }
-
-    onTouchEnd(e) {
-        // Cancel long press timer
-        if (this.touchHoldTimer) {
-            clearTimeout(this.touchHoldTimer);
-            this.touchHoldTimer = null;
-        }
-
-        // If there was a short tap without movement - open the menu
-        if (!this.touchMoved && Date.now() - this.touchStartTime < 300) {
-            this.onHandleClick(e);
-        }
-
-        // If there was a drag - end it
-        if (this.isDragging) {
-            this.onDragEnd();
-        }
-    }
-
-    startTouchDrag(e) {
-        this.beginHistoryBatch();
-
-        this.isDragging = true;
-        this.getActiveHandleEl().classList.add('dragging');
-        this.currentBlock.classList.add('redactix-block-dragging');
-
-        // Create placeholder
-        this.dragPlaceholder = document.createElement('div');
-        this.dragPlaceholder.className = 'redactix-drag-placeholder';
-
-        // Create ghost element for drag visualization
-        this.dragGhost = document.createElement('div');
-        this.dragGhost.className = 'redactix-drag-ghost';
-        this.dragGhost.textContent = this.currentBlock.textContent.substring(0, 50) + (this.currentBlock.textContent.length > 50 ? '...' : '');
-        document.body.appendChild(this.dragGhost);
-    }
-
-    onTouchDragMove(e) {
-        const touch = e.touches[0];
-
-        // Обновляем позицию призрака
-        if (this.dragGhost) {
-            this.dragGhost.style.left = `${touch.clientX + 10}px`;
-            this.dragGhost.style.top = `${touch.clientY + 10}px`;
-        }
-
-        // Find element under finger (hide ghost and active handle,
-        // returning the handle to its previous state — see onDragMove).
-        const activeHandleEl = this.getActiveHandleEl();
-        const prevHandleDisplay = activeHandleEl.style.display;
-        this.dragGhost.style.display = 'none';
-        activeHandleEl.style.display = 'none';
-        let elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-        activeHandleEl.style.display = prevHandleDisplay;
-        this.dragGhost.style.display = 'block';
-
-        if (!elementBelow) return;
-
-        // Prevent dragging outside the editor
-        if (!this.instance.editorEl.contains(elementBelow) && elementBelow !== this.instance.editorEl) return;
-
-        // Hard-refuse drops aimed at a quote-card figcaption.
-        if (elementBelow.closest && elementBelow.closest('figure.quote-card > figcaption')) return;
-
-        // Find target block. figcaption is transparent for drop targeting —
-        // we never want to insert siblings between figure and its figcaption.
-        let targetBlock = elementBelow;
-        while (targetBlock && targetBlock !== this.instance.editorEl) {
-            if (targetBlock.tagName === 'FIGCAPTION') {
-                targetBlock = targetBlock.parentNode;
-                continue;
-            }
-            const display = window.getComputedStyle(targetBlock).display;
-            if (display === 'block' || display === 'list-item') {
-                break;
-            }
-            targetBlock = targetBlock.parentNode;
-        }
-
-        if (targetBlock && targetBlock !== this.instance.editorEl && targetBlock !== this.currentBlock) {
-            const currentTag = this.currentBlock.tagName;
-            let targetTag = targetBlock.tagName;
-
-            // If target landed on a quote-card's blockquote, drill into the
-            // inner block at this Y — see onDragMove for rationale.
-            if (targetTag === 'BLOCKQUOTE') {
-                const card = targetBlock.closest('figure.quote-card');
-                if (card) {
-                    const inner = this.findInnerBlockAtY(card, touch.clientY);
-                    if (!inner) return;
-                    targetBlock = inner;
-                    targetTag = targetBlock.tagName;
-                }
-            }
-
-            // Same container-ancestor equality check as the mouse path.
-            const sourceCard = this.getContainerAncestor(this.currentBlock);
-            const targetCard = this.getContainerAncestor(targetBlock);
-            if (sourceCard !== targetCard) return;
-
-            // Apply the same rules as for mouse
-            if (currentTag === 'LI' && targetTag !== 'LI') return;
-            if (currentTag !== 'LI' && (targetTag === 'LI' || targetTag === 'UL' || targetTag === 'OL')) {
-                if (targetTag === 'UL' || targetTag === 'OL') {
-                    // Вставляем рядом со списком
-                    const rect = targetBlock.getBoundingClientRect();
-                    const offset = touch.clientY - rect.top;
-
-                    if (offset < rect.height / 2) {
-                        targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock);
-                    } else {
-                        targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock.nextSibling);
-                    }
-                    this.showHandle(this.currentBlock);
-                }
-                return;
-            }
-
-            const rect = targetBlock.getBoundingClientRect();
-            const offset = touch.clientY - rect.top;
-
-            if (offset < rect.height / 2) {
-                targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock);
-            } else {
-                targetBlock.parentNode.insertBefore(this.currentBlock, targetBlock.nextSibling);
-            }
-
-            this.showHandle(this.currentBlock);
-        }
+        this.commands.setPreset(this.currentBlock, newClass, presets);
     }
 }

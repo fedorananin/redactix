@@ -1,162 +1,163 @@
 import Module from '../core/Module.js';
-import Icons from '../ui/Icons.js';
+import { inputGroup, checkbox, statusLine } from '../ui/form-helpers.js';
+
+// Classes the editor itself relies on. A user typing one of them into the
+// class field could silently break content: `redactix-separator` on a <p>
+// makes sync delete the paragraph, `redactix-find-highlight` flattens a
+// block on the next search … so they can't be added by hand. Ones the
+// element already carries are kept untouched (and not shown in the field).
+const RESERVED_CLASS_PREFIX = 'redactix-';
+const RESERVED_CLASSES = ['quote-card'];
+// Allowed only on a specific tag.
+const TAG_BOUND_CLASSES = { spoiler: 'SPAN' };
 
 export default class Attributes extends Module {
+    static moduleName = 'Attributes';
+
     getButtons() {
         return [];
+    }
+
+    isReservedClass(cls) {
+        return cls.startsWith(RESERVED_CLASS_PREFIX) || RESERVED_CLASSES.includes(cls);
     }
 
     openModal(targetNode = null) {
         if (!targetNode) {
             this.instance.selection.save();
-            
+
             const selection = window.getSelection();
             if (!selection.rangeCount) return;
-            
+
             targetNode = selection.getRangeAt(0).commonAncestorContainer;
         }
 
         let currentNode = targetNode;
-        if (currentNode.nodeType === 3) currentNode = currentNode.parentNode;
-        
+        if (currentNode.nodeType === Node.TEXT_NODE) currentNode = currentNode.parentNode;
+
+        const root = this.instance.editorEl;
+        if (!currentNode || currentNode === root || !root.contains(currentNode)) return;
+
         // Build ancestry path
         const path = [];
         let temp = currentNode;
-        while (temp && temp !== this.editor.el) {
-            if (temp.nodeType === 1) { 
-                // Skip utility wrappers
-                if (!temp.classList.contains('redactix-separator')) {
-                    path.unshift(temp);
-                }
+        while (temp && temp !== root) {
+            if (temp.nodeType === Node.ELEMENT_NODE) {
+                // Skip utility wrappers and editor UI
+                const isUtility = temp.classList.contains('redactix-separator') ||
+                    temp.classList.contains('redactix-find-highlight') ||
+                    temp.hasAttribute('data-redactix-ui');
+                if (!isUtility) path.unshift(temp);
             }
             temp = temp.parentNode;
         }
 
-        if (path.length === 0) {
-            // If nothing is selected or we are at root
-            path.push(currentNode.nodeType === 1 ? currentNode : currentNode.parentNode);
-        }
+        if (path.length === 0) return;
 
         // State
         let selectedNode = path[path.length - 1];
-        
+
         // Body Container
         const body = document.createElement('div');
-        
+        body.className = 'redactix-attributes';
+
         // Breadcrumbs
         const nav = document.createElement('div');
-        nav.style.marginBottom = '15px';
-        nav.style.display = 'flex';
-        nav.style.gap = '5px';
-        nav.style.flexWrap = 'wrap';
-        nav.style.borderBottom = '1px solid #eee';
-        nav.style.paddingBottom = '10px';
+        nav.className = 'redactix-attr-nav';
 
         // Form Container
         const formContainer = document.createElement('div');
-        
+
         // References for saving
         let classInput = null;
         let idInput = null;
+        let status = null;
 
         const render = () => {
             // 1. Render Breadcrumbs
             nav.innerHTML = '';
             path.forEach((node, index) => {
                 const btn = document.createElement('button');
-                btn.textContent = node.tagName.toLowerCase();
                 btn.type = 'button';
-                btn.style.border = '1px solid #ddd';
-                btn.style.background = node === selectedNode ? '#007bff' : '#f8f9fa';
-                btn.style.color = node === selectedNode ? '#fff' : '#333';
-                btn.style.borderRadius = '4px';
-                btn.style.padding = '2px 8px';
-                btn.style.cursor = 'pointer';
-                btn.style.fontSize = '12px';
-                
-                btn.onclick = () => {
+                btn.className = 'redactix-attr-crumb' + (node === selectedNode ? ' is-active' : '');
+                btn.textContent = node.tagName.toLowerCase();
+                btn.addEventListener('click', () => {
                     selectedNode = node;
                     render();
-                };
-
+                });
                 nav.appendChild(btn);
-                
+
                 // Separator
                 if (index < path.length - 1) {
                     const sep = document.createElement('span');
+                    sep.className = 'redactix-attr-sep';
                     sep.textContent = '›';
-                    sep.style.color = '#999';
-                    sep.style.padding = '2px';
                     nav.appendChild(sep);
                 }
             });
 
             // 2. Render Form
             formContainer.innerHTML = '';
-            
-            // Info text
+
+            // Info text — built from nodes, never from interpolated markup
             const info = document.createElement('p');
-            info.innerHTML = `${this.t('attributes.editing')}: <b>&lt;${selectedNode.tagName.toLowerCase()}&gt;</b>`;
-            info.style.marginTop = '0';
-            info.style.marginBottom = '10px';
-            info.style.color = '#666';
+            info.className = 'redactix-attr-info';
+            const tagLabel = document.createElement('b');
+            tagLabel.textContent = '<' + selectedNode.tagName.toLowerCase() + '>';
+            info.append(this.t('attributes.editing') + ': ', tagLabel);
             formContainer.appendChild(info);
 
             // ID Input (anchor)
-            const idGroup = this.createInputGroup(this.t('attributes.idAnchor'), 'text', selectedNode.id || '');
-            idInput = idGroup.querySelector('input');
-            idInput.placeholder = this.t('attributes.idPlaceholder');
+            const idGroup = inputGroup(this.t('attributes.idAnchor'), 'text', selectedNode.id || '', {
+                placeholder: this.t('attributes.idPlaceholder')
+            });
+            idInput = idGroup.field;
             formContainer.appendChild(idGroup);
-            
-            // Anchor hint
+
+            // Anchor hint. The id comes from document content, which may
+            // have been written by someone else — text only.
             if (selectedNode.id) {
                 const anchorHint = document.createElement('div');
-                anchorHint.style.cssText = 'margin-bottom: 15px; font-size: 12px; color: #6b7280;';
-                anchorHint.innerHTML = `${this.t('attributes.linkPrefix')}: <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 3px;">#${selectedNode.id}</code>`;
+                anchorHint.className = 'redactix-attr-hint';
+                const code = document.createElement('code');
+                code.textContent = '#' + selectedNode.id;
+                anchorHint.append(this.t('attributes.linkPrefix') + ': ', code);
                 formContainer.appendChild(anchorHint);
             }
 
-            // Class Input
-            const classGroup = this.createInputGroup(this.t('attributes.classes'), 'text', selectedNode.className);
-            classInput = classGroup.querySelector('input');
+            // Class Input — editor-internal classes are not shown
+            const userClasses = Array.from(selectedNode.classList).filter(c => !this.isReservedClass(c));
+            const classGroup = inputGroup(this.t('attributes.classes'), 'text', userClasses.join(' '));
+            classInput = classGroup.field;
             formContainer.appendChild(classGroup);
+
+            status = statusLine('', { error: true });
+            formContainer.appendChild(status);
+            classInput.addEventListener('input', () => { status.textContent = ''; });
 
             // Predefined classes (shown only if the array is set and not empty)
             const predefined = this.instance.config.predefinedClasses;
             if (predefined && Array.isArray(predefined) && predefined.length > 0) {
                 const listDiv = document.createElement('div');
-                listDiv.style.marginTop = '10px';
+                listDiv.className = 'redactix-attr-quick';
                 const listLabel = document.createElement('label');
                 listLabel.textContent = this.t('attributes.quickSelect') + ':';
-                listLabel.style.display = 'block';
-                listLabel.style.marginBottom = '5px';
                 listDiv.appendChild(listLabel);
 
-                const currentClasses = selectedNode.className.split(/\s+/);
-
+                const row = document.createElement('div');
+                row.className = 'redactix-checkbox-row';
                 predefined.forEach(cls => {
-                    const label = document.createElement('label');
-                    label.style.fontWeight = 'normal';
-                    label.style.display = 'inline-flex';
-                    label.style.alignItems = 'center';
-                    label.style.marginRight = '10px';
-                    label.style.cursor = 'pointer';
-
-                    const check = document.createElement('input');
-                    check.type = 'checkbox';
-                    check.style.marginRight = '4px';
-                    check.value = cls;
-                    check.checked = currentClasses.includes(cls);
-
-                    check.addEventListener('change', () => {
-                        let classes = classInput.value.split(/\s+/).filter(c => c && c !== cls);
-                        if (check.checked) classes.push(cls);
+                    const box = checkbox(cls, userClasses.includes(cls));
+                    box.field.value = cls;
+                    box.field.addEventListener('change', () => {
+                        const classes = classInput.value.split(/\s+/).filter(c => c && c !== cls);
+                        if (box.field.checked) classes.push(cls);
                         classInput.value = classes.join(' ');
+                        status.textContent = '';
                     });
-
-                    label.append(check, cls);
-                    listDiv.appendChild(label);
+                    row.appendChild(box);
                 });
+                listDiv.appendChild(row);
                 formContainer.appendChild(listDiv);
             }
         };
@@ -170,8 +171,23 @@ export default class Attributes extends Module {
             title: this.t('attributes.title'),
             body: body,
             onSave: () => {
+                if (!selectedNode || !selectedNode.isConnected) return;
+
+                // Validate classes before touching anything
+                const requested = classInput ? classInput.value.split(/\s+/).filter(Boolean) : [];
+                const rejected = requested.filter(cls => {
+                    if (this.isReservedClass(cls)) return true;
+                    const tag = TAG_BOUND_CLASSES[cls];
+                    return !!tag && selectedNode.tagName !== tag;
+                });
+                if (rejected.length) {
+                    status.textContent = this.t('attributes.reservedClass', { classes: rejected.join(', ') });
+                    classInput.focus();
+                    return false;
+                }
+
                 this.instance.selection.restore();
-                if (selectedNode) {
+                this.transact(() => {
                     // Save ID
                     if (idInput) {
                         const newId = this.sanitizeId(idInput.value);
@@ -181,75 +197,36 @@ export default class Attributes extends Module {
                             selectedNode.removeAttribute('id');
                         }
                     }
-                    
-                    // Save classes
+
+                    // Save classes, keeping the editor's own ones
                     if (classInput) {
-                        const classValue = classInput.value.trim();
-                        if (classValue) {
-                            selectedNode.className = classValue;
+                        const kept = Array.from(selectedNode.classList).filter(c => this.isReservedClass(c));
+                        const classes = [...new Set([...kept, ...requested])];
+                        if (classes.length) {
+                            selectedNode.className = classes.join(' ');
                         } else {
                             selectedNode.removeAttribute('class');
                         }
                     }
-                    
-                    this.instance.sync();
-                }
+                });
             }
         });
     }
 
-    createInputGroup(labelText, type, value) {
-        const div = document.createElement('div');
-        const label = document.createElement('label');
-        label.textContent = labelText;
-        const input = document.createElement('input');
-        input.type = type;
-        input.value = value;
-        div.append(label, input);
-        return div;
-    }
-
+    /**
+     * Normalise an anchor id: no leading '#', whitespace → '-', only
+     * letters / digits of any script plus '-' and '_' (Cyrillic and other
+     * non-ASCII anchors used to vanish entirely).
+     */
     sanitizeId(id) {
         if (!id) return '';
-        // Remove # at the start if present
-        id = id.replace(/^#/, '');
-        // Replace spaces with hyphens, remove special characters
-        id = id.toLowerCase()
+        return id
+            .trim()
+            .replace(/^#+/, '')
+            .toLowerCase()
             .replace(/\s+/g, '-')
-            .replace(/[^a-z0-9-_]/g, '')
+            .replace(/[^\p{L}\p{M}\p{N}_-]/gu, '')
             .replace(/-+/g, '-')
             .replace(/^-|-$/g, '');
-        return id;
-    }
-
-    getTargetNode() {
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return null;
-
-        const range = selection.getRangeAt(0);
-        
-        // 1. Check if the image is selected directly (commonContainer)
-        // In some browsers, img is selected as range content
-        if (range.commonAncestorContainer.nodeType === 1 && 
-            range.commonAncestorContainer.tagName === 'IMG') {
-            return range.commonAncestorContainer;
-        }
-
-        // 2. Check parent elements (bottom-up)
-        let node = range.commonAncestorContainer;
-        if (node.nodeType === 3) node = node.parentNode; // If text, take parent
-
-        // Search for the nearest significant tag
-        while (node && node !== this.editor.el) {
-            const tag = node.tagName.toLowerCase();
-            // If we are inside link, button, image (wrapper), table - return them
-            if (['a', 'img', 'table', 'iframe', 'li', 'td', 'th', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'blockquote', 'pre'].includes(tag)) {
-                return node;
-            }
-            node = node.parentNode;
-        }
-        
-        // If nothing specific is found, return the block itself (usually P or DIV)
-        return node === this.editor.el ? null : node;
     }
 }

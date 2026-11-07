@@ -349,7 +349,7 @@ All third-party embeds (videos, posts, players) share one shape — `<figure cla
 </figure>
 ```
 
-The initial frame height comes from the provider's default (e.g. 700px for Instagram) and is written inline; the optional [auto-resize runtime](#optional-auto-resize-runtime) then adjusts it to the real content height. A legacy `data-height` attribute may exist in HTML saved by old versions — current versions strip it on save.
+The initial frame height comes from the provider's default (e.g. 700px for Instagram, 152px for a Spotify track) or from the pasted iframe, is written inline and persisted in `data-height` so it survives every save/load; the optional [auto-resize runtime](#optional-auto-resize-runtime) then adjusts it to the real content height. `data-aspect` may also be `9:16` (YouTube Shorts).
 
 ### Custom HTML embed (LinkedIn, Facebook, niche services)
 
@@ -711,7 +711,7 @@ What survives a paste from the outside world (Google Docs, Word, websites):
 - **Attributes stripped:** `style` (except the video `aspect-ratio` case above), event handlers, every other attribute not in the whitelist.
 - **URL schemes:** `href`/`src` must be `http(s)`, `mailto`, `tel` or relative; `<img src>` additionally accepts raster `data:image/*` (never `data:image/svg+xml`). `javascript:`, `data:text/html`, `vbscript:` etc. are stripped, including entity-encoded and control-character-obfuscated variants.
 - **Classes whitelisted:** `spoiler`, `quote-card`, `redactix-embed`, `redactix-embed-frame`, `redactix-video`, `redactix-gallery`, `redactix-gallery-grid` — always. Plus the classes of every active preset in `calloutPresets` / `quotePresets` (defaults: `warning`, `danger`, `information`, `success`, `big` — disable with `{ defaults: false }`). Any other class is silently dropped on paste.
-- **`data-emoji`** is allowed only on `<aside>`. **`data-provider`** / **`data-aspect`** / **`data-source-url`** (and legacy `data-height`, stripped again on save) are allowed only on `<figure class="redactix-embed">`. **`data-aspect`** is also allowed on `<figure class="redactix-video">`.
+- **`data-emoji`** is allowed only on `<aside>`. **`data-provider`** / **`data-aspect`** / **`data-height`** / **`data-source-url`** are allowed only on `<figure class="redactix-embed">`. **`data-aspect`** is also allowed on `<figure class="redactix-video">`.
 - **Modal inputs go through the same sanitisation** — URLs typed into the image / gallery / video / link dialogs are scheme-checked, and caption / author-name fields are filtered to the inline whitelist. There is no path around the sanitiser from inside the editor UI.
 
 So your renderer only ever sees a small, predictable surface.

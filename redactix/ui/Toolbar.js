@@ -7,13 +7,6 @@ export default class Toolbar {
         this.isSticky = false;
         this.stickyPlaceholder = null;
         
-        // Update button states when selection changes.
-        // Global listener - register via instance.listen,
-        // so destroy() can remove it.
-        instance.listen(document, 'selectionchange', () => {
-            this.updateButtonStates();
-        });
-        
         // Инициализируем sticky поведение только если нет maxHeight
         if (!instance.config.maxHeight) {
             this.initStickyBehavior();
@@ -135,12 +128,12 @@ export default class Toolbar {
         const run = () => {
             if (btnConfig.action) btnConfig.action();
             this.instance.sync();
-            // Update state after action
-            setTimeout(() => this.updateButtonStates(), 10);
         };
 
-        // Use mousedown instead of click to not lose editor focus
+        // Use mousedown instead of click to not lose editor focus.
+        // Primary button only — a right-click used to run the action too.
         btn.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
             e.preventDefault();
             run();
         });
@@ -153,60 +146,5 @@ export default class Toolbar {
 
         this.element.appendChild(btn);
         this.buttons.set(btnConfig.name, btn);
-    }
-
-    updateButtonStates() {
-        // Verify that focus is in the editor
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-        
-        const range = selection.getRangeAt(0);
-        if (!this.instance.editorEl.contains(range.commonAncestorContainer)) return;
-
-        // Update state for formatting commands
-        const formatCommands = {
-            'bold': 'bold',
-            'italic': 'italic',
-            'underline': 'underline',
-            'strike': 'strikeThrough'
-        };
-
-        Object.entries(formatCommands).forEach(([name, command]) => {
-            const btn = this.buttons.get(name);
-            if (btn) {
-                const isActive = document.queryCommandState(command);
-                btn.classList.toggle('active', isActive);
-            }
-        });
-
-        // Update state for block elements
-        let block = range.commonAncestorContainer;
-        if (block.nodeType === Node.TEXT_NODE) {
-            block = block.parentElement;
-        }
-        
-        while (block && block !== this.instance.editorEl) {
-            const tag = block.tagName;
-            
-            // Verify headings and paragraphs
-            ['h1', 'h2', 'h3', 'p', 'blockquote'].forEach(name => {
-                const btn = this.buttons.get(name);
-                if (btn) {
-                    btn.classList.toggle('active', tag === name.toUpperCase());
-                }
-            });
-
-            // Verify lists
-            if (tag === 'UL' || tag === 'OL' || tag === 'LI') {
-                const listType = tag === 'LI' ? block.parentElement?.tagName : tag;
-                const ulBtn = this.buttons.get('ul');
-                const olBtn = this.buttons.get('ol');
-                
-                if (ulBtn) ulBtn.classList.toggle('active', listType === 'UL');
-                if (olBtn) olBtn.classList.toggle('active', listType === 'OL');
-            }
-
-            block = block.parentElement;
-        }
     }
 }

@@ -2,7 +2,22 @@ import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
 import { parseHtmlInert, sanitizeLoadedHtml } from '../core/dom-utils.js';
 
+// Pretty-printer tag sets. Block elements go on their own line; "verbatim"
+// elements are printed exactly as serialised — their content is either
+// whitespace-sensitive (<pre>) or opaque (media).
+const PRETTY_BLOCK_TAGS = new Set([
+    'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'CAPTION', 'COL', 'COLGROUP',
+    'DD', 'DETAILS', 'DIV', 'DL', 'DT', 'FIELDSET', 'FIGCAPTION', 'FIGURE',
+    'FOOTER', 'FORM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HEADER', 'HR',
+    'IFRAME', 'LI', 'MAIN', 'NAV', 'OL', 'P', 'PRE', 'SECTION', 'SUMMARY',
+    'TABLE', 'TBODY', 'TD', 'TFOOT', 'TH', 'THEAD', 'TR', 'UL', 'VIDEO', 'AUDIO'
+]);
+const VERBATIM_TAGS = new Set(['PRE', 'IFRAME', 'VIDEO', 'AUDIO', 'TEXTAREA']);
+const INDENT = '  ';
+
 export default class HtmlMode extends Module {
+    static moduleName = 'HtmlMode';
+
     constructor(instance) {
         super(instance);
         this.isHtmlMode = false;
@@ -18,12 +33,32 @@ export default class HtmlMode extends Module {
         this.backdropCode = null;   // <code> inside backdrop
         this.lineHighlight = null;  // line highlight strip on hover on the line number
         this._redrawFrame = null;   // rAF coalescing of redraws
+        this._lineCount = 0;        // line numbers currently rendered
+        this._highlightedValue = null;
+        this._overrideCache = { code: null, html: null };
+        this._returning = false;
 
         // Line metrics. Must match CSS (.redactix-code-editor:
         // line-height 21px; padding 16px in textarea, backdrop and lines column)
         // — this keeps the exact match of the line number and the line.
         this.LINE_HEIGHT = 21;
         this.PAD_TOP = 16;
+        this.MIN_HEIGHT = 300;
+    }
+
+    init() {
+        // Content replaced from outside while the code view is open
+        // (host calls setContent): show the new content in the code view,
+        // otherwise the next sync would save the stale code over it.
+        this.instance.on('contentReplaced', () => {
+            if (this.isHtmlMode && !this._returning && this.textarea) {
+                this.setCode(this.beautifyHtml(this.instance.serializeClean().html));
+            }
+        });
+        this.instance.onDestroy(() => {
+            if (this._redrawFrame != null) cancelAnimationFrame(this._redrawFrame);
+            this._redrawFrame = null;
+        });
     }
 
     getButtons() {
@@ -31,7 +66,7 @@ export default class HtmlMode extends Module {
         if (this.instance.config.liteMode) {
             return [];
         }
-        
+
         return [
             {
                 name: 'html',
@@ -42,191 +77,118 @@ export default class HtmlMode extends Module {
         ];
     }
 
+    /**
+     * While the code view is open it IS the content: textarea.value,
+     * getContent(), form submit and destroy() must carry what is typed
+     * there. Same sanitiser as the return path, so the saved value is what
+     * the visual editor would get back.
+     */
+    getContentOverride() {
+        if (!this.isHtmlMode || !this.textarea) return null;
+        const code = this.textarea.value;
+        if (this._overrideCache.code !== code) {
+            this._overrideCache = { code, html: sanitizeLoadedHtml(code) };
+        }
+        return this._overrideCache.html;
+    }
+
     toggleHtmlMode() {
-        this.isHtmlMode = !this.isHtmlMode;
+        if (this.isHtmlMode) this.exitHtmlMode();
+        else this.enterHtmlMode();
+    }
+
+    enterHtmlMode() {
+        if (this.isHtmlMode) return;
         const wrapper = this.instance.wrapper;
         const editorEl = this.instance.editorEl;
 
-        if (this.isHtmlMode) {
-            // --- ENTERING HTML MODE ---
+        // 1. Exactly the saved HTML (same cleanup as sync), pretty-printed.
+        const prettyHtml = this.beautifyHtml(this.instance.serializeClean().html);
 
-            // 1. Get HTML and format it
-            let rawHtml = editorEl.innerHTML;
-            
-            // Remove helper elements for clean code. Parsed inertly so the
-            // round-trip doesn't re-fire load/error handlers on every image
-            // in the document.
-            const tempDiv = parseHtmlInert(rawHtml);
-            
-            // Remove hr wrappers
-            tempDiv.querySelectorAll('.redactix-separator').forEach(wrapper => {
-                const hr = wrapper.querySelector('hr');
-                if (hr) {
-                    wrapper.parentNode.replaceChild(hr, wrapper);
-                }
-            });
-            
-            // Remove search highlighting
-            tempDiv.querySelectorAll('.redactix-find-highlight').forEach(mark => {
-                const text = document.createTextNode(mark.textContent);
-                mark.parentNode.replaceChild(text, mark);
-            });
-            
-            // Remove empty figcaption
-            tempDiv.querySelectorAll('figcaption').forEach(figcaption => {
-                const innerHtml = figcaption.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
-                if (!innerHtml && !figcaption.querySelector('img, iframe')) {
-                    figcaption.remove();
-                }
-            });
-            
-            // Remove style and empty alt attributes from img
-            tempDiv.querySelectorAll('img').forEach(img => {
-                img.removeAttribute('style');
-                if (img.alt === '') img.removeAttribute('alt');
-            });
-            
-            // Remove contenteditable
-            tempDiv.querySelectorAll('[contenteditable]').forEach(el => {
-                el.removeAttribute('contenteditable');
-            });
+        // 2. Hide floating overlays of all modules (block handles, "+"
+        // between blocks, table handles, floating toolbar, search) — they
+        // would otherwise hover over the code.
+        this.instance.hideAllUI();
 
-            // Apply per-module cleanups so HTML mode shows the same output
-            // sync() writes to the textarea (no edit-button, no live frame
-            // snapshots, no quote-card UI artifacts, etc.).
-            const quoteCardModule = this.instance.modules.find(m => m.constructor.name === 'QuoteCard');
-            if (quoteCardModule && quoteCardModule.cleanCardsForSync) {
-                quoteCardModule.cleanCardsForSync(tempDiv);
-            }
-            const calloutModule = this.instance.modules.find(m => m.constructor.name === 'Callout');
-            if (calloutModule && calloutModule.cleanCalloutsForSync) {
-                calloutModule.cleanCalloutsForSync(tempDiv);
-            }
-            const embedModule = this.instance.modules.find(m => m.constructor.name === 'Embed');
-            if (embedModule && embedModule.cleanEmbedsForSync) {
-                embedModule.cleanEmbedsForSync(tempDiv);
-            }
-            const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
-            if (videoModule && videoModule.cleanVideosForSync) {
-                videoModule.cleanVideosForSync(tempDiv);
-            }
-            const galleryModule = this.instance.modules.find(m => m.constructor.name === 'Gallery');
-            if (galleryModule && galleryModule.cleanGalleriesForSync) {
-                galleryModule.cleanGalleriesForSync(tempDiv);
-            }
+        this.isHtmlMode = true;
 
-            tempDiv.normalize();
+        // 3. Create the code editor, hide visual editor
+        this.createCodeEditor(prettyHtml);
+        editorEl.style.display = 'none';
+        wrapper.appendChild(this.editorContainer);
 
-            rawHtml = tempDiv.innerHTML;
+        // 4. Disable toolbar buttons
+        this.disableToolbar(true);
 
-            const prettyHtml = this.beautifyHtml(rawHtml);
-
-            // 2. Create the code editor container
-            this.createCodeEditor(prettyHtml);
-
-            // 3. Hide floating overlays of other modules (block handles,
-            // "+" between blocks, table handles, floating toolbar, search).
-            // They are absolutely positioned in the wrapper and would otherwise remain
-            // hovering on top of the code: mousemove on hidden editorEl no longer
-            // triggers, so there is nothing to hide them.
-            this.instance.modules.forEach(m => {
-                if (m !== this && typeof m.hideUI === 'function') {
-                    m.hideUI();
-                }
-            });
-
-            // 4. Hide visual editor, show code editor
-            editorEl.style.display = 'none';
-            wrapper.appendChild(this.editorContainer);
-
-            // 5. Disable toolbar buttons
-            this.disableToolbar(true);
-            
-            // 6. Hide character counter
-            if (this.instance.counter) {
-                this.instance.counter.style.display = 'none';
-            }
-
-            // 7. Focus on textarea
-            this.textarea.focus();
-            this.redraw();
-
-        } else {
-            // --- RETURNING TO VISUAL MODE ---
-
-            // 1. Get value from textarea
-            let code = this.textarea ? this.textarea.value : '';
-
-            // 2. Update editor. Hand-written code goes through the same
-            // load-time sanitiser as stored content — not because the author
-            // is untrusted, but so that what comes back from HTML mode is
-            // exactly what would survive the next load. Markup that silently
-            // disappeared on reload would be worse than markup rejected here.
-            const minifiedCode = sanitizeLoadedHtml(this.minifyHtmlPreservePre(code));
-            editorEl.innerHTML = minifiedCode;
-
-            // Restore wrappers and settings
-            if (this.instance.normalizeInlineMarkup) {
-                this.instance.normalizeInlineMarkup();
-            }
-            if (this.instance.wrapSeparators) {
-                this.instance.wrapSeparators();
-            }
-            if (this.instance.setupFigures) {
-                this.instance.setupFigures();
-            }
-            if (this.instance.setupCodeBlocks) {
-                this.instance.setupCodeBlocks();
-            }
-            // Re-attach module-managed setup so quote-cards / callouts /
-            // embeds / videos / galleries get their contenteditable,
-            // edit buttons, etc. back.
-            if (this.instance.runQuoteCardSetup) {
-                this.instance.runQuoteCardSetup();
-            }
-            if (this.instance.runCalloutSetup) {
-                this.instance.runCalloutSetup();
-            }
-            if (this.instance.runEmbedSetup) {
-                this.instance.runEmbedSetup();
-            }
-            if (this.instance.runVideoSetup) {
-                this.instance.runVideoSetup();
-            }
-            if (this.instance.runGallerySetup) {
-                this.instance.runGallerySetup();
-            }
-
-            // 3. Remove code editor
-            if (this._redrawFrame != null) {
-                cancelAnimationFrame(this._redrawFrame);
-                this._redrawFrame = null;
-            }
-            if (this.editorContainer && this.editorContainer.parentNode) {
-                this.editorContainer.parentNode.removeChild(this.editorContainer);
-            }
-            this.editorContainer = null;
-            this.textarea = null;
-            this.lineNumbers = null;
-            this.codeMain = null;
-            this.backdrop = null;
-            this.backdropCode = null;
-            this.lineHighlight = null;
-
-            // 4. Show visual editor
-            editorEl.style.display = 'block';
-
-            // 5. Enable buttons
-            this.disableToolbar(false);
-            
-            // 6. Show character counter
-            if (this.instance.counter) {
-                this.instance.counter.style.display = '';
-            }
-            
-            // 7. Sync
-            this.instance.sync();
+        // 5. Hide character counter
+        if (this.instance.counter) {
+            this.instance.counter.style.display = 'none';
         }
+
+        // 6. Focus on textarea
+        this.textarea.focus();
+        this.textarea.setSelectionRange(0, 0);
+        this.redraw();
+    }
+
+    exitHtmlMode() {
+        if (!this.isHtmlMode) return;
+        const editorEl = this.instance.editorEl;
+        const code = this.textarea ? this.textarea.value : '';
+
+        // The visual editor owns the content again from here on.
+        this.isHtmlMode = false;
+        this._overrideCache = { code: null, html: null };
+
+        // 1. Remove code editor
+        if (this._redrawFrame != null) {
+            cancelAnimationFrame(this._redrawFrame);
+            this._redrawFrame = null;
+        }
+        if (this.editorContainer && this.editorContainer.parentNode) {
+            this.editorContainer.parentNode.removeChild(this.editorContainer);
+        }
+        this.editorContainer = null;
+        this.textarea = null;
+        this.lineNumbers = null;
+        this.codeMain = null;
+        this.backdrop = null;
+        this.backdropCode = null;
+        this.lineHighlight = null;
+        this._lineCount = 0;
+        this._highlightedValue = null;
+
+        // 2. Show visual editor
+        editorEl.style.display = '';
+
+        // 3. Load the code through the same pipeline as stored content
+        // (sanitiser + whitespace normalisation + every module's setup) —
+        // as ONE undo step. Hand-written code goes through the load-time
+        // sanitiser not because the author is untrusted, but so that what
+        // comes back from HTML mode is exactly what would survive the next
+        // load.
+        this._returning = true;
+        try {
+            this.transact(() => this.instance.replaceContent(code));
+        } finally {
+            this._returning = false;
+        }
+
+        // 4. Enable buttons
+        this.disableToolbar(false);
+
+        // 5. Show character counter
+        if (this.instance.counter) {
+            this.instance.counter.style.display = '';
+        }
+    }
+
+    /** Replace the code view's text (no undo entry in the textarea). */
+    setCode(code) {
+        if (!this.textarea) return;
+        this.textarea.value = code;
+        this.redraw();
+        this.instance.sync();
     }
 
     createCodeEditor(content) {
@@ -237,6 +199,7 @@ export default class HtmlMode extends Module {
         // Line numbers
         this.lineNumbers = document.createElement('div');
         this.lineNumbers.className = 'redactix-code-lines';
+        this._lineCount = 0;
 
         // Code column: highlighted backdrop behind + transparent textarea on top
         this.codeMain = document.createElement('div');
@@ -259,13 +222,18 @@ export default class HtmlMode extends Module {
         this.textarea.autocomplete = 'off';
         this.textarea.autocorrect = 'off';
         this.textarea.autocapitalize = 'off';
+        this.textarea.setAttribute('aria-label', this.t('toolbar.editHtml'));
         // Strictly disable soft wrap: one logical line = one
         // visual = one number. Without this, line numbers "drift" on
         // long lines (one line takes up two visual ones).
         this.textarea.setAttribute('wrap', 'off');
 
-        // Event handlers
-        this.textarea.addEventListener('input', () => this.scheduleRedraw());
+        // Event handlers. Every edit is synced: the code view is the
+        // content while it's open (see getContentOverride).
+        this.textarea.addEventListener('input', () => {
+            this.scheduleRedraw();
+            this.instance.sync();
+        });
         this.textarea.addEventListener('keydown', (e) => this.handleKeydown(e));
         // Scroll of textarea is mirrored to the highlighted layer via transform —
         // unlike scrollLeft/scrollTop this works regardless of
@@ -287,18 +255,23 @@ export default class HtmlMode extends Module {
 
         this.editorContainer.appendChild(this.lineNumbers);
         this.editorContainer.appendChild(this.codeMain);
-
-        this.redraw();
     }
 
     /**
-     * Full redraw: line numbers + highlighting. Called with rAF
-     * coalescing on input, synchronously — from handleKeydown (manual value
-     * edits) and during editor creation.
+     * Redraw: line numbers (only when the count changes), textarea height
+     * and highlighting (only when the text changes). Runs once per frame
+     * at most while typing (scheduleRedraw).
      */
     redraw() {
-        this.updateLineNumbers();
-        this.updateHighlight();
+        if (!this.textarea) return;
+        const value = this.textarea.value;
+        const lineCount = this.countLines(value);
+        this.updateLineNumbers(lineCount);
+        this.updateHeight(lineCount);
+        if (value !== this._highlightedValue) {
+            this._highlightedValue = value;
+            this.updateHighlight();
+        }
     }
 
     scheduleRedraw() {
@@ -309,31 +282,46 @@ export default class HtmlMode extends Module {
         });
     }
 
-    updateLineNumbers() {
-        const lines = this.textarea.value.split('\n');
-        const lineCount = lines.length;
+    countLines(value) {
+        let count = 1;
+        let i = -1;
+        while ((i = value.indexOf('\n', i + 1)) !== -1) count++;
+        return count;
+    }
 
-        let numbersHtml = '';
-        for (let i = 1; i <= lineCount; i++) {
-            numbersHtml += `<div class="redactix-code-line-number" data-line="${i - 1}">${i}</div>`;
+    updateLineNumbers(lineCount) {
+        if (lineCount === this._lineCount) return;
+        if (lineCount > this._lineCount) {
+            const frag = document.createDocumentFragment();
+            for (let i = this._lineCount; i < lineCount; i++) {
+                const div = document.createElement('div');
+                div.className = 'redactix-code-line-number';
+                div.dataset.line = String(i);
+                div.textContent = String(i + 1);
+                frag.appendChild(div);
+            }
+            this.lineNumbers.appendChild(frag);
+        } else {
+            while (this.lineNumbers.childElementCount > lineCount) {
+                this.lineNumbers.lastElementChild.remove();
+            }
         }
+        this._lineCount = lineCount;
+    }
 
-        this.lineNumbers.innerHTML = numbersHtml;
-
-        // Auto-height of textarea (wrap is disabled — height is determined
-        // by the number of lines)
-        this.textarea.style.height = 'auto';
-        this.textarea.style.height = Math.max(300, this.textarea.scrollHeight) + 'px';
-
-        // Horizontal scrollbar compensation: it consumes inner
-        // height, allowing textarea to scroll vertically by its width.
-        // The browser does this itself when moving the caret — and selection/caret
-        // drift relative to the highlight. We add scrollbar thickness to the height
-        // so that vertical scroll does not exist at all.
-        const deficit = this.textarea.scrollHeight - this.textarea.clientHeight;
-        if (deficit > 0) {
-            this.textarea.style.height = (this.textarea.offsetHeight + deficit) + 'px';
-        }
+    /**
+     * Height of the textarea from the line count (wrap is off, so lines ×
+     * line-height is exact) — no `height: auto` collapse, which made the
+     * page jump on every redraw. A horizontal scrollbar eats inner height
+     * and would let the textarea scroll vertically (caret and selection
+     * drifting off the highlight), so its thickness is added.
+     */
+    updateHeight(lineCount) {
+        const ta = this.textarea;
+        const content = this.PAD_TOP * 2 + lineCount * this.LINE_HEIGHT;
+        const scrollbar = ta.isConnected ? Math.max(0, ta.offsetHeight - ta.clientHeight) : 0;
+        const height = Math.max(this.MIN_HEIGHT, content + scrollbar) + 'px';
+        if (ta.style.height !== height) ta.style.height = height;
     }
 
     /**
@@ -437,54 +425,118 @@ export default class HtmlMode extends Module {
         if (this.lineHighlight) this.lineHighlight.style.display = 'none';
     }
 
+    /**
+     * Insert text at the selection through the browser's editing command,
+     * so the textarea's native undo stack (Ctrl+Z) keeps working — assigning
+     * textarea.value wiped it. Falls back to setRangeText.
+     */
+    insertText(text) {
+        const ta = this.textarea;
+        let ok = false;
+        try {
+            ok = text === ''
+                ? document.execCommand('delete', false)
+                : document.execCommand('insertText', false, text);
+        } catch (e) {
+            ok = false;
+        }
+        if (!ok) {
+            ta.setRangeText(text, ta.selectionStart, ta.selectionEnd, 'end');
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+
     handleKeydown(e) {
-        // Tab - insert indent
+        // Never interfere with IME composition (Enter confirms a candidate).
+        if (e.isComposing || e.keyCode === 229) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+
         if (e.key === 'Tab') {
             e.preventDefault();
-            const start = this.textarea.selectionStart;
-            const end = this.textarea.selectionEnd;
-            const value = this.textarea.value;
-            
-            if (e.shiftKey) {
-                // Shift+Tab - remove indent
-                const beforeCursor = value.substring(0, start);
-                const lineStart = beforeCursor.lastIndexOf('\n') + 1;
-                const lineIndent = value.substring(lineStart, start);
-                
-                if (lineIndent.startsWith('  ')) {
-                    this.textarea.value = value.substring(0, lineStart) + value.substring(lineStart + 2);
-                    this.textarea.selectionStart = this.textarea.selectionEnd = start - 2;
-                }
-            } else {
-                // Tab - add indent
-                this.textarea.value = value.substring(0, start) + '  ' + value.substring(end);
-                this.textarea.selectionStart = this.textarea.selectionEnd = start + 2;
-            }
-
-            this.redraw();
+            this.handleTab(e.shiftKey);
+            return;
         }
-        
-        // Enter - preserve indent of the previous line
-        if (e.key === 'Enter') {
+
+        // Enter - preserve indent of the current line
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            const start = this.textarea.selectionStart;
-            const value = this.textarea.value;
-            
-            // Find beginning of the current line
-            const beforeCursor = value.substring(0, start);
-            const lineStart = beforeCursor.lastIndexOf('\n') + 1;
-            const currentLine = value.substring(lineStart, start);
-            
-            // Determine indent of the current line
-            const indentMatch = currentLine.match(/^(\s*)/);
-            const indent = indentMatch ? indentMatch[1] : '';
-            
-            // Insert newline with the same indent
-            this.textarea.value = value.substring(0, start) + '\n' + indent + value.substring(start);
-            this.textarea.selectionStart = this.textarea.selectionEnd = start + 1 + indent.length;
-
-            this.redraw();
+            const ta = this.textarea;
+            const value = ta.value;
+            const start = ta.selectionStart;
+            const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+            const indent = value.slice(lineStart, start).match(/^[ \t]*/)[0];
+            this.insertText('\n' + indent);
         }
+    }
+
+    /**
+     * Tab: caret → insert an indent; selection → indent every touched line.
+     * Shift+Tab: outdent every touched line (never past its own start).
+     */
+    handleTab(outdent) {
+        const ta = this.textarea;
+        const value = ta.value;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+
+        if (!outdent && start === end) {
+            this.insertText(INDENT);
+            return;
+        }
+
+        // Lines touched by the selection. A selection ending right after a
+        // newline does not include the next line.
+        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+        const effEnd = (end > start && value[end - 1] === '\n') ? end - 1 : end;
+        let lineEnd = value.indexOf('\n', effEnd);
+        if (lineEnd < 0) lineEnd = value.length;
+
+        const lines = value.slice(lineStart, lineEnd).split('\n');
+        const starts = [];
+        let pos = lineStart;
+        lines.forEach(line => {
+            starts.push(pos);
+            pos += line.length + 1;
+        });
+
+        // Characters added (+) / removed (−) at the start of each line
+        const deltas = lines.map(line => {
+            if (!outdent) return INDENT.length;
+            const m = line.match(/^(?: {1,2}|\t)/);
+            return m ? -m[0].length : 0;
+        });
+        if (deltas.every(d => d === 0)) return;
+
+        const newBlock = lines.map((line, i) => (
+            deltas[i] > 0 ? INDENT + line : line.slice(-deltas[i])
+        )).join('\n');
+
+        // Map an old offset to the new text
+        const mapOffset = (p, isSelStart) => {
+            let shift = 0;
+            for (let i = 0; i < lines.length; i++) {
+                const ls = starts[i];
+                const le = ls + lines[i].length;
+                if (p > le && i < lines.length - 1) {
+                    shift += deltas[i];
+                    continue;
+                }
+                if (p > le) return p + shift + deltas[i]; // past the block
+                if (deltas[i] > 0) {
+                    // Keep a selection that starts at a line start anchored there
+                    if (p === ls && isSelStart && start !== end) return p + shift;
+                    return p + shift + deltas[i];
+                }
+                return p + shift - Math.min(-deltas[i], p - ls);
+            }
+            return p + shift;
+        };
+        const newStart = mapOffset(start, true);
+        const newEnd = mapOffset(end, false);
+
+        ta.setSelectionRange(lineStart, lineEnd);
+        this.insertText(newBlock);
+        ta.setSelectionRange(newStart, newEnd);
     }
 
     disableToolbar(disable) {
@@ -492,197 +544,83 @@ export default class HtmlMode extends Module {
         buttons.forEach(btn => {
             // Do not disable HTML and Fullscreen buttons
             if (btn.dataset.command === 'html' || btn.dataset.command === 'fullscreen') return;
-            
+
             btn.disabled = disable;
-            btn.style.opacity = disable ? '0.5' : '1';
-            btn.style.pointerEvents = disable ? 'none' : 'auto';
+            // Clear (not '1' / 'auto') when enabling, so stylesheet rules apply again
+            btn.style.opacity = disable ? '0.5' : '';
+            btn.style.pointerEvents = disable ? 'none' : '';
         });
     }
 
-    // Minify HTML preserving <pre> content
-    minifyHtmlPreservePre(html) {
-        // Save and minify <pre> tag contents
-        const prePlaceholders = [];
-        
-        // Replace pre along with surrounding whitespace
-        let result = html.replace(/\s*<pre([^>]*)>([\s\S]*?)<\/pre>\s*/gi, (match, preAttrs, content) => {
-            // Remove formatting inside pre, but preserve code content
-            let minifiedPre = '';
-            
-            // Check if there is code inside
-            const codeMatch = content.match(/^[\s\n]*<code([^>]*)>([\s\S]*)<\/code>[\s\n]*$/i);
-            if (codeMatch) {
-                const codeAttrs = codeMatch[1];
-                let codeContent = codeMatch[2];
-                
-                // Remove common formatting indent
-                const lines = codeContent.split('\n');
-                
-                // Remove first empty line if present
-                if (lines.length > 0 && lines[0].trim() === '') {
-                    lines.shift();
-                }
-                // Remove last empty line if present
-                if (lines.length > 0 && lines[lines.length - 1].trim() === '') {
-                    lines.pop();
-                }
-                
-                // Find minimal indent
-                let minIndent = Infinity;
-                lines.forEach(line => {
-                    if (line.trim().length > 0) {
-                        const indent = line.match(/^(\s*)/)[1].length;
-                        if (indent < minIndent) {
-                            minIndent = indent;
-                        }
-                    }
-                });
-                
-                if (minIndent === Infinity) minIndent = 0;
-                
-                // Remove common indent
-                codeContent = lines.map(line => {
-                    if (line.trim().length === 0) return '';
-                    return line.substring(minIndent);
-                }).join('\n');
-                
-                minifiedPre = `<pre${preAttrs}><code${codeAttrs}>${codeContent}</code></pre>`;
-            } else {
-                minifiedPre = `<pre${preAttrs}>${content.trim()}</pre>`;
-            }
-            
-            prePlaceholders.push(minifiedPre);
-            return `__PRE_PLACEHOLDER_${prePlaceholders.length - 1}__`;
-        });
-        
-        // Remove line breaks and spaces between tags
-        result = result.replace(/>\s+</g, '><');
-        
-        // Restore <pre> tags
-        prePlaceholders.forEach((pre, index) => {
-            result = result.replace(`__PRE_PLACEHOLDER_${index}__`, pre);
-        });
-        
-        return result;
-    }
+    // ---------- Pretty printer (DOM based) ----------
 
-    // Simple Beautifier
+    /**
+     * Pretty-print clean HTML for the code view. Works on the parsed DOM:
+     *   • block elements start on their own line, nested blocks indented;
+     *   • inline content is printed exactly as serialised (no whitespace
+     *     added or removed inside a run of text, so "<b>a</b> <i>b</i>"
+     *     keeps its space);
+     *   • <pre>, iframes and media are printed verbatim — the content of a
+     *     code block round-trips byte for byte.
+     * The return path (sanitizeLoadedHtml → normalizeWhitespace) drops the
+     * indentation again, and only that.
+     */
     beautifyHtml(html) {
-        // Remove contenteditable from all tags
-        let cleanedHtml = html.replace(/\s+contenteditable=["'][^"']*["']/gi, '');
-        
-        // Save <pre> tag contents
-        const prePlaceholders = [];
-        let processedHtml = cleanedHtml.replace(/<pre[^>]*>[\s\S]*?<\/pre>/gi, (match) => {
-            let formatted = match.replace(/<pre([^>]*)>/, '<pre$1>');
-            prePlaceholders.push(formatted);
-            return `__PRE_PLACEHOLDER_${prePlaceholders.length - 1}__`;
-        });
-        
-        // Replace line breaks and multiple spaces with a single space
-        processedHtml = processedHtml.replace(/\s+/g, ' ').trim();
-        
-        let formatted = '';
-        let indent = 0;
-        const pad = '  '; 
-        
-        const placeholderIndents = {};
-        
-        const blockTags = [
-            'address', 'article', 'aside', 'blockquote', 'canvas', 'dd', 'div', 'dl', 'dt', 
-            'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
-            'header', 'hr', 'li', 'main', 'nav', 'noscript', 'ol', 'p', 'pre', 'section', 
-            'table', 'tfoot', 'tbody', 'thead', 'tr', 'td', 'th', 'ul', 'video', 'iframe'
-        ];
-        
-        const voidTags = [
-            'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'
-        ];
+        const root = parseHtmlInert(html);
+        const lines = [];
+        this.formatChildren(root, 0, lines);
+        return lines.join('\n');
+    }
 
-        const tokens = processedHtml.split(/(<[^>]+>)/g);
-        let isPrevInline = false;
+    formatChildren(parent, depth, lines) {
+        const pad = INDENT.repeat(depth);
+        let run = [];
+        const flushRun = () => {
+            if (!run.length) return;
+            const text = this.serializeNodes(run).trim();
+            if (text) lines.push(pad + text);
+            run = [];
+        };
 
-        tokens.forEach(token => {
-            if (token.length === 0) return;
-            
-            const placeholderMatch = token.match(/__PRE_PLACEHOLDER_(\d+)__/);
-            if (placeholderMatch) {
-                placeholderIndents[placeholderMatch[1]] = indent;
-                formatted += '\n' + pad.repeat(indent) + token;
-                isPrevInline = false;
-                return;
-            }
-
-            let isBlock = false;
-            let isClosing = false;
-            let tagName = '';
-            
-            if (token.match(/^<\//)) {
-                isClosing = true;
-                tagName = token.replace(/[<\/>]/g, '').toLowerCase();
-                isBlock = blockTags.includes(tagName);
-            } else if (token.match(/^<[^\/]/)) {
-                tagName = token.replace(/[<>]/g, '').split(' ')[0].toLowerCase();
-                isBlock = blockTags.includes(tagName);
-            }
-
-            if (isBlock) {
-                if (isClosing) {
-                    indent--;
-                    if (indent < 0) indent = 0;
-                    
-                    if (!isPrevInline) {
-                        formatted += '\n' + pad.repeat(indent);
-                    }
-                    formatted += token.trim();
-                    isPrevInline = false;
-                } else {
-                    if (formatted.length > 0) {
-                         formatted += '\n' + pad.repeat(indent);
-                    }
-                    formatted += token.trim();
-                    
-                    if (!voidTags.includes(tagName)) {
-                        indent++;
-                    }
-                    isPrevInline = false;
-                }
+        Array.from(parent.childNodes).forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE && PRETTY_BLOCK_TAGS.has(node.tagName)) {
+                flushRun();
+                this.formatBlock(node, depth, lines);
             } else {
-                if (token.trim().length === 0) {
-                    if (isPrevInline) {
-                        formatted += token;
-                    }
-                } else {
-                    formatted += token;
-                    isPrevInline = true;
-                }
+                run.push(node);
             }
         });
+        flushRun();
+    }
 
-        // Restore formatted <pre> tags
-        prePlaceholders.forEach((pre, index) => {
-            const indentLevel = placeholderIndents[index] || 0;
-            const preIndent = pad.repeat(indentLevel);
-            const codeIndent = pad.repeat(indentLevel + 1);
-            const contentIndent = pad.repeat(indentLevel + 2);
-            
-            let formattedPre = pre;
-            
-            const codeMatch = formattedPre.match(/<pre([^>]*)><code([^>]*)>([\s\S]*)<\/code><\/pre>/);
-            if (codeMatch) {
-                const preAttrs = codeMatch[1];
-                const codeAttrs = codeMatch[2];
-                let content = codeMatch[3];
-                
-                const lines = content.split('\n');
-                const indentedContent = lines.map(line => contentIndent + line).join('\n');
-                
-                formattedPre = `<pre${preAttrs}>\n${codeIndent}<code${codeAttrs}>\n${indentedContent}\n${codeIndent}</code>\n${preIndent}</pre>`;
-            }
-            
-            formatted = formatted.replace(`__PRE_PLACEHOLDER_${index}__`, formattedPre);
-        });
+    formatBlock(el, depth, lines) {
+        const pad = INDENT.repeat(depth);
+        if (VERBATIM_TAGS.has(el.tagName)) {
+            lines.push(pad + el.outerHTML);
+            return;
+        }
+        const hasBlockChild = Array.from(el.children).some(c => PRETTY_BLOCK_TAGS.has(c.tagName));
+        if (!hasBlockChild) {
+            lines.push(pad + el.outerHTML);
+            return;
+        }
+        const { open, close } = this.splitTag(el);
+        lines.push(pad + open);
+        this.formatChildren(el, depth + 1, lines);
+        lines.push(pad + close);
+    }
 
-        return formatted.trim();
+    /** Opening and closing tag of `el` as the serialiser writes them. */
+    splitTag(el) {
+        const shallow = el.cloneNode(false).outerHTML;
+        const close = `</${el.localName}>`;
+        const open = shallow.endsWith(close) ? shallow.slice(0, -close.length) : shallow;
+        return { open, close };
+    }
+
+    serializeNodes(nodes) {
+        const tmp = nodes[0].ownerDocument.createElement('div');
+        nodes.forEach(n => tmp.appendChild(n.cloneNode(true)));
+        return tmp.innerHTML;
     }
 }

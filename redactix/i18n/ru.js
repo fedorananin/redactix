@@ -8,7 +8,9 @@ export default {
 
     // Editor
     editor: {
-        placeholder: 'Начните вводить текст...'
+        placeholder: 'Начните вводить текст...',
+        captionPlaceholder: 'Добавить подпись...',
+        uploading: 'Загрузка...'
     },
 
     // Modal buttons
@@ -66,7 +68,7 @@ export default {
         removeImage: 'Удалить изображение',
         uploadReplace: 'Заменить изображение: нажмите для загрузки',
         uploadClick: 'Нажмите для загрузки или перетащите файл',
-        uploadFormats: 'JPG, PNG, GIF, WebP, AVIF, HEIC, SVG',
+        uploadFormats: 'JPG, PNG, GIF, WebP, AVIF, HEIC',
         uploading: 'Загрузка...',
         uploadSuccess: 'Загружено успешно',
         chooseFromUploaded: 'Выбрать из загруженных',
@@ -77,7 +79,9 @@ export default {
         closeGallery: 'Закрыть галерею',
         deleteConfirm: 'Удалить',
         deleteTooltip: 'Удалить изображение',
-        confirmDelete: 'Удалить {filename}?'
+        confirmDelete: 'Удалить {filename}?',
+        invalidUrl: 'Введите корректный адрес изображения (http, https или относительный путь)',
+        invalidLinkUrl: 'Введите корректный адрес ссылки'
     },
 
     // Gallery module (multiple photos in one <figure> with a shared caption)
@@ -102,7 +106,9 @@ export default {
         noImages: 'Нет загруженных изображений',
         drag: 'Перетащить для сортировки',
         edit: 'Редактировать галерею',
-        menuGroup: 'Галерея'
+        menuGroup: 'Галерея',
+        invalidUrls: 'Добавьте хотя бы одно изображение с корректным адресом',
+        uploadFailed: 'Не удалось загрузить {filename}: {error}'
     },
 
     // Video module (native HTML5 <video>, off by default)
@@ -130,7 +136,8 @@ export default {
         edit: 'Редактировать видео',
         menuGroup: 'Видео',
         deleteTooltip: 'Удалить видео',
-        confirmDelete: 'Удалить {filename}?'
+        confirmDelete: 'Удалить {filename}?',
+        invalidUrl: 'Введите корректный адрес видео (http или https)'
     },
 
     // Link module
@@ -144,7 +151,8 @@ export default {
         nofollow: 'nofollow',
         removeLink: 'Удалить ссылку',
         relExceptNofollow: 'Rel (кроме nofollow)',
-        relPlaceholder: 'sponsored, ugc, ...'
+        relPlaceholder: 'sponsored, ugc, ...',
+        invalidUrl: 'Недопустимый адрес ссылки. Используйте http(s)://, mailto:, tel: или относительный адрес.'
     },
 
     // Table module
@@ -160,6 +168,7 @@ export default {
         makeRegular: 'Сделать обычной (TD)',
         makeHeader: 'Сделать заголовком (TH)',
         makeRowHeader: 'Сделать строку заголовком',
+        makeRowRegular: 'Сделать строку обычной',
         cellAttributes: 'Атрибуты ячейки',
         rowAttributes: 'Атрибуты строки',
         deleteColumn: 'Удалить столбец',
@@ -182,7 +191,9 @@ export default {
         captionLabel: 'Подпись',
         captionPlaceholder: 'Необязательно',
         edit: 'Редактировать embed',
-        menuGroup: 'Embed'
+        menuGroup: 'Embed',
+        invalidUrl: 'Эта ссылка не поддерживается. Используйте ссылку на один из перечисленных сервисов или вкладку «Свой HTML».',
+        invalidHtml: 'Вставьте код <iframe>, у которого адрес начинается с https://'
     },
 
     // Code module
@@ -192,7 +203,8 @@ export default {
         language: 'Язык программирования',
         languageNone: 'Не указан',
         codePlaceholder: 'Вставьте ваш код здесь...',
-        removeCodeBlock: 'Удалить блок кода'
+        removeCodeBlock: 'Удалить блок кода',
+        code: 'Код'
     },
 
     // Find & Replace module
@@ -203,6 +215,7 @@ export default {
         replaceAll: 'Все',
         noResults: 'Не найдено',
         ofCount: 'из',
+        matchCount: '{current} из {total}',
         previousTooltip: 'Предыдущий (Shift+Enter)',
         nextTooltip: 'Следующий (Enter)',
         closeTooltip: 'Закрыть (Esc)'
@@ -267,7 +280,8 @@ export default {
         idPlaceholder: 'example-anchor',
         linkPrefix: 'Ссылка',
         classes: 'Классы (через пробел)',
-        quickSelect: 'Быстрый выбор'
+        quickSelect: 'Быстрый выбор',
+        reservedClass: 'Эти классы здесь использовать нельзя (зарезервированы редактором): {classes}'
     },
 
     // Slash Commands
@@ -313,7 +327,11 @@ export default {
         connectionError: 'Ошибка соединения',
         serverError: 'Ошибка сервера',
         invalidResponse: 'Некорректный ответ сервера',
-        remove: 'Удалить'
+        remove: 'Удалить',
+        tooLarge: 'Файл слишком большой',
+        pending: 'Дождитесь окончания загрузки',
+        progress: 'Загрузка… {percent}%',
+        loadMore: 'Загрузить ещё'
     },
 
     // Counter

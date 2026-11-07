@@ -1,0 +1,29 @@
+# Hardening for the Redactix upload directory (Apache, mod_headers).
+# nginx / other servers: send the same headers for this location.
+
+# Never execute or serve server-side scripts from the upload directory —
+# even if some other endpoint is tricked into storing one here.
+<FilesMatch "(?i)\.(php\d?|phtml|phar|pht|phps|cgi|pl|py|rb|sh|asp|aspx|jsp|shtml|htaccess|htpasswd)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    # Browsers must trust the declared Content-Type, never sniff
+    # (an "image" whose bytes look like HTML must not render as HTML).
+    Header always set X-Content-Type-Options "nosniff"
+
+    # SVG can carry scripts. SVG uploads are off by default ($allowSvg in
+    # redactix_images.php); if you enable them, an SVG opened directly
+    # runs sandboxed (no script, no same-origin access) and downloads
+    # instead of rendering. <img src="….svg"> keeps working.
+    <FilesMatch "\.(?i:svg|svgz)$">
+        Header always set Content-Security-Policy "sandbox; default-src 'none'; style-src 'unsafe-inline'"
+        Header always set Content-Disposition "attachment"
+    </FilesMatch>
+</IfModule>

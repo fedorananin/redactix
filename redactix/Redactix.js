@@ -6,10 +6,7 @@ import I18n from './i18n/index.js';
 import { normalizeInlineSynonyms, sanitizeLoadedHtml } from './core/dom-utils.js';
 
 // Import modules (can be a dynamic config in the future)
-import BaseStyles from './modules/BaseStyles.js';
-import BlockStyles from './modules/BlockStyles.js';
 import List from './modules/List.js';
-import Link from './modules/Link.js';
 import Image from './modules/Image.js';
 import Gallery from './modules/Gallery.js';
 import Video from './modules/Video.js';
@@ -33,6 +30,13 @@ import Callout from './modules/Callout.js';
 export default class Redactix {
     constructor(options = {}) {
         this.selector = options.selector || '.redactix';
+
+        // Language/locale: 'en' (default), 'ru', etc. Created first so that
+        // default preset labels below can be translated.
+        this.locale = options.locale || 'en';
+        this.i18n = new I18n(this.locale);
+        const t = (key) => this.i18n.t(key);
+
         // Quick-select classes shown in the Attributes modal. When omitted,
         // the quick-select block is hidden (Attributes.js checks for null /
         // empty array).
@@ -46,13 +50,13 @@ export default class Redactix {
         // Resolving to the final flat array (without the "none" plug — BlockControl
         // will add it itself) is done by resolvePresets() below.
         this.calloutPresets = this.resolvePresets(options.calloutPresets, [
-            { name: 'warning', label: 'Warning', class: 'warning' },
-            { name: 'danger', label: 'Danger', class: 'danger' },
-            { name: 'information', label: 'Information', class: 'information' },
-            { name: 'success', label: 'Success', class: 'success' }
+            { name: 'warning', label: t('blockControl.warning'), class: 'warning' },
+            { name: 'danger', label: t('blockControl.danger'), class: 'danger' },
+            { name: 'information', label: t('blockControl.information'), class: 'information' },
+            { name: 'success', label: t('blockControl.success'), class: 'success' }
         ]);
         this.quotePresets = this.resolvePresets(options.quotePresets, [
-            { name: 'big', label: 'Big', class: 'big' }
+            { name: 'big', label: t('blockControl.big'), class: 'big' }
         ]);
 
         // URL for uploading images (if specified - drag&drop, paste and upload are enabled)
@@ -61,7 +65,7 @@ export default class Redactix {
         // URL for browsing uploaded images
         this.browseUrl = options.browseUrl || null;
 
-        // Allow deleting images via browser
+        // Allow deleting images via browser (the server must allow it too)
         this.allowImageDelete = options.allowImageDelete || false;
 
         // Video module works by the same logic as Image: always
@@ -86,16 +90,11 @@ export default class Redactix {
         // Theme: 'light' (default), 'dark', or 'auto' (follows system preference)
         this.theme = options.theme || 'light';
 
-        // Language/locale: 'en' (default), 'ru', etc.
-        this.locale = options.locale || 'en';
-
-        // Initialize i18n
-        this.i18n = new I18n(this.locale);
-
         this.elements = document.querySelectorAll(this.selector);
         this.instances = [];
-        // List of module classes to connect
-        this.modulesConfig = [History, BaseStyles, BlockStyles, List, Link, Image, Gallery, Video, QuoteCard, Callout, Table, Embed, Separator, Code, Markdown, FindReplace, HtmlMode, Fullscreen, Attributes, BlockControl, BlockGap, FloatingToolbar, SlashCommands];
+        // List of module classes to connect. History comes first so it
+        // observes every later module's changes.
+        this.modulesConfig = [History, List, Image, Gallery, Video, QuoteCard, Callout, Table, Embed, Separator, Code, Markdown, FindReplace, HtmlMode, Fullscreen, Attributes, BlockControl, BlockGap, FloatingToolbar, SlashCommands];
 
         this.init();
     }
@@ -125,6 +124,11 @@ export default class Redactix {
             // Skip if already initialized
             if (el.dataset.redactixInit) return;
 
+            if (el.tagName !== 'TEXTAREA') {
+                console.warn('Redactix: selector matched a non-textarea element, skipped', el);
+                return;
+            }
+
             // Build config for instance
             const instanceConfig = {
                 modulesConfig: this.modulesConfig,
@@ -147,9 +151,20 @@ export default class Redactix {
                 i18n: this.i18n // Pass i18n instance to each editor instance
             };
 
-            // Pass this (Redactix instance with configs)
-            const instance = new RedactixInstance(el, instanceConfig);
+            // One broken textarea must not stop the rest of the page from
+            // initialising.
+            let instance;
+            try {
+                instance = new RedactixInstance(el, instanceConfig);
+            } catch (err) {
+                console.error('Redactix: failed to initialise editor', el, err);
+                return;
+            }
             this.instances.push(instance);
+            instance.onDestroy(() => {
+                const i = this.instances.indexOf(instance);
+                if (i >= 0) this.instances.splice(i, 1);
+            });
             el.dataset.redactixInit = "true";
 
             // Save link to the instance in textarea for external access
@@ -172,6 +187,7 @@ class RedactixInstance {
         this.toolbar = null;
         this.core = null;
         this.modules = [];
+        this._modulesByName = new Map();
         this.selection = null;
         this.modal = null;
 
@@ -179,6 +195,10 @@ class RedactixInstance {
         // MutationObserver, explicit module calls) schedules at most one
         // sync per animation frame.
         this._syncFrame = null;
+        this._syncing = false;
+        // Last HTML written to the textarea — input/change are dispatched
+        // only when the saved value actually changes.
+        this._lastSyncedHtml = null;
 
         // Registry for global (document/window) listeners and other
         // module resources — released in destroy(). Listeners on
@@ -186,9 +206,58 @@ class RedactixInstance {
         // die together with wrapper.remove().
         this._managedListeners = [];
         this._destroyCallbacks = [];
+        this._events = Object.create(null);
         this.destroyed = false;
 
         this.render();
+    }
+
+    // ------------------------------------------------------------------
+    // Registry, events, transactions
+    // ------------------------------------------------------------------
+
+    /** Module instance by its static moduleName ('Image', 'History' …), or null. */
+    getModule(name) {
+        return this._modulesByName.get(name) || null;
+    }
+
+    /**
+     * Subscribe to an instance event. Returns an unsubscribe function.
+     * Events: 'contentSetup' (root), 'contentReplaced', 'contentInserted'
+     * ({ nodes, source }).
+     */
+    on(name, cb) {
+        (this._events[name] || (this._events[name] = [])).push(cb);
+        return () => {
+            const list = this._events[name];
+            if (!list) return;
+            const i = list.indexOf(cb);
+            if (i >= 0) list.splice(i, 1);
+        };
+    }
+
+    emit(name, ...args) {
+        const list = this._events[name];
+        if (!list) return;
+        list.slice().forEach(cb => {
+            try { cb(...args); } catch (e) { console.error('Redactix: listener for "' + name + '" failed', e); }
+        });
+    }
+
+    /**
+     * Run a programmatic DOM change as exactly one undo step: any pending
+     * typing is recorded first, the state after `fn` is recorded after it.
+     * Nested calls collapse into the outermost one. Always syncs.
+     */
+    transact(fn) {
+        const history = this.getModule('History');
+        if (history) history.beginTransaction();
+        try {
+            return fn();
+        } finally {
+            if (history) history.endTransaction();
+            this.sync();
+        }
     }
 
     /**
@@ -209,13 +278,17 @@ class RedactixInstance {
     }
 
     /**
-     * Full teardown of the instance: removes global listeners and
-     * observers, deletes the wrapper (along with toolbar, modal and
-     * handles), returns the original textarea to its place. After destroy()
-     * the textarea can be re-initialized with a new new Redactix(...).
+     * Full teardown of the instance: flushes the pending sync, removes global
+     * listeners and observers, deletes the wrapper (along with toolbar, modal
+     * and handles), returns the original textarea to its place. After
+     * destroy() the textarea can be re-initialized with a new Redactix(...).
      */
     destroy() {
         if (this.destroyed) return;
+
+        // Flush the last keystrokes into the textarea before tearing down.
+        try { this.syncImmediate(); } catch (e) { /* never block destroy */ }
+
         this.destroyed = true;
 
         if (this._syncFrame != null) {
@@ -232,12 +305,13 @@ class RedactixInstance {
             try { cb(); } catch (e) { /* cleanup should not crash destroy */ }
         });
         this._destroyCallbacks = [];
+        this._events = Object.create(null);
 
         if (this.wrapper && this.wrapper.parentNode) {
             this.wrapper.remove();
         }
 
-        this.textarea.style.display = '';
+        this.textarea.style.display = this._originalDisplay || '';
         delete this.textarea.dataset.redactixInit;
         if (this.textarea.redactix === this) {
             delete this.textarea.redactix;
@@ -253,6 +327,10 @@ class RedactixInstance {
     t(key, params = {}) {
         return this.i18n.t(key, params);
     }
+
+    // ------------------------------------------------------------------
+    // Construction
+    // ------------------------------------------------------------------
 
     render() {
         // 1. Create wrapper
@@ -277,6 +355,11 @@ class RedactixInstance {
             this.wrapper.setAttribute('dir', 'rtl');
         }
 
+        // Localised strings used by CSS-generated content (::before / ::after).
+        const cssString = (s) => '"' + String(s).replace(/["\\]/g, '\\$&').replace(/\n/g, ' ') + '"';
+        this.wrapper.style.setProperty('--redactix-caption-placeholder', cssString(this.t('editor.captionPlaceholder')));
+        this.wrapper.style.setProperty('--redactix-uploading-label', cssString(this.t('editor.uploading')));
+
         // 2. Insert wrapper before textarea
         this.textarea.parentNode.insertBefore(this.wrapper, this.textarea);
 
@@ -296,26 +379,11 @@ class RedactixInstance {
             this.wrapper.classList.add('redactix-has-max-height');
         }
 
-        // Clean original HTML from extra spaces and line breaks between tags
-        // This will remove code indentations but preserve content.
-        // sanitizeLoadedHtml strips anything executable: the content in the
-        // textarea comes from the host application's storage, which may well
-        // contain text some other user wrote.
-        const cleanHtml = sanitizeLoadedHtml(
-            this.textarea.value
-                .replace(/>\s+</g, '><') // Убираем пробелы между тегами
-                .trim()
-        );
-
-        // If textarea is empty, create initial paragraph structure
-        this.editorEl.innerHTML = cleanHtml || '<p><br></p>';
-
-        // Post-processing: normalize inline synonyms (<strong>→<b> и т.п.),
-        // wrap hr, setup figure, code blocks
-        this.normalizeInlineMarkup();
-        this.wrapSeparators();
-        this.setupFigures();
-        this.setupCodeBlocks();
+        // Content from the textarea comes from the host application's
+        // storage, which may well contain text some other user wrote —
+        // sanitizeLoadedHtml strips anything executable and drops
+        // source-formatting whitespace (without gluing inline words).
+        this.editorEl.innerHTML = sanitizeLoadedHtml(this.textarea.value) || '<p><br></p>';
 
         this.wrapper.appendChild(this.editorEl);
 
@@ -324,7 +392,8 @@ class RedactixInstance {
             this.createCounter();
         }
 
-        // 6. Hide textarea
+        // 6. Hide textarea (remember the host's own inline display value)
+        this._originalDisplay = this.textarea.style.display;
         this.textarea.style.display = 'none';
 
         // 7. Initialize core
@@ -335,82 +404,26 @@ class RedactixInstance {
         // 8. Initialize modules
         this.initModules();
 
-        // 9. Migration of legacy <blockquote> → <figure class="quote-card">,
-        // <aside>plain text</aside> → <aside><p>...</p></aside>,
-        // .redactix-video-wrapper → figure.redactix-embed.
-        // Done after initModules() because module instances are required.
-        this.runQuoteCardSetup();
-        this.runCalloutSetup();
-        this.runEmbedSetup();
-        this.runVideoSetup();
-        this.runGallerySetup();
+        // 9. Migrations + wiring of the live DOM (quote-cards, callouts,
+        // embeds, videos, galleries, separators, figures, code blocks).
+        this.setupContent();
 
-        // 10. Update counter (not in lite mode)
-        if (!this.config.liteMode) {
-            this.updateCounter();
+        // 10. Write the normalised value silently: loading must not look
+        // like a user edit to the host page ("unsaved changes" trackers).
+        const { html, clone } = this.serializeClean();
+        this.textarea.value = html;
+        this._lastSyncedHtml = html;
+        this.updateCounter(clone);
+
+        // 11. History starts from the fully set-up state.
+        const history = this.getModule('History');
+        if (history && history.reset) history.reset();
+
+        // 12. Make sure a form submit always carries the latest content,
+        // even if it fires between a keystroke and the next sync frame.
+        if (this.textarea.form) {
+            this.listen(this.textarea.form, 'submit', () => this.syncImmediate(), true);
         }
-    }
-
-    /**
-     * Migrate legacy blockquotes and wire up contenteditable on every
-     * figure.quote-card. Safe to call multiple times.
-     */
-    runQuoteCardSetup() {
-        const m = this.modules.find(mod => mod.constructor.name === 'QuoteCard');
-        if (!m) return;
-        m.migrate(this.editorEl);
-        m.setupCards(this.editorEl);
-    }
-
-    /**
-     * Migrate legacy flat <aside> bodies into <aside><p>...</p></aside>.
-     * Safe to call multiple times.
-     */
-    runCalloutSetup() {
-        const m = this.modules.find(mod => mod.constructor.name === 'Callout');
-        if (!m) return;
-        m.migrate(this.editorEl);
-    }
-
-    /**
-     * Migrate legacy <div class="redactix-video-wrapper"> to
-     * <figure class="redactix-embed"> and wire contenteditable on every
-     * embed figure. Safe to call multiple times.
-     */
-    runEmbedSetup() {
-        const m = this.modules.find(mod => mod.constructor.name === 'Embed');
-        if (!m) return;
-        m.migrate(this.editorEl);
-        m.setupEmbeds(this.editorEl);
-    }
-
-    /**
-     * Wire contenteditable + Edit button on every figure.redactix-video.
-     * Safe to call multiple times.
-     */
-    runVideoSetup() {
-        const m = this.modules.find(mod => mod.constructor.name === 'Video');
-        if (!m) return;
-        m.setupVideos(this.editorEl);
-    }
-
-    /**
-     * Wire contenteditable + floating Edit button on every figure.redactix-gallery.
-     * Safe to call multiple times.
-     */
-    runGallerySetup() {
-        const m = this.modules.find(mod => mod.constructor.name === 'Gallery');
-        if (!m) return;
-        m.setupGalleries(this.editorEl);
-    }
-
-    /**
-     * Normalize synonymous inline tags in the editor's live DOM to canonical
-     * form (<strong>→<b>, <em>→<i>, <strike>→<s>). Called on
-     * content load (render/setContent) and on return from HTML mode.
-     */
-    normalizeInlineMarkup() {
-        normalizeInlineSynonyms(this.editorEl);
     }
 
     createCounter() {
@@ -423,23 +436,20 @@ class RedactixInstance {
         // In lite mode counter is not created
         if (!this.counter) return;
 
-        // Get text for counting (without HTML tags, but with figcaption).
-        // _doSync passes a ready-made clone (it is not used further)
-        // to avoid cloning the entire DOM a second time on every input.
-        const clone = preparedClone || this.editorEl.cloneNode(true);
+        // _doSync passes its already-cleaned clone (not used further) to
+        // avoid cloning the entire DOM a second time on every input.
+        const clone = preparedClone || this.serializeClean().clone;
 
-        // Remove alt and title attributes from images, links and frames so they are not counted
-        clone.querySelectorAll('img, a, iframe').forEach(el => {
-            el.removeAttribute('alt');
-            el.removeAttribute('title');
-        });
+        // Characters: visible text only.
+        const chars = (clone.textContent || '').trim().length;
 
-        const text = clone.innerText || '';
-
-        // Count characters (without spaces at start/end)
-        const chars = text.trim().length;
-        // Count words
-        const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+        // Words: block boundaries and <br> separate words. textContent on a
+        // detached tree has no such separators — "<p>Hello</p><p>World</p>"
+        // used to count as one word.
+        clone.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, figcaption, pre, blockquote, aside, div, dt, dd, br')
+            .forEach(el => el.after(document.createTextNode(' ')));
+        const text = (clone.textContent || '').trim();
+        const words = text === '' ? 0 : text.split(/\s+/).length;
 
         this.counter.textContent = `${chars} ${this.t('counter.chars')} | ${words} ${this.t('counter.words')}`;
     }
@@ -447,12 +457,78 @@ class RedactixInstance {
     initModules() {
         this.config.modulesConfig.forEach(ModuleClass => {
             const moduleInstance = new ModuleClass(this);
-            moduleInstance.init();
             this.modules.push(moduleInstance);
+            this._modulesByName.set(moduleInstance.name, moduleInstance);
         });
+        // init() after every module is registered, so a module may look up
+        // any other one from its init().
+        this.modules.forEach(m => m.init());
 
         // After initializing all modules, ask toolbar to render buttons
         this.toolbar.addButtonsFromModules(this.modules);
+    }
+
+    // ------------------------------------------------------------------
+    // Content lifecycle
+    // ------------------------------------------------------------------
+
+    /**
+     * Idempotent post-processing of live DOM content. The ONE place that
+     * runs after any wholesale content change: initial load, setContent(),
+     * paste/drop, undo/redo, return from HTML mode. Module-specific work is
+     * delegated to each module's optional setupContent(root) hook.
+     */
+    setupContent(root = this.editorEl) {
+        normalizeInlineSynonyms(root);
+        this.wrapSeparators(root);
+        // Module migrations first (legacy markup → current shapes), so that
+        // the generic figure/code wiring below sees the final structure.
+        this.modules.forEach(m => {
+            if (typeof m.setupContent === 'function') {
+                try { m.setupContent(root); } catch (e) { console.error('Redactix: ' + m.name + '.setupContent failed', e); }
+            }
+        });
+        this.setupFigures(root);
+        this.setupCodeBlocks(root);
+        if (this.core) this.core.ensureTrailingParagraph();
+        this.emit('contentSetup', root);
+    }
+
+    /**
+     * Replace the whole visual content. Used by setContent(), undo/redo and
+     * the HTML-mode return path.
+     * @param {string} html
+     * @param {Object} [opts]
+     * @param {boolean} [opts.sanitize=true]           Run the load sanitizer.
+     * @param {boolean} [opts.collapseWhitespace=true] Drop source formatting.
+     */
+    replaceContent(html, { sanitize = true, collapseWhitespace = true } = {}) {
+        const source = typeof html === 'string' ? html : '';
+        const clean = sanitize ? sanitizeLoadedHtml(source, { collapseWhitespace }) : source;
+        this.editorEl.innerHTML = clean || '<p><br></p>';
+        this.setupContent();
+        this.hideAllUI('contentReplaced');
+        this.emit('contentReplaced');
+    }
+
+    /**
+     * Ask every module to hide its floating overlays.
+     * @param {string} [reason] 'contentReplaced' when the DOM was swapped
+     *        wholesale (undo/redo, setContent) — panels that don't point at
+     *        specific nodes (find panel) may stay open and just refresh.
+     */
+    hideAllUI(reason) {
+        this.modules.forEach(m => {
+            if (typeof m.hideUI === 'function') {
+                try { m.hideUI(reason); } catch (e) { /* overlays are best-effort */ }
+            }
+        });
+    }
+
+    /** Does a module (quote-card, embed, video, gallery …) manage this figure? */
+    isManagedFigure(figure) {
+        if (figure.classList.contains('redactix-video-wrapper')) return true;
+        return this.modules.some(m => typeof m.ownsFigure === 'function' && m.ownsFigure(figure));
     }
 
     // Get clean HTML content (without utility wrappers)
@@ -463,31 +539,16 @@ class RedactixInstance {
 
     // Set HTML content into editor
     setContent(html) {
-        // Clean HTML from extra spaces between tags, then strip anything
-        // executable — same treatment as content loaded from the textarea,
-        // since callers routinely feed this straight from a database.
-        const cleanHtml = sanitizeLoadedHtml(html.replace(/>\s+</g, '><').trim());
-
-        // Set to visual editor
-        this.editorEl.innerHTML = cleanHtml;
-
-        // Post-processing as during initialization
-        this.normalizeInlineMarkup();
-        this.wrapSeparators();
-        this.setupFigures();
-        this.setupCodeBlocks();
-        this.runQuoteCardSetup();
-        this.runCalloutSetup();
-        this.runEmbedSetup();
-        this.runVideoSetup();
-        this.runGallerySetup();
+        // Same treatment as content loaded from the textarea, since callers
+        // routinely feed this straight from a database.
+        this.replaceContent(html == null ? '' : String(html));
 
         // Sync with textarea (immediately — external code
         // calling setContent often reads textarea right away).
         this.syncImmediate();
 
         // Notify history module of new content (reset history)
-        const historyModule = this.modules.find(m => m.constructor.name === 'History');
+        const historyModule = this.getModule('History');
         if (historyModule && historyModule.reset) {
             historyModule.reset();
         }
@@ -496,11 +557,10 @@ class RedactixInstance {
     /**
      * Schedule textarea sync on the next animation frame. Coalesces multiple
      * calls within a single frame (input + MutationObserver + manual calls
-     * from modules) into a single pass — avoids the per-keystroke clone +
-     * innerHTML serialisation cost the editor used to pay.
+     * from modules) into a single pass.
      */
     sync() {
-        if (this._syncFrame != null) return;
+        if (this.destroyed || this._syncFrame != null) return;
         this._syncFrame = requestAnimationFrame(() => {
             this._syncFrame = null;
             this._doSync();
@@ -520,77 +580,51 @@ class RedactixInstance {
         this._doSync();
     }
 
-    // The actual sync work: clone, strip presentational wrappers, write to
-    // textarea, dispatch input/change. Called via sync() / syncImmediate().
-    _doSync() {
-        // Make sure the editor never ends with a non-editable atomic block
-        // (figure / table / pre / hr) — folded into the sync flow so any
-        // structural change naturally gets a trailing landing paragraph
-        // before content is serialised.
-        if (this.core && this.core.ensureTrailingParagraph) {
-            this.core.ensureTrailingParagraph();
-        }
-
-        // Create clone to clean utility elements before saving
+    /**
+     * Clean serialisation of the visual editor — exactly what is saved.
+     * Clones the live DOM and strips every presentational wrapper and UI
+     * element. Also used by History (snapshots) and HTML mode (entry).
+     * @returns {{ html: string, clone: HTMLElement }}
+     */
+    serializeClean() {
         const clone = this.editorEl.cloneNode(true);
+        this.cleanClone(clone);
+        return { html: clone.innerHTML, clone };
+    }
+
+    /** Strip editor-only markup from a detached clone, in place. */
+    cleanClone(clone) {
+        // Generic UI: anything flagged data-redactix-ui (edit buttons, gap
+        // handles …) and in-flight upload placeholders never belong in output.
+        clone.querySelectorAll('[data-redactix-ui], .redactix-upload-placeholder').forEach(el => el.remove());
+        clone.querySelectorAll('[data-redactix-paste-upload]').forEach(el => el.removeAttribute('data-redactix-paste-upload'));
 
         // Remove separator wrappers
         clone.querySelectorAll('.redactix-separator').forEach(wrapper => {
             const hr = wrapper.querySelector('hr');
             if (hr) {
-                // Remove utility contenteditable attribute (if present in HTML)
                 hr.removeAttribute('contenteditable');
                 wrapper.parentNode.replaceChild(hr, wrapper);
             } else {
-                // If empty inside, just remove wrapper
                 wrapper.remove();
             }
         });
 
-        // Quote-card specific cleanup: width/height on author photo, empty
-        // figcaption / spans, trailing empty paragraphs in blockquote.
-        const quoteCardModule = this.modules.find(m => m.constructor.name === 'QuoteCard');
-        if (quoteCardModule) {
-            quoteCardModule.cleanCardsForSync(clone);
-        }
+        // Module-specific cleanup (quote-cards, callouts, embeds, videos,
+        // galleries …) — each module owns its own presentational markup.
+        this.modules.forEach(m => {
+            if (typeof m.cleanForSync === 'function') {
+                try { m.cleanForSync(clone); } catch (e) { console.error('Redactix: ' + m.name + '.cleanForSync failed', e); }
+            }
+        });
 
-        // Callout cleanup: trailing empty paragraphs inside <aside>.
-        const calloutModule = this.modules.find(m => m.constructor.name === 'Callout');
-        if (calloutModule) {
-            calloutModule.cleanCalloutsForSync(clone);
-        }
-
-        // Embed cleanup: drop empty figcaptions inside figure.redactix-embed.
-        const embedModule = this.modules.find(m => m.constructor.name === 'Embed');
-        if (embedModule) {
-            embedModule.cleanEmbedsForSync(clone);
-        }
-
-        // Video cleanup: strip Edit button, reapply inline aspect-ratio,
-        // drop empty figcaptions inside figure.redactix-video.
-        const videoModule = this.modules.find(m => m.constructor.name === 'Video');
-        if (videoModule) {
-            videoModule.cleanVideosForSync(clone);
-        }
-
-        // Gallery cleanup: strip Edit button + drop empty figcaption.
-        const galleryModule = this.modules.find(m => m.constructor.name === 'Gallery');
-        if (galleryModule) {
-            galleryModule.cleanGalleriesForSync(clone);
-        }
-
-        // Clean up figure and figcaption (skip quote-cards, embeds,
-        // videos and galleries — already handled by their own cleanup).
+        // Plain image figures: drop the empty placeholder figcaption.
         clone.querySelectorAll('figure').forEach(figure => {
             figure.removeAttribute('contenteditable');
-            if (figure.classList.contains('quote-card')) return;
-            if (figure.classList.contains('redactix-embed')) return;
-            if (figure.classList.contains('redactix-video')) return;
-            if (figure.classList.contains('redactix-gallery')) return;
-            const figcaption = figure.querySelector('figcaption');
+            if (this.isManagedFigure(figure)) return;
+            const figcaption = figure.querySelector(':scope > figcaption');
             if (figcaption) {
                 figcaption.removeAttribute('contenteditable');
-                // Remove empty figcaption (only <br> or empty)
                 const innerHtml = figcaption.innerHTML.replace(/<br\s*\/?>/gi, '').trim();
                 if (!innerHtml && !figcaption.querySelector('img, iframe')) {
                     figcaption.remove();
@@ -603,41 +637,57 @@ class RedactixInstance {
             el.removeAttribute('contenteditable');
         });
 
-        // Remove contenteditable from pre
-        clone.querySelectorAll('pre').forEach(pre => {
-            pre.removeAttribute('contenteditable');
-        });
-
-        // Remove search highlights
+        // Unwrap search highlights, keeping whatever formatting the user
+        // applied inside them.
         clone.querySelectorAll('.redactix-find-highlight').forEach(mark => {
-            const text = document.createTextNode(mark.textContent);
-            mark.parentNode.replaceChild(text, mark);
+            while (mark.firstChild) mark.parentNode.insertBefore(mark.firstChild, mark);
+            mark.remove();
         });
         clone.normalize();
 
-        // Финальная гарантия канонических инлайн-тегов: даже если браузер
-        // во время живого ввода породил <strike> (execCommand) или в DOM
-        // как-то просочились <strong>/<em>, в textarea уходят <b>/<i>/<s>.
+        // Final guarantee of canonical inline tags: even if the browser
+        // produced <strike> (execCommand) or <strong>/<em> slipped into the
+        // DOM, only <b>/<i>/<s> reach the textarea.
         normalizeInlineSynonyms(clone);
+        return clone;
+    }
 
-        // Get clean HTML
-        let html = clone.innerHTML;
+    // The actual sync work. Called via sync() / syncImmediate().
+    _doSync() {
+        if (this.destroyed || this._syncing) return;
+        this._syncing = true;
+        try {
+            // A module may own the content right now (HTML mode shows a code
+            // editor while the visual editor is hidden and stale).
+            let html = null;
+            for (const m of this.modules) {
+                if (typeof m.getContentOverride === 'function') {
+                    const override = m.getContentOverride();
+                    if (typeof override === 'string') { html = override; break; }
+                }
+            }
 
-        // Remove extra spaces between tags (minify)
-        // html = html.replace(/>\s+</g, '><').trim(); 
-        // Note: the line above might be dangerous for pre tags,
-        // let's leave it as is for now or use a more accurate cleaning.
-        // Let's just leave innerHTML copy, but without wrappers.
+            let clone = null;
+            if (html === null) {
+                const result = this.serializeClean();
+                html = result.html;
+                clone = result.clone;
+            }
 
-        this.textarea.value = html;
+            if (html !== this._lastSyncedHtml || this.textarea.value !== html) {
+                this._lastSyncedHtml = html;
+                this.textarea.value = html;
+                // Let external scripts know — but only on real changes, and
+                // never re-entrantly (a host 'input' listener calling
+                // getContent() used to recurse forever).
+                this.textarea.dispatchEvent(new Event('change', { bubbles: true }));
+                this.textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            }
 
-        // Trigger change event on textarea so external scripts know about the change
-        this.textarea.dispatchEvent(new Event('change', { bubbles: true }));
-        this.textarea.dispatchEvent(new Event('input', { bubbles: true }));
-
-        // Обновляем счётчик, переиспользуя уже сделанный клон —
-        // он отработал своё (innerHTML прочитан) и может мутироваться.
-        this.updateCounter(clone);
+            if (clone) this.updateCounter(clone);
+        } finally {
+            this._syncing = false;
+        }
     }
 
     // Change editor theme at runtime
@@ -655,36 +705,43 @@ class RedactixInstance {
 
         // Update config
         this.config.theme = theme;
+        this.emit('themeChanged', theme);
     }
 
-    wrapSeparators() {
-        this.editorEl.querySelectorAll('hr').forEach(hr => {
-            if (hr.parentNode.classList.contains('redactix-separator')) return;
+    wrapSeparators(root = this.editorEl) {
+        root.querySelectorAll('hr').forEach(hr => {
+            if (hr.parentNode.classList && hr.parentNode.classList.contains('redactix-separator')) return;
 
             const wrapper = document.createElement('div');
             wrapper.className = 'redactix-separator';
             wrapper.contentEditable = false;
-            wrapper.innerHTML = ''; // Clear if something got in
 
             hr.parentNode.replaceChild(wrapper, hr);
             wrapper.appendChild(hr);
         });
+        // Anything that ended up inside a separator wrapper (e.g. a block
+        // dropped onto it) is moved out — sync replaces the wrapper with the
+        // bare <hr>, which would otherwise silently delete that content.
+        root.querySelectorAll('.redactix-separator').forEach(wrapper => {
+            Array.from(wrapper.childNodes).forEach(child => {
+                if (child.nodeType === Node.ELEMENT_NODE && child.tagName === 'HR') return;
+                if (child.nodeType === Node.TEXT_NODE && !child.textContent.trim()) {
+                    child.remove();
+                    return;
+                }
+                wrapper.parentNode.insertBefore(child, wrapper.nextSibling);
+            });
+        });
     }
 
-    setupFigures() {
-        // Setup contenteditable for figure and figcaption
-        this.editorEl.querySelectorAll('figure').forEach(figure => {
-            // Пропускаем video wrapper, quote-card, redactix-embed и
-            // redactix-video — все они управляются собственными модулями.
-            if (figure.classList.contains('redactix-video-wrapper')) return;
-            if (figure.classList.contains('quote-card')) return;
-            if (figure.classList.contains('redactix-embed')) return;
-            if (figure.classList.contains('redactix-video')) return;
-            if (figure.classList.contains('redactix-gallery')) return;
+    setupFigures(root = this.editorEl) {
+        // Setup contenteditable for plain image figures and their captions.
+        root.querySelectorAll('figure').forEach(figure => {
+            if (this.isManagedFigure(figure)) return;
 
             figure.contentEditable = 'false';
 
-            let figcaption = figure.querySelector('figcaption');
+            let figcaption = figure.querySelector(':scope > figcaption');
             if (!figcaption) {
                 // Create empty figcaption for input possibility
                 figcaption = document.createElement('figcaption');
@@ -695,9 +752,9 @@ class RedactixInstance {
         });
     }
 
-    setupCodeBlocks() {
+    setupCodeBlocks(root = this.editorEl) {
         // Setup contenteditable for code blocks
-        this.editorEl.querySelectorAll('pre').forEach(pre => {
+        root.querySelectorAll('pre').forEach(pre => {
             pre.contentEditable = 'false';
         });
     }

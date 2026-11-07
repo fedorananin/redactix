@@ -1,13 +1,18 @@
 import Module from '../core/Module.js';
+import { isHost } from '../core/schema.js';
 
 /**
  * BlockGap module.
  *
  * Notion-style "+" insert handle that appears in the gap between two
- * top-level blocks on hover. Click → inserts an empty <p> between them
- * and focuses it. Disabled by `gapInsertHandle: false` in config.
+ * blocks of the same host (editor root, callout, quote-card body) on hover.
+ * Click → inserts an empty <p> between them and focuses it (one undo step).
+ * Disabled by `gapInsertHandle: false` in config. Stays hidden while a
+ * block is being dragged (BlockControl sets instance.isDraggingBlock).
  */
 export default class BlockGap extends Module {
+    static moduleName = 'BlockGap';
+
     constructor(instance) {
         super(instance);
         this.enabled = instance.config.gapInsertHandle !== false;
@@ -15,7 +20,9 @@ export default class BlockGap extends Module {
         this.lineLeft = null;
         this.lineRight = null;
         this.button = null;
-        this.currentGap = null; // { before, after, midY }
+        this.currentGap = null; // { container, before, after, midY }
+        this._frame = null;
+        this._pending = null;
     }
 
     init() {
@@ -23,8 +30,21 @@ export default class BlockGap extends Module {
 
         this.createHandle();
 
-        // Mousemove inside editor — recompute current gap.
-        this.instance.editorEl.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        // Mousemove inside editor — recompute the current gap, at most
+        // once per animation frame (latest event wins).
+        this.instance.editorEl.addEventListener('mousemove', (e) => {
+            this._pending = { target: e.target, x: e.clientX, y: e.clientY };
+            if (this._frame != null) return;
+            this._frame = requestAnimationFrame(() => {
+                this._frame = null;
+                const ev = this._pending;
+                this._pending = null;
+                if (ev && !this.instance.destroyed) this.onMouseMove(ev);
+            });
+        });
+        this.instance.onDestroy(() => {
+            if (this._frame != null) cancelAnimationFrame(this._frame);
+        });
 
         // Hide when leaving the editor area, unless we're moving onto the
         // handle itself (it sits inside the wrapper but technically hovers
@@ -92,15 +112,16 @@ export default class BlockGap extends Module {
         this.instance.wrapper.appendChild(this.handle);
     }
 
+    /** @param {{ target: Element, x: number, y: number }} e */
     onMouseMove(e) {
-        // Do nothing while a modal is open.
-        const modalOpen = this.instance.wrapper.querySelector('.redactix-modal-overlay.is-open');
-        if (modalOpen) {
+        // Nothing while a modal is open or a block is being dragged.
+        if (this.instance.isDraggingBlock ||
+            this.instance.wrapper.querySelector('.redactix-modal-overlay.is-open')) {
             this.hide();
             return;
         }
 
-        const gap = this.findGap(e.clientY);
+        const gap = this.findGap(e.target, e.x, e.y);
         if (!gap) {
             this.hide();
             return;
@@ -110,38 +131,46 @@ export default class BlockGap extends Module {
     }
 
     /**
-     * Find the gap between two adjacent direct children of one of the
-     * "gap-aware" containers — the editor itself, every callout (<aside>),
-     * and every quote-card's inner <blockquote>. Inner containers are
-     * checked first so a hover between two paragraphs inside a callout
-     * snaps to the inner gap rather than to whatever outer-editor gap
-     * happens to share the same Y. Returns null if the cursor is inside a
-     * block (or in container padding outside any actual gap — those cases
-     * are already covered by the block-handle / trailing P).
+     * Find the gap between two adjacent direct children of a host — the
+     * editor itself, a callout (<aside>) or a quote-card's <blockquote>
+     * (core/schema.js). Only the hosts on the hovered element's ancestry are
+     * examined (no document-wide query per mousemove), innermost first, so a
+     * hover between two paragraphs inside a callout snaps to the inner gap.
+     * An inner host only counts when the pointer is horizontally within it.
+     * Returns null if the cursor is inside a block (or in container padding
+     * outside any actual gap — those cases are already covered by the
+     * block-handle / trailing P).
      */
-    findGap(clientY) {
+    findGap(target, clientX, clientY) {
         const editor = this.instance.editorEl;
-
-        const containers = [];
-        editor.querySelectorAll('aside, figure.quote-card > blockquote').forEach(el => {
-            containers.push(el);
-        });
-        containers.push(editor);
+        const hosts = [];
+        let cur = target && target.nodeType === Node.ELEMENT_NODE ? target : (target && target.parentElement);
+        if (!cur || !editor.contains(cur)) cur = editor;
+        while (cur) {
+            if (isHost(cur, editor)) hosts.push(cur);
+            if (cur === editor) break;
+            cur = cur.parentElement;
+        }
 
         // 4px tolerance — matches the visual margin between blocks well
         // enough that the line "snaps" without feeling sticky.
         const TOLERANCE = 4;
 
-        for (const container of containers) {
+        for (const container of hosts) {
+            if (container !== editor) {
+                const r = container.getBoundingClientRect();
+                if (clientX < r.left || clientX > r.right) continue;
+            }
             const children = Array.from(container.children).filter(c => c.offsetHeight > 0 || c.tagName === 'HR');
             if (children.length < 2) continue;
 
             for (let i = 0; i < children.length - 1; i++) {
                 const a = children[i].getBoundingClientRect();
                 const b = children[i + 1].getBoundingClientRect();
+                if (clientY < a.bottom - TOLERANCE) break; // rows are ordered: nothing further can match
                 // Skip overlapping rects (shouldn't happen but safe).
                 if (a.bottom > b.top) continue;
-                if (clientY >= a.bottom - TOLERANCE && clientY <= b.top + TOLERANCE) {
+                if (clientY <= b.top + TOLERANCE) {
                     return {
                         container,
                         before: children[i],
@@ -190,14 +219,15 @@ export default class BlockGap extends Module {
     insertAtCurrentGap() {
         if (!this.currentGap) return;
         const { after } = this.currentGap;
-        if (!after || !after.parentNode) return;
-
-        const history = this.instance.modules.find(m => m.constructor.name === 'History');
-        if (history) history.beginBatch();
+        // The gap may be stale (content replaced by undo meanwhile).
+        if (!after || !after.parentNode || !this.instance.editorEl.contains(after)) {
+            this.hide();
+            return;
+        }
 
         const p = document.createElement('p');
         p.innerHTML = '<br>';
-        after.parentNode.insertBefore(p, after);
+        this.transact(() => after.parentNode.insertBefore(p, after));
 
         // preventScroll: avoid the editor jumping back to the top when its
         // contents are taller than the viewport. We're inserting at a known
@@ -212,8 +242,6 @@ export default class BlockGap extends Module {
         sel.removeAllRanges();
         sel.addRange(range);
 
-        this.instance.sync();
-        if (history) history.endBatch();
         this.hide();
     }
 

@@ -1,6 +1,15 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
-import { sanitizeUrl, sanitizeImageSrc, sanitizeInlineHtml, composeLinkRel } from '../core/dom-utils.js';
+import { sanitizeUrl, sanitizeImageSrc, sanitizeSrcset, sanitizeRel, composeLinkRel } from '../core/dom-utils.js';
+import { upload, errorMessage } from '../core/media-client.js';
+import { readCaption, writeCaption, cleanCaptionForSync, ensureEditButton, setOwnClass } from '../core/figure-utils.js';
+import { createMediaBrowsePanel } from '../ui/media-ui.js';
+import { inputGroup, checkbox, statusLine, SPINNER_SVG } from '../ui/form-helpers.js';
+
+// Per-image attributes the modal doesn't expose but must not discard on
+// re-save (they used to be silently dropped).
+const KEPT_IMG_ATTRS = ['title', 'srcset', 'sizes', 'loading', 'width', 'height', 'decoding'];
+const MANAGED_REL = new Set(['nofollow', 'noopener', 'noreferrer']);
 
 /**
  * Gallery module.
@@ -29,15 +38,22 @@ import { sanitizeUrl, sanitizeImageSrc, sanitizeInlineHtml, composeLinkRel } fro
  * Disabled in lite mode entirely.
  */
 export default class Gallery extends Module {
+    static moduleName = 'Gallery';
+
     constructor(instance) {
         super(instance);
         this.liteMode = instance.config.liteMode || false;
         this.uploadUrl = instance.config.uploadUrl || null;
         this.browseUrl = instance.config.browseUrl || null;
-        this.allowDelete = !!instance.config.allowImageDelete;
+        this._rafId = null;
+        this._dragoverHandler = null;
+        this._scrollTarget = null;
     }
 
     init() {
+        // Auto-scroll may still be running if the instance dies mid-drag.
+        this.instance.onDestroy(() => this.stopAutoScroll());
+
         if (this.liteMode) return;
 
         // Click on a gallery image (or its wrapping link) → open the
@@ -46,8 +62,8 @@ export default class Gallery extends Module {
         this.instance.editorEl.addEventListener('click', (e) => {
             const figure = e.target.closest && e.target.closest('figure.redactix-gallery');
             if (!figure) return;
-            const img = e.target.closest && e.target.closest('img');
-            const editBtn = e.target.closest && e.target.closest('.redactix-gallery-edit-btn');
+            const img = e.target.closest('img');
+            const editBtn = e.target.closest('.redactix-gallery-edit-btn');
             if (!img && !editBtn) return;
             e.preventDefault();
             e.stopPropagation();
@@ -90,15 +106,7 @@ export default class Gallery extends Module {
 
             // Floating "Edit" button — same UX as embeds / videos, top-right.
             // Only when the feature is reachable (not lite mode).
-            if (!this.liteMode && !figure.querySelector(':scope > .redactix-gallery-edit-btn')) {
-                const editBtn = document.createElement('button');
-                editBtn.type = 'button';
-                editBtn.className = 'redactix-gallery-edit-btn';
-                editBtn.setAttribute('data-redactix-ui', '');
-                editBtn.contentEditable = 'false';
-                editBtn.textContent = this.t('gallery.edit');
-                figure.appendChild(editBtn);
-            }
+            if (!this.liteMode) ensureEditButton(figure, 'redactix-gallery-edit-btn', this.t('gallery.edit'));
         });
     }
 
@@ -109,12 +117,7 @@ export default class Gallery extends Module {
         clone.querySelectorAll('.redactix-gallery-edit-btn').forEach(el => el.remove());
         clone.querySelectorAll('figure.redactix-gallery').forEach(figure => {
             figure.removeAttribute('contenteditable');
-            const figcaption = figure.querySelector(':scope > figcaption');
-            if (figcaption) {
-                figcaption.removeAttribute('contenteditable');
-                const text = (figcaption.textContent || '').trim();
-                if (!text) figcaption.remove();
-            }
+            cleanCaptionForSync(figure);
         });
     }
 
@@ -128,175 +131,204 @@ export default class Gallery extends Module {
         if (this.liteMode) return;
         this.instance.selection.save();
 
-        const items = existingFigure ? this.readFigure(existingFigure) : [];
-        const initialCaption = existingFigure ? this.readCaption(existingFigure) : '';
-
-        // ---- Layout state held in closure: the modal mutates `items`
-        // until the user hits Save, then we render the figure once. ----
-        const state = { items: items.slice(), caption: initialCaption };
+        const t = (k, p) => this.t(k, p);
+        // ---- State held in closure: the modal mutates `items` until the
+        // user hits Save, then we render the figure once. ----
+        const state = {
+            items: existingFigure ? this.readFigure(existingFigure) : [],
+            pending: 0
+        };
+        const modalUploads = new AbortController();
+        let browsePanel = null;
 
         const form = document.createElement('div');
 
         // Items list (sortable, with thumbnail + URL/alt/link fields).
         const list = document.createElement('div');
         list.className = 'redactix-gallery-items';
-        list.style.display = 'flex';
-        list.style.flexDirection = 'column';
-        list.style.gap = '8px';
-        list.style.marginBottom = '12px';
-        // Tall enough to fit several rows on a typical desktop viewport
-        // without overshooting the modal's 90vh cap.
-        list.style.maxHeight = 'min(60vh, 600px)';
-        list.style.overflowY = 'auto';
-        list.style.padding = '8px';
-        list.style.background = 'var(--redactix-bg-secondary)';
-        list.style.border = '1px solid var(--redactix-border)';
-        list.style.borderRadius = '8px';
         form.appendChild(list);
 
+        // Rows are keyed by item so an upload finishing re-renders ONE row
+        // instead of the whole list.
+        const rows = new Map();
         const renderList = () => {
-            list.innerHTML = '';
+            rows.clear();
+            list.replaceChildren();
             if (state.items.length === 0) {
                 const empty = document.createElement('div');
-                empty.style.color = 'var(--redactix-text-placeholder)';
-                empty.style.textAlign = 'center';
-                empty.style.padding = '24px 8px';
-                empty.style.fontSize = '13px';
-                empty.textContent = this.t('gallery.empty');
+                empty.className = 'redactix-gallery-empty';
+                empty.textContent = t('gallery.empty');
                 list.appendChild(empty);
                 return;
             }
             state.items.forEach((item, idx) => {
-                list.appendChild(this.renderItem(item, idx, state, renderList));
+                const row = this.renderItem(item, idx, state, renderList);
+                rows.set(item, row);
+                list.appendChild(row);
             });
+        };
+        const renderRow = (item) => {
+            const old = rows.get(item);
+            const idx = state.items.indexOf(item);
+            if (!old || idx < 0 || !old.isConnected) {
+                renderList();
+                return;
+            }
+            const row = this.renderItem(item, idx, state, renderList);
+            rows.set(item, row);
+            old.replaceWith(row);
         };
         renderList();
 
+        // Drops anywhere in the list end the auto-scroll (dragend is not
+        // guaranteed when the dragged row is re-rendered away).
+        list.addEventListener('drop', () => this.stopAutoScroll());
+
+        const status = statusLine('', { error: true });
+        status.style.whiteSpace = 'pre-line'; // one line per failed upload
+
         // ---- "Add image" controls: upload / URL / browse panel ----
         const addRow = document.createElement('div');
-        addRow.style.display = 'flex';
-        addRow.style.gap = '8px';
-        addRow.style.flexWrap = 'wrap';
-        addRow.style.marginBottom = '12px';
+        addRow.className = 'redactix-gallery-add-row';
 
-        const addUrlBtn = this.makeAddButton(this.t('gallery.addByUrl'), () => {
-            const url = prompt(this.t('gallery.promptUrl'), 'https://');
-            if (url && url !== 'https://') {
-                state.items.push({ url, alt: '', linkUrl: '', isBlank: false, isNofollow: false });
+        addRow.appendChild(this.makeAddButton(t('gallery.addByUrl'), () => {
+            const url = prompt(t('gallery.promptUrl'), 'https://');
+            if (url && url.trim() && url.trim() !== 'https://') {
+                state.items.push(newItem({ url: url.trim() }));
                 renderList();
             }
-        });
-        addRow.appendChild(addUrlBtn);
+        }));
 
-        let fileInput = null;
         if (this.uploadUrl) {
-            fileInput = document.createElement('input');
+            const fileInput = document.createElement('input');
             fileInput.type = 'file';
             fileInput.accept = 'image/*';
             fileInput.multiple = true;
-            fileInput.style.display = 'none';
+            fileInput.hidden = true;
 
-            const addUploadBtn = this.makeAddButton(this.t('gallery.addUpload'), () => fileInput.click());
-            addRow.appendChild(addUploadBtn);
+            addRow.appendChild(this.makeAddButton(t('gallery.addUpload'), () => fileInput.click()));
             addRow.appendChild(fileInput);
 
             fileInput.addEventListener('change', async () => {
-                const files = Array.from(fileInput.files || []);
+                const files = Array.from(fileInput.files || []).filter(f => (f.type || '').startsWith('image/'));
                 fileInput.value = '';
-                for (const file of files) {
-                    if (!file.type.startsWith('image/')) continue;
-                    const placeholder = { url: '', alt: '', linkUrl: '', isBlank: false, isNofollow: false, _uploading: true };
-                    state.items.push(placeholder);
-                    renderList();
-                    try {
-                        const fd = new FormData();
-                        fd.append('image', file);
-                        const r = await fetch(this.uploadUrl, { method: 'POST', body: fd });
-                        const data = await r.json();
-                        if (data.success) {
-                            placeholder.url = data.src;
-                            if (data.alt) placeholder.alt = data.alt;
-                            placeholder._uploading = false;
-                        } else {
-                            // Drop the placeholder on failure.
-                            const idx = state.items.indexOf(placeholder);
-                            if (idx >= 0) state.items.splice(idx, 1);
-                        }
-                    } catch (err) {
+                if (!files.length) return;
+                // All placeholders first (one render), then upload in order.
+                const placeholders = files.map(() => newItem({ _uploading: true }));
+                state.items.push(...placeholders);
+                state.pending += files.length;
+                renderList();
+
+                const errors = [];
+                for (let i = 0; i < files.length; i++) {
+                    const placeholder = placeholders[i];
+                    const result = await upload(this.uploadUrl, 'image', files[i], { signal: modalUploads.signal });
+                    state.pending--;
+                    if (result.code === 'aborted') return; // modal closed
+                    if (result.ok) {
+                        placeholder.url = result.data.src;
+                        if (result.data.alt) placeholder.alt = result.data.alt;
+                        if (result.data.srcset) placeholder.attrs.srcset = result.data.srcset;
+                        if (result.data.title) placeholder.attrs.title = result.data.title;
+                        placeholder._uploading = false;
+                        renderRow(placeholder);
+                    } else {
+                        errors.push(t('gallery.uploadFailed', { filename: files[i].name, error: errorMessage(result, t) }));
                         const idx = state.items.indexOf(placeholder);
                         if (idx >= 0) state.items.splice(idx, 1);
+                        renderList();
                     }
-                    renderList();
                 }
+                status.textContent = errors.join('\n');
             });
         }
 
-        let browsePanel = null;
+        let browseHolder = null;
         if (this.browseUrl) {
-            const addBrowseBtn = this.makeAddButton(this.t('gallery.addFromGallery'), () => {
-                if (browsePanel.style.display === 'none') {
-                    browsePanel.style.display = 'block';
-                    this.openBrowsePanel(browsePanel, (data) => {
-                        state.items.push({ url: data.src, alt: data.alt || '', linkUrl: '', isBlank: false, isNofollow: false });
-                        renderList();
-                    });
-                } else {
-                    browsePanel.style.display = 'none';
+            browsePanel = createMediaBrowsePanel({
+                t,
+                type: 'image',
+                url: this.browseUrl,
+                withButton: false,
+                stayOpen: true,
+                onSelect: (data) => {
+                    state.items.push(newItem({
+                        url: data.src,
+                        alt: data.alt || '',
+                        attrs: { srcset: data.srcset || '', title: data.title || '' }
+                    }));
+                    renderList();
                 }
             });
-            addRow.appendChild(addBrowseBtn);
+            addRow.appendChild(this.makeAddButton(t('gallery.addFromGallery'), () => {
+                if (browsePanel.isOpen) browsePanel.close();
+                else browsePanel.open();
+            }));
+            browseHolder = document.createElement('div');
+            browseHolder.className = 'redactix-gallery-browse';
+            browseHolder.appendChild(browsePanel.element);
         }
 
         form.appendChild(addRow);
-
-        if (this.browseUrl) {
-            browsePanel = document.createElement('div');
-            browsePanel.style.display = 'none';
-            browsePanel.style.marginBottom = '12px';
-            form.appendChild(browsePanel);
-        }
+        if (browseHolder) form.appendChild(browseHolder);
 
         // ---- Caption ----
-        const captionGroup = this.makeInputGroup(this.t('gallery.caption'), 'text', state.caption);
-        captionGroup.className = 'redactix-modal-full-width';
-        const captionInput = captionGroup.querySelector('input');
-        captionInput.placeholder = this.t('gallery.captionPlaceholder');
-        form.appendChild(captionGroup);
+        const captionGroup = inputGroup(t('gallery.caption'), 'text', existingFigure ? readCaption(existingFigure) : '',
+            { placeholder: t('gallery.captionPlaceholder') });
+        captionGroup.classList.add('redactix-modal-full-width');
+        const captionInput = captionGroup.field;
+        form.append(captionGroup, status);
 
         const isEditing = !!existingFigure;
         const extraButtons = [];
         if (isEditing) {
             extraButtons.push({
-                text: this.t('gallery.removeGallery'),
+                text: t('gallery.removeGallery'),
                 danger: true,
                 onClick: () => {
-                    existingFigure.remove();
-                    this.instance.sync();
+                    this.transact(() => existingFigure.remove());
                     this.instance.modal.close();
                 }
             });
         }
 
         this.instance.modal.open({
-            title: isEditing ? this.t('gallery.editTitle') : this.t('gallery.title'),
+            title: isEditing ? t('gallery.editTitle') : t('gallery.title'),
             body: form,
             extraButtons,
+            onClose: () => {
+                modalUploads.abort();
+                this.stopAutoScroll();
+                if (browsePanel) browsePanel.destroy();
+            },
             onSave: () => {
-                state.caption = captionInput.value.trim();
-                // Drop placeholder rows that never resolved.
-                const finalItems = state.items.filter(i => i.url && !i._uploading);
-                if (finalItems.length === 0) return;
+                // Saving with uploads in flight used to drop them silently.
+                if (state.pending > 0) {
+                    status.textContent = t('upload.pending');
+                    return false;
+                }
+                const finalItems = state.items.filter(i => !i._uploading && sanitizeImageSrc(i.url || ''));
+                if (finalItems.length === 0) {
+                    // Never delete the gallery being edited because every
+                    // URL is invalid — tell the user instead.
+                    status.textContent = t('gallery.invalidUrls');
+                    return false;
+                }
+                const caption = captionInput.value;
                 if (isEditing) {
-                    this.populateFigure(existingFigure, finalItems, state.caption);
+                    this.transact(() => {
+                        this.populateFigure(existingFigure, finalItems, caption);
+                        this.setupGalleries(existingFigure.parentNode || this.instance.editorEl);
+                    });
                 } else {
                     const figure = document.createElement('figure');
-                    this.populateFigure(figure, finalItems, state.caption);
+                    this.populateFigure(figure, finalItems, caption);
                     this.instance.selection.restore();
-                    this.instance.selection.insertNode(figure);
-                    if (this.instance.core) this.instance.core.ensureTrailingParagraph();
+                    this.transact(() => {
+                        this.instance.selection.insertNode(figure);
+                        this.setupGalleries(figure.parentNode || this.instance.editorEl);
+                    });
                 }
-                this.setupGalleries(this.instance.editorEl);
-                this.instance.sync();
             }
         });
     }
@@ -307,94 +339,53 @@ export default class Gallery extends Module {
      * changes (delete / move).
      */
     renderItem(item, index, state, rerender) {
+        const t = (k, p) => this.t(k, p);
         const row = document.createElement('div');
-        row.style.display = 'grid';
-        row.style.gridTemplateColumns = '24px 60px 1fr auto';
-        row.style.gap = '8px';
-        row.style.alignItems = 'center';
-        row.style.padding = '6px';
-        row.style.background = 'var(--redactix-bg)';
-        row.style.border = '1px solid var(--redactix-border)';
-        row.style.borderRadius = '6px';
+        row.className = 'redactix-gallery-item';
         // Row itself stays non-draggable — otherwise the inputs inside
         // can't do native text selection (browser starts a drag instead).
 
         // Drag handle — the only element that initiates the drag.
         const handle = document.createElement('div');
+        handle.className = 'redactix-gallery-handle';
         handle.textContent = '⋮⋮';
-        handle.style.cursor = 'grab';
-        handle.style.color = 'var(--redactix-text-placeholder)';
-        handle.style.fontSize = '14px';
-        handle.style.textAlign = 'center';
-        handle.style.userSelect = 'none';
-        handle.title = this.t('gallery.drag');
+        handle.title = t('gallery.drag');
         handle.draggable = true;
         row.appendChild(handle);
 
         // Thumbnail
         const thumb = document.createElement('div');
-        thumb.style.width = '60px';
-        thumb.style.height = '60px';
-        thumb.style.borderRadius = '4px';
-        thumb.style.overflow = 'hidden';
-        thumb.style.background = 'var(--redactix-bg-hover)';
-        thumb.style.display = 'flex';
-        thumb.style.alignItems = 'center';
-        thumb.style.justifyContent = 'center';
+        thumb.className = 'redactix-gallery-thumb';
         if (item._uploading) {
-            thumb.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"><animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/></circle></svg>`;
-        } else if (item.url) {
-            const img = document.createElement('img');
-            img.src = item.url;
-            img.style.width = '100%';
-            img.style.height = '100%';
-            img.style.objectFit = 'cover';
-            thumb.appendChild(img);
+            thumb.innerHTML = SPINNER_SVG; // static markup
+        } else {
+            const src = sanitizeImageSrc(item.url || '');
+            if (src) {
+                const img = document.createElement('img');
+                img.src = src;
+                img.alt = '';
+                thumb.appendChild(img);
+            }
         }
         row.appendChild(thumb);
 
         // Fields column
         const fields = document.createElement('div');
-        fields.style.display = 'flex';
-        fields.style.flexDirection = 'column';
-        fields.style.gap = '4px';
+        fields.className = 'redactix-gallery-fields';
 
-        const urlInput = this.makeRowInput(this.t('gallery.itemUrl'), item.url, (v) => { item.url = v; });
-        const altInput = this.makeRowInput(this.t('gallery.itemAlt'), item.alt || '', (v) => { item.alt = v; });
-        const linkInput = this.makeRowInput(this.t('gallery.itemLink'), item.linkUrl || '', (v) => { item.linkUrl = v; });
+        const urlInput = this.makeRowInput(t('gallery.itemUrl'), item.url, (v) => { item.url = v; });
+        if (item._uploading) urlInput.disabled = true;
+        const altInput = this.makeRowInput(t('gallery.itemAlt'), item.alt || '', (v) => { item.alt = v; });
+        const linkInput = this.makeRowInput(t('gallery.itemLink'), item.linkUrl || '', (v) => { item.linkUrl = v; });
 
         // Compact link checkboxes row
         const linkChecks = document.createElement('div');
-        linkChecks.style.display = 'flex';
-        linkChecks.style.gap = '12px';
-        linkChecks.style.fontSize = '12px';
-        linkChecks.style.color = 'var(--redactix-text-muted)';
-
-        const blankLabel = document.createElement('label');
-        blankLabel.style.display = 'inline-flex';
-        blankLabel.style.alignItems = 'center';
-        blankLabel.style.gap = '4px';
-        blankLabel.style.cursor = 'pointer';
-        const blankCheck = document.createElement('input');
-        blankCheck.type = 'checkbox';
-        blankCheck.style.width = 'auto';
-        blankCheck.checked = !!item.isBlank;
-        blankCheck.addEventListener('change', () => { item.isBlank = blankCheck.checked; });
-        blankLabel.append(blankCheck, this.t('gallery.openNewWindow'));
-
-        const nofollowLabel = document.createElement('label');
-        nofollowLabel.style.display = 'inline-flex';
-        nofollowLabel.style.alignItems = 'center';
-        nofollowLabel.style.gap = '4px';
-        nofollowLabel.style.cursor = 'pointer';
-        const nofollowCheck = document.createElement('input');
-        nofollowCheck.type = 'checkbox';
-        nofollowCheck.style.width = 'auto';
-        nofollowCheck.checked = !!item.isNofollow;
-        nofollowCheck.addEventListener('change', () => { item.isNofollow = nofollowCheck.checked; });
-        nofollowLabel.append(nofollowCheck, this.t('gallery.nofollow'));
-
-        linkChecks.append(blankLabel, nofollowLabel);
+        linkChecks.className = 'redactix-gallery-checks';
+        const blank = checkbox(t('gallery.openNewWindow'), item.isBlank);
+        blank.field.addEventListener('change', () => { item.isBlank = blank.field.checked; });
+        const nofollow = checkbox(t('gallery.nofollow'), item.isNofollow);
+        nofollow.field.addEventListener('change', () => { item.isNofollow = nofollow.field.checked; });
+        linkChecks.append(blank, nofollow);
 
         fields.append(urlInput, altInput, linkInput, linkChecks);
         row.appendChild(fields);
@@ -402,19 +393,13 @@ export default class Gallery extends Module {
         // Remove button
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
-        removeBtn.innerHTML = '×';
-        removeBtn.title = this.t('gallery.removeItem');
-        removeBtn.style.width = '28px';
-        removeBtn.style.height = '28px';
-        removeBtn.style.background = 'var(--redactix-danger-light)';
-        removeBtn.style.color = 'var(--redactix-danger)';
-        removeBtn.style.border = 'none';
-        removeBtn.style.borderRadius = '4px';
-        removeBtn.style.cursor = 'pointer';
-        removeBtn.style.fontSize = '16px';
-        removeBtn.style.lineHeight = '1';
+        removeBtn.className = 'redactix-gallery-remove';
+        removeBtn.textContent = '×';
+        removeBtn.title = t('gallery.removeItem');
+        removeBtn.setAttribute('aria-label', t('gallery.removeItem'));
         removeBtn.addEventListener('click', () => {
-            state.items.splice(index, 1);
+            const idx = state.items.indexOf(item);
+            if (idx >= 0) state.items.splice(idx, 1);
             rerender();
         });
         row.appendChild(removeBtn);
@@ -428,31 +413,30 @@ export default class Gallery extends Module {
             if (e.dataTransfer.setDragImage) {
                 e.dataTransfer.setDragImage(row, 20, 20);
             }
-            row.style.opacity = '0.5';
-            handle.style.cursor = 'grabbing';
+            row.classList.add('is-dragging');
             // Auto-scroll the items list while the cursor sits near its
             // top / bottom edge — otherwise long galleries can't be
             // reordered end-to-end without the scrollbar.
             this.startAutoScroll(row.parentNode);
         });
         handle.addEventListener('dragend', () => {
-            row.style.opacity = '';
-            handle.style.cursor = 'grab';
+            row.classList.remove('is-dragging');
             this.stopAutoScroll();
         });
         row.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            row.style.borderColor = 'var(--redactix-primary)';
+            row.classList.add('is-drop-target');
         });
         row.addEventListener('dragleave', () => {
-            row.style.borderColor = 'var(--redactix-border)';
+            row.classList.remove('is-drop-target');
         });
         row.addEventListener('drop', (e) => {
             e.preventDefault();
-            row.style.borderColor = 'var(--redactix-border)';
+            row.classList.remove('is-drop-target');
+            this.stopAutoScroll();
             const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
-            if (Number.isFinite(from) && from !== index) {
+            if (Number.isFinite(from) && from !== index && from >= 0 && from < state.items.length) {
                 const [moved] = state.items.splice(from, 1);
                 state.items.splice(index, 0, moved);
                 rerender();
@@ -467,25 +451,37 @@ export default class Gallery extends Module {
      * is within EDGE_ZONE px of its top / bottom edge. Speed ramps from
      * 0 at the zone boundary to MAX_SPEED at (and beyond) the edge.
      *
-     * Call from `dragstart`; matched by `stopAutoScroll()` on `dragend`.
+     * Stopped by dragend, by any drop in the list, by closing the modal,
+     * by destroy() — and by itself when no dragover arrived for a second
+     * (dragend is not guaranteed if the dragged row was re-rendered).
      */
     startAutoScroll(scrollTarget) {
         const EDGE_ZONE = 80;   // px — how deep from the edge the zone reaches
         const MAX_SPEED = 18;   // px per frame ≈ ~1080px/s at 60fps
+        const IDLE_MS = 1000;
 
         this.stopAutoScroll(); // clear any previous run
+        if (!scrollTarget) return;
         this._scrollTarget = scrollTarget;
-        this._lastClientY = -1;
+        let lastClientY = -1;
+        let lastEvent = performance.now();
 
-        this._dragoverHandler = (e) => { this._lastClientY = e.clientY; };
+        this._dragoverHandler = (e) => {
+            lastClientY = e.clientY;
+            lastEvent = performance.now();
+        };
         document.addEventListener('dragover', this._dragoverHandler);
 
-        const tick = () => {
-            if (!this._scrollTarget) return;
-            if (this._lastClientY >= 0) {
-                const rect = this._scrollTarget.getBoundingClientRect();
-                const distTop = this._lastClientY - rect.top;
-                const distBottom = rect.bottom - this._lastClientY;
+        const tick = (now) => {
+            const target = this._scrollTarget;
+            if (!target || !target.isConnected || now - lastEvent > IDLE_MS) {
+                this.stopAutoScroll();
+                return;
+            }
+            if (lastClientY >= 0) {
+                const rect = target.getBoundingClientRect();
+                const distTop = lastClientY - rect.top;
+                const distBottom = rect.bottom - lastClientY;
                 let delta = 0;
                 if (distTop < EDGE_ZONE) {
                     const f = Math.max(0, Math.min(1, 1 - distTop / EDGE_ZONE));
@@ -494,7 +490,7 @@ export default class Gallery extends Module {
                     const f = Math.max(0, Math.min(1, 1 - distBottom / EDGE_ZONE));
                     delta = MAX_SPEED * f;
                 }
-                if (delta !== 0) this._scrollTarget.scrollTop += delta;
+                if (delta !== 0) target.scrollTop += delta;
             }
             this._rafId = requestAnimationFrame(tick);
         };
@@ -507,19 +503,15 @@ export default class Gallery extends Module {
         this._rafId = null;
         this._dragoverHandler = null;
         this._scrollTarget = null;
-        this._lastClientY = -1;
     }
 
     makeRowInput(placeholder, value, onChange) {
         const input = document.createElement('input');
         input.type = 'text';
-        input.value = value;
+        input.className = 'redactix-gallery-input';
+        input.value = value || '';
         input.placeholder = placeholder;
-        input.style.padding = '4px 6px';
-        input.style.fontSize = '12px';
-        input.style.border = '1px solid var(--redactix-border)';
-        input.style.borderRadius = '4px';
-        input.style.boxSizing = 'border-box';
+        input.setAttribute('aria-label', placeholder);
         input.addEventListener('input', () => onChange(input.value));
         return input;
     }
@@ -527,37 +519,18 @@ export default class Gallery extends Module {
     makeAddButton(label, onClick) {
         const btn = document.createElement('button');
         btn.type = 'button';
+        btn.className = 'redactix-gallery-add-btn';
         btn.textContent = label;
-        btn.style.padding = '8px 14px';
-        btn.style.background = 'var(--redactix-bg-hover)';
-        btn.style.border = '1px solid var(--redactix-border)';
-        btn.style.borderRadius = '6px';
-        btn.style.cursor = 'pointer';
-        btn.style.fontSize = '13px';
-        btn.style.color = 'var(--redactix-text)';
-        btn.style.transition = 'background 0.15s';
-        btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--redactix-bg-active)'; });
-        btn.addEventListener('mouseleave', () => { btn.style.background = 'var(--redactix-bg-hover)'; });
         btn.addEventListener('click', onClick);
         return btn;
-    }
-
-    makeInputGroup(labelText, type, value = '') {
-        const div = document.createElement('div');
-        const label = document.createElement('label');
-        label.textContent = labelText;
-        const input = document.createElement('input');
-        input.type = type;
-        input.value = value;
-        div.append(label, input);
-        return div;
     }
 
     // ---------- read existing figure ----------
 
     /**
      * Walk the gallery's grid and return a list of items in the
-     * editor's current order. Each item has src + alt + optional link.
+     * editor's current order. Each item has src + alt + optional link,
+     * plus the attributes the modal doesn't edit (kept as is).
      */
     readFigure(figure) {
         const grid = figure.querySelector(':scope > .redactix-gallery-grid');
@@ -570,33 +543,36 @@ export default class Gallery extends Module {
                 link = child;
                 img = child.querySelector('img');
             }
-            if (!img) return null;
-            return {
+            if (!img || img.tagName !== 'IMG') return null;
+            const attrs = {};
+            KEPT_IMG_ATTRS.forEach(name => {
+                if (img.hasAttribute(name)) attrs[name] = img.getAttribute(name);
+            });
+            const relTokens = link ? (link.getAttribute('rel') || '').split(/\s+/).filter(Boolean) : [];
+            return newItem({
                 url: img.getAttribute('src') || '',
                 alt: img.getAttribute('alt') || '',
                 linkUrl: link ? (link.getAttribute('href') || '') : '',
                 isBlank: link ? link.getAttribute('target') === '_blank' : false,
-                isNofollow: link ? (link.getAttribute('rel') || '').includes('nofollow') : false
-            };
+                isNofollow: relTokens.includes('nofollow'),
+                relExtra: relTokens.filter(r => !MANAGED_REL.has(r.toLowerCase())).join(' '),
+                attrs
+            });
         }).filter(Boolean);
     }
 
     readCaption(figure) {
-        const figcaption = figure.querySelector(':scope > figcaption');
-        if (!figcaption) return '';
-        return (figcaption.innerHTML || '').replace(/<br\s*\/?>/gi, '').trim();
+        return readCaption(figure);
     }
 
     /**
      * Build the figure DOM from a list of items + caption. Mutates the
-     * given figure (works for both create and edit paths).
+     * given figure (works for both create and edit paths). Classes and
+     * attributes the user put on the figure itself are left alone.
      */
     populateFigure(figure, items, caption) {
-        figure.className = 'redactix-gallery';
+        setOwnClass(figure, 'redactix-gallery');
         figure.setAttribute('contenteditable', 'false');
-
-        // Wipe existing children — simpler than diffing for this UX.
-        figure.innerHTML = '';
 
         const grid = document.createElement('div');
         grid.className = 'redactix-gallery-grid';
@@ -604,17 +580,26 @@ export default class Gallery extends Module {
             // Санитизация — та же поверхность, что и у одиночной картинки:
             // src через sanitizeImageSrc, href через sanitizeUrl, rel через
             // composeLinkRel (noopener при _blank).
-            const src = sanitizeImageSrc(item.url);
+            const src = sanitizeImageSrc(item.url || '');
             if (!src) return;
             const img = document.createElement('img');
             img.setAttribute('src', src);
             if (item.alt) img.setAttribute('alt', item.alt);
+            Object.entries(item.attrs || {}).forEach(([name, value]) => {
+                if (!KEPT_IMG_ATTRS.includes(name) || value == null || value === '') return;
+                if (name === 'srcset') {
+                    const safe = sanitizeSrcset(String(value));
+                    if (safe) img.setAttribute('srcset', safe);
+                    return;
+                }
+                img.setAttribute(name, String(value));
+            });
             const linkUrl = item.linkUrl ? sanitizeUrl(item.linkUrl) : null;
             if (linkUrl) {
                 const a = document.createElement('a');
                 a.setAttribute('href', linkUrl);
                 if (item.isBlank) a.setAttribute('target', '_blank');
-                const rel = composeLinkRel({ nofollow: item.isNofollow, blank: item.isBlank });
+                const rel = composeLinkRel({ nofollow: item.isNofollow, blank: item.isBlank, extra: sanitizeRel(item.relExtra || '') });
                 if (rel) a.setAttribute('rel', rel);
                 a.appendChild(img);
                 grid.appendChild(a);
@@ -622,84 +607,44 @@ export default class Gallery extends Module {
                 grid.appendChild(img);
             }
         });
-        figure.appendChild(grid);
 
-        const safeCaption = sanitizeInlineHtml(caption || '');
-        if (safeCaption) {
-            const figcaption = document.createElement('figcaption');
-            figcaption.setAttribute('contenteditable', 'true');
-            figcaption.innerHTML = safeCaption;
-            figure.appendChild(figcaption);
-        }
+        // Replace the grid; keep the figcaption node (and anything else
+        // foreign) so only our own structure is rebuilt.
+        figure.querySelectorAll(':scope > .redactix-gallery-grid, :scope > .redactix-gallery-edit-btn').forEach(el => el.remove());
+        figure.insertBefore(grid, figure.firstChild);
+        writeCaption(figure, caption);
     }
 
-    // ---------- browse panel (mirrors Image module) ----------
+    // ---------- content lifecycle hooks (called by RedactixInstance) ----------
 
-    openBrowsePanel(container, onSelect) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 16px; color: var(--redactix-text-muted); font-size: 13px;">
-                ${this.t('gallery.loadingImages')}
-            </div>
-        `;
-
-        const fd = new FormData();
-        fd.append('action', 'browse');
-        fetch(this.browseUrl, { method: 'POST', body: fd })
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) {
-                    this.setStatusMessage(container,
-                        data.error || 'Failed to load images',
-                        'color:var(--redactix-danger);padding:8px;font-size:13px;');
-                    return;
-                }
-                if (!data.images || data.images.length === 0) {
-                    this.setStatusMessage(container, this.t('gallery.noImages'),
-                        'color:var(--redactix-text-muted);padding:16px;text-align:center;font-size:13px;');
-                    return;
-                }
-                this.renderBrowseGrid(container, data.images, onSelect);
-            })
-            .catch(() => {
-                this.setStatusMessage(container, 'Connection error',
-                    'color:var(--redactix-danger);padding:8px;font-size:13px;');
-            });
+    setupContent(root) {
+        this.setupGalleries(root);
     }
 
-    renderBrowseGrid(container, images, onSelect) {
-        container.innerHTML = '';
-        const grid = document.createElement('div');
-        grid.style.display = 'grid';
-        grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(80px, 1fr))';
-        grid.style.gap = '6px';
-        grid.style.maxHeight = '180px';
-        grid.style.overflowY = 'auto';
-        grid.style.padding = '8px';
-        grid.style.background = 'var(--redactix-bg-secondary)';
-        grid.style.borderRadius = '6px';
-        grid.style.border = '1px solid var(--redactix-border)';
-
-        images.forEach(img => {
-            const tile = document.createElement('div');
-            tile.style.position = 'relative';
-            tile.style.aspectRatio = '1';
-            tile.style.borderRadius = '4px';
-            tile.style.overflow = 'hidden';
-            tile.style.cursor = 'pointer';
-            tile.style.border = '2px solid transparent';
-            const preview = document.createElement('img');
-            preview.src = img.src;
-            preview.style.width = '100%';
-            preview.style.height = '100%';
-            preview.style.objectFit = 'cover';
-            tile.title = img.filename;
-            tile.appendChild(preview);
-            tile.addEventListener('mouseenter', () => { tile.style.borderColor = 'var(--redactix-primary)'; });
-            tile.addEventListener('mouseleave', () => { tile.style.borderColor = 'transparent'; });
-            tile.addEventListener('click', () => onSelect(img));
-            grid.appendChild(tile);
-        });
-
-        container.appendChild(grid);
+    cleanForSync(clone) {
+        this.cleanGalleriesForSync(clone);
     }
+
+    ownsFigure(figure) {
+        return figure.classList.contains('redactix-gallery');
+    }
+
+    // Lite mode has no galleries: pasted gallery markup degrades to images.
+    get pasteAllowedClasses() {
+        return this.instance.config.liteMode ? [] : ['redactix-gallery', 'redactix-gallery-grid'];
+    }
+}
+
+function newItem(fields = {}) {
+    return {
+        url: '',
+        alt: '',
+        linkUrl: '',
+        isBlank: false,
+        isNofollow: false,
+        relExtra: '',
+        attrs: {},
+        _uploading: false,
+        ...fields
+    };
 }

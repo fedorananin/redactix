@@ -2,7 +2,7 @@
 
 Modern WYSIWYG editor with Notion-like experience. Clean HTML output. Zero dependencies. Vanilla JS.
 
-![Redactix Editor](https://img.shields.io/badge/version-1.12.0-blue.svg)
+![Redactix Editor](https://img.shields.io/badge/version-1.13.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Vanilla JS](https://img.shields.io/badge/vanilla-js-yellow.svg)
 
@@ -98,7 +98,7 @@ new Redactix({
     selector: '.redactix',
     uploadUrl: '/redactix_images.php',
     browseUrl: '/redactix_images.php',
-    allowImageDelete: true  // Show delete buttons in gallery
+    allowImageDelete: true  // Show delete buttons in gallery (the server must allow it too)
 });
 ```
 
@@ -110,7 +110,10 @@ $uploadDir = __DIR__ . '/uploads/';
 $uploadUrlPrefix = '/uploads/';
 $maxFileSize = 5 * 1024 * 1024;  // 5MB
 $allowDelete = false;  // Enable delete functionality
+$allowSvg = false;     // SVG can carry scripts — opt in only for trusted uploaders
 ```
+
+Delete buttons appear only when **both** the client option (`allowImageDelete` / `allowVideoDelete`) and the server's `$allowDelete` are enabled. `uploads/.htaccess` (Apache) serves uploaded files with `X-Content-Type-Options: nosniff` and forces SVGs to download inside a CSP sandbox.
 
 ### Demo Mode
 
@@ -142,7 +145,7 @@ Response:
 ```
 POST /redactix_images.php
 Content-Type: multipart/form-data
-Body: action=browse
+Body: action=browse[&type=image|video][&offset=0&limit=50]
 
 Response:
 {
@@ -156,9 +159,14 @@ Response:
             "modified": 1638360000
         }
     ],
-    "allowDelete": false
+    "allowDelete": false,
+    "total": 1,
+    "offset": 0,
+    "limit": null
 }
 ```
+
+Without `limit` the whole list (from `offset` on) is returned, as before.
 
 **Delete**
 ```
@@ -172,6 +180,8 @@ Response:
     "message": "File deleted successfully"
 }
 ```
+
+**Errors** look like `{ "success": false, "error": "…", "code": "…" }`. A request larger than PHP's `post_max_size` gets HTTP 413 with `"code": "tooLarge"` (PHP would otherwise silently drop the file). `OPTIONS` requests get 405. The editor shows `error` as plain text — never as HTML.
 
 ---
 
@@ -311,8 +321,14 @@ textarea.redactix.setTheme('auto');
 |--------|-------------|
 | `getContent()` | Returns clean HTML without editor-specific wrappers |
 | `setContent(html)` | Sets new HTML content, re-initializes editor elements, resets history |
-| `sync()` | Manually syncs editor content to the original textarea |
+| `sync()` | Schedules a sync of the editor content to the original textarea (next animation frame) |
+| `syncImmediate()` | Syncs right now |
 | `setTheme(theme)` | Changes the editor theme at runtime. Accepts `'light'`, `'dark'`, or `'auto'` |
+| `destroy()` | Saves the latest content to the textarea, removes the editor and restores the textarea |
+| `getModule(name)` | A module instance by name, e.g. `getModule('History')` |
+| `on(event, cb)` | Subscribe to `contentSetup`, `contentReplaced`, `contentInserted`, `themeChanged`; returns an unsubscribe function |
+
+The textarea receives `input` / `change` events only when its value actually changes (not on load), and it is always up to date when its form is submitted.
 
 ---
 
@@ -563,14 +579,20 @@ Right-click or click the handle to:
 redactix/
 ├── core/
 │   ├── Editor.js         # Core editing logic, paste handling
-│   ├── Module.js         # Base class for modules
-│   └── Selection.js      # Selection management utilities
+│   ├── Module.js         # Base class for modules (+ lifecycle hooks)
+│   ├── Selection.js      # Selection management utilities
+│   ├── schema.js         # Block structure rules (containers, allowed children)
+│   ├── layers.js         # Escape-key layer stack
+│   ├── dom-utils.js      # Sanitisers, whitespace normalisation, tag lists
+│   ├── media-client.js   # Upload / browse / delete client
+│   ├── figure-utils.js   # Caption + edit-button helpers for figures
+│   └── embed-protocol.js # Embed resize messages (shared with embed-runtime.js)
 ├── modules/
 │   ├── Attributes.js     # ID and class editor
-│   ├── BaseStyles.js     # Bold, italic, underline, etc.
-│   ├── BlockControl.js   # Drag handles and context menu
+│   ├── BlockControl.js   # Drag handles and context menu (wires block-control/*)
+│   ├── block-control/    # BlockResolver, HandleLayer, BlockMenu, BlockCommands, DragController
 │   ├── BlockGap.js       # Hover-gap "+" insert between top-level blocks
-│   ├── BlockStyles.js    # Headings, paragraphs
+│   ├── Callout.js        # Callouts (<aside>) and their emoji
 │   ├── Code.js           # Code blocks
 │   ├── FindReplace.js    # Search functionality
 │   ├── FloatingToolbar.js # Text selection toolbar
@@ -580,7 +602,6 @@ redactix/
 │   ├── Image.js          # Image upload and management
 │   ├── Gallery.js        # Photo gallery (multiple imgs, shared caption)
 │   ├── Video.js          # Native HTML5 <video> upload (opt-in)
-│   ├── Link.js           # Link insertion
 │   ├── List.js           # Lists (UL/OL)
 │   ├── Markdown.js       # Markdown shortcuts
 │   ├── QuoteCard.js      # Quote cards with optional author photo + link
@@ -591,7 +612,10 @@ redactix/
 ├── ui/
 │   ├── Icons.js          # SVG icon library
 │   ├── Modal.js          # Modal dialog component
-│   └── Toolbar.js        # Main toolbar with sticky behavior
+│   ├── Toolbar.js        # Main toolbar with sticky behavior
+│   ├── popover.js        # Fixed-position popover placement
+│   ├── form-helpers.js   # Modal form fields
+│   └── media-ui.js       # Upload zone, placeholders, browse panel
 ├── Redactix.css          # Complete styling
 └── Redactix.js           # Main entry point
 ```
@@ -603,6 +627,9 @@ import Module from './core/Module.js';
 import Icons from './ui/Icons.js';
 
 export default class MyModule extends Module {
+    // Stable registry name: instance.getModule('MyModule')
+    static moduleName = 'MyModule';
+
     getButtons() {
         return [
             {
@@ -610,8 +637,10 @@ export default class MyModule extends Module {
                 icon: Icons.bold,
                 title: 'My Feature',
                 action: () => {
-                    // Your logic here
-                    this.instance.sync();
+                    // One undo step, synced to the textarea afterwards
+                    this.transact(() => {
+                        // Your DOM changes here
+                    });
                 }
             }
         ];
@@ -621,7 +650,12 @@ export default class MyModule extends Module {
         // Initialize your module
         // Access editor: this.instance.editorEl
         // Access config: this.instance.config
+        // Global listeners: this.instance.listen(document, 'keydown', fn)
     }
+
+    // Optional content hooks (see core/Module.js):
+    // setupContent(root)  — add editor-only wrappers after any content load
+    // cleanForSync(clone) — remove them from the saved HTML
 }
 ```
 
@@ -778,7 +812,7 @@ figure.redactix-embed > figcaption {
 <script src="/redactix/embed-runtime.js" defer></script>
 ```
 
-Tiny, no dependencies, no third-party requests — it only listens for `window.postMessage` events. **Skip it if your content has only video embeds** (YouTube / Vimeo / Twitch / Loom / Maps) — those use aspect-ratio and don't need the runtime.
+Tiny, no dependencies, no third-party requests — it only listens for `window.postMessage` events, accepts them only from each provider's own origin, and clamps heights to 50–5000 px. It also fills in Twitch's required `parent=` parameter for the page's own host. If you inject embeds after page load, call `window.RedactixEmbedRuntime.refresh()`. **Skip it if your content has only video embeds** (YouTube / Vimeo / Twitch / Loom / Maps) — those use aspect-ratio and don't need the runtime.
 
 ### 2. Quote cards
 
@@ -982,7 +1016,7 @@ $config = HTMLPurifier_Config::createDefault();
 $config->set('HTML.Allowed',
     'p,h1,h2,h3,b,i,u,s,code,mark,sub,sup,span[class],br,hr,'
     . 'ul,ol,li,a[href|rel|target|title],'
-    . 'img[src|alt|title|srcset],figure[class|data-aspect|data-provider],figcaption,'
+    . 'img[src|alt|title|srcset],figure[class|data-aspect|data-provider|data-height|data-source-url],figcaption,'
     . 'blockquote,aside[class|data-emoji],pre,table,thead,tbody,tr,th[colspan|rowspan],td[colspan|rowspan]');
 $clean = (new HTMLPurifier($config))->purify($_POST['content']);
 ```
@@ -994,7 +1028,8 @@ const clean = DOMPurify.sanitize(req.body.content, {
                    'ul','ol','li','a','img','figure','figcaption','blockquote','aside',
                    'pre','table','thead','tbody','tr','th','td'],
     ALLOWED_ATTR: ['href','rel','target','title','src','alt','srcset','class',
-                   'colspan','rowspan','data-emoji','data-aspect','data-provider']
+                   'colspan','rowspan','data-emoji','data-aspect','data-provider',
+                   'data-height','data-source-url']
 });
 ```
 
@@ -1004,11 +1039,37 @@ Note the missing `iframe`. Redactix lets an author embed an iframe from any doma
 
 Client-side filtering keeps *honest* content clean — a paste from Word doesn't drag in a stylesheet, a stray `javascript:` link doesn't survive a round-trip. Four entry points are covered: **paste** and **drop** get full normalisation (`Editor.sanitizeHtml()` — foreign markup is rewritten into the editor's own shapes, unknown tags/attributes/classes/styles dropped), **load** (`textarea.value`, `setContent()`, HTML mode) gets a narrow pass that preserves markup and removes only executable content, and **modal fields** go through the `dom-utils.js` helpers.
 
-On every path: untrusted HTML is parsed inertly, so no `onerror` fires while it's cleaned; `on*` handlers, `<script>`, `<style>` and `<form>` are removed; URL schemes are checked after entity-decoding (`&#106;avascript:` doesn't get through); `data:` URLs are allowed only for raster images (SVG rejected); `target="_blank"` always gains `rel="noopener noreferrer"`; `srcdoc` is removed and iframe `src` restricted to `http(s)`; inline styles survive only where the editor needs them.
+On every path: untrusted HTML is parsed inertly, so no `onerror` fires while it's cleaned, and the cleaned tree is inserted without re-parsing; `on*` handlers, `<script>`, `<style>`, `<form>`, `<svg>`/`<math>`, `<embed>`/`<object>` and raw-text elements are removed; URL schemes are checked after entity-decoding (`&#106;avascript:` doesn't get through); `data:` URLs are allowed only for raster images (SVG rejected); `target="_blank"` always gains `rel="noopener noreferrer"`; `srcdoc` is removed, iframe `src` must be an absolute `http(s)` URL, risky `allow` permissions (camera, microphone, geolocation, payment …) and `allow-top-navigation` sandbox tokens are stripped, and pasted iframes survive only from registered embed providers; inline styles survive only where the editor needs them.
 
 ### Uploads
 
-`redactix_images.php` is a **demonstration script**. It validates MIME type and file content, generates random filenames, enforces a size limit and extension allowlist, and guards against directory traversal — but ships with **no authentication, no CSRF protection and no rate limiting**, and allows SVG upload. Don't deploy it as-is: write your own endpoint against [the same JSON contract](#api-endpoints) with an authenticated session, a CSRF token, rate limiting, and a deliberate decision about SVG (at minimum serve it with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`).
+`redactix_images.php` is a **demonstration script**. It validates MIME type and file content, generates random filenames, enforces a size limit and extension allowlist, and guards against directory traversal — but ships with **no authentication, no CSRF protection and no rate limiting**. SVG upload is off by default (`$allowSvg`); the bundled `uploads/.htaccess` adds `nosniff` and serves any SVG as a sandboxed download. On Apache the root `.htaccess` blocks `redactix_images.php` from the web by default (see [Deploying the repository](#deploying-the-repository)). Don't expose it as-is: write your own endpoint against [the same JSON contract](#api-endpoints) with an authenticated session, a CSRF token, rate limiting, and a deliberate decision about SVG.
+
+---
+
+## 🧪 Tests
+
+A zero-dependency regression suite lives in `tests/`. Serve the repository root and run it in headless Chrome:
+
+```bash
+php -S 127.0.0.1:8765 -t .
+node tests/run-headless.mjs                                            # regression suite
+node tests/run-headless.mjs http://127.0.0.1:8765/index.html --smoke   # demo page, no errors
+```
+
+Or open `http://127.0.0.1:8765/tests/regression.html` in a browser.
+
+---
+
+### Deploying the repository
+
+The repository can be uploaded to a public site as is (Apache 2.2/2.4). The root `.htaccess`:
+
+- denies `redactix_images.php` — the real upload endpoint has no authentication or CSRF protection; the demo endpoint `redactix_images_demo.php` never writes to disk and stays available for `index.html`;
+- denies Markdown and other development files (`README.md`, `CLAUDE.md`, `style.md`, `*.mjs`, logs, backups), every dot-file and dot-directory (`.git`, `.gitignore`, `.DS_Store`, `.claude` …) except `.well-known`, and the `tests/` directory (which also carries its own `.htaccess`);
+- disables directory listings (`Options -Indexes` — remove that line if your host answers with HTTP 500) and sends `X-Content-Type-Options`, `Referrer-Policy` and `X-Frame-Options` headers.
+
+`uploads/.htaccess` additionally refuses to serve or execute scripts from the upload directory and sandboxes SVG. On nginx or other servers, replicate these rules in the server configuration.
 
 ---
 

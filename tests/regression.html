@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Redactix regression tests</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="../redactix/Redactix.css">
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 16px; }
+        #out { white-space: pre-wrap; font: 12px/1.5 ui-monospace, monospace; }
+    </style>
+</head>
+<body>
+    <h1>Redactix regression tests</h1>
+    <p>Open via a local web server (e.g. <code>php -S 127.0.0.1:8765 -t .</code>) or run
+        <code>node tests/run-headless.mjs</code>.</p>
+    <pre id="out">running…</pre>
+    <div id="sandbox"></div>
+    <script type="module">
+        import { done } from './lib.js';
+        // Each suite registers its cases in order. Suites live in
+        // tests/cases/ — one file per area so they can grow independently.
+        const suites = ['core', 'blocks', 'media', 'editing'];
+        for (const name of suites) {
+            try {
+                const mod = await import(`./cases/${name}.js`);
+                await mod.default();
+            } catch (err) {
+                window.__testResults.push({ name: `suite ${name} failed to load`, ok: false, detail: String(err && err.stack || err) });
+            }
+        }
+        done();
+    </script>
+</body>
+</html>

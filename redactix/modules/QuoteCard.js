@@ -1,5 +1,10 @@
 import Module from '../core/Module.js';
 import { isBlockEmpty, sanitizeImageSrc, sanitizeInlineHtml } from '../core/dom-utils.js';
+import { CONTAINER_RULES, isBlockLike, normalizeContainerChildren } from '../core/schema.js';
+import { inputGroup } from '../ui/form-helpers.js';
+import { coercePlainDivs } from './Callout.js';
+
+const QUOTE_RULE = CONTAINER_RULES.find(r => r.name === 'quote');
 
 /**
  * QuoteCard module.
@@ -19,10 +24,17 @@ import { isBlockEmpty, sanitizeImageSrc, sanitizeInlineHtml } from '../core/dom-
  *   openAuthorModal(card)            — modal for photo + name + link
  *   removeAuthorPhoto(card)          — delete <img> from figcaption
  *   migrate(rootEl)                  — convert legacy <blockquote> trees
+ *   normalizeBodies(rootEl)          — schema rules for every card body
  *   setupCards(rootEl)               — set contenteditable / structure
  *   cleanCardsForSync(clone)         — sync()-side cleanup
+ *   getBlockMenuItems(block)         — BlockControl menu hook
+ *
+ * Structural rules (what a card body may contain) come from
+ * core/schema.js CONTAINER_RULES — see normalizeBodies().
  */
 export default class QuoteCard extends Module {
+    static moduleName = 'QuoteCard';
+
     constructor(instance) {
         super(instance);
         this.liteMode = instance.config.liteMode || false;
@@ -81,10 +93,11 @@ export default class QuoteCard extends Module {
     }
 
     /**
-     * Tags allowed as direct children of <blockquote> inside a quote-card.
+     * Tags allowed as direct children of <blockquote> inside a quote-card
+     * (core/schema.js CONTAINER_RULES).
      */
     isAllowedInnerTag(tag) {
-        return ['P', 'H1', 'H2', 'H3', 'UL', 'OL'].includes(tag);
+        return QUOTE_RULE.allowed.includes(tag);
     }
 
     // ---------- DOM construction ----------
@@ -102,51 +115,23 @@ export default class QuoteCard extends Module {
 
     /**
      * Insert empty quote-card. Called from SlashCommands and Markdown.
-     * If the cursor sits in an empty paragraph at top level, replace it;
-     * otherwise insert after the current top-level block.
+     * Goes through Selection.insertNode, so container rules apply (a card
+     * can't go into a callout → it lands after it) and an empty text block
+     * at the caret is replaced. Inside a quote-card it does nothing.
      */
     insertEmpty() {
-        this.beginHistoryBatch();
-
         const sel = window.getSelection();
-        const card = this.createEmptyCard();
-        const editor = this.instance.editorEl;
-
-        let inserted = false;
         if (sel.rangeCount) {
-            const range = sel.getRangeAt(0);
-            // Find the top-level child of editor that contains the cursor
-            let topBlock = range.startContainer;
-            while (topBlock && topBlock.parentNode !== editor) {
-                topBlock = topBlock.parentNode;
-            }
-
-            if (topBlock && topBlock.parentNode === editor) {
-                // If we are already inside a quote-card, do nothing
-                if (this.isInsideQuoteCard(topBlock)) {
-                    this.endHistoryBatch();
-                    return;
-                }
-                const isEmpty = isBlockEmpty(topBlock, 'img, iframe, hr, table');
-                // Replace any empty text-block (P or any heading); on Enter
-                // at end of an H2, Chrome often creates a fresh empty H2,
-                // and we want the quote-card to take its place — not to
-                // land *after* it leaving an empty heading hanging above.
-                const replaceableTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
-                if (isEmpty && replaceableTags.includes(topBlock.tagName)) {
-                    topBlock.parentNode.replaceChild(card, topBlock);
-                } else {
-                    topBlock.parentNode.insertBefore(card, topBlock.nextSibling);
-                }
-                inserted = true;
-            }
+            const node = sel.getRangeAt(0).startContainer;
+            if (this.instance.editorEl.contains(node) && this.isInsideQuoteCard(node)) return;
         }
-
-        if (!inserted) {
-            editor.appendChild(card);
-        }
-
-        this.setupCards(editor);
+        const card = this.createEmptyCard();
+        this.transact(() => {
+            this.instance.selection.insertNode(card);
+            if (!card.parentNode) this.instance.editorEl.appendChild(card);
+            this.setupCards(this.instance.editorEl);
+            if (this.instance.core) this.instance.core.ensureTrailingParagraph();
+        });
 
         // Place cursor inside the empty <p>
         const innerP = card.querySelector('blockquote > p');
@@ -158,10 +143,6 @@ export default class QuoteCard extends Module {
             selection.removeAllRanges();
             selection.addRange(range);
         }
-
-        if (this.instance.core) this.instance.core.ensureTrailingParagraph();
-        this.instance.sync();
-        this.endHistoryBatch();
     }
 
     // ---------- caption toggle ----------
@@ -171,8 +152,18 @@ export default class QuoteCard extends Module {
      * Photo, if present, stays where it is.
      */
     addCaption(card) {
-        if (!this.isQuoteCard(card)) return;
-        this.beginHistoryBatch();
+        if (!this.isQuoteCard(card) || !this.instance.editorEl.contains(card)) return;
+        const span = this.transact(() => this.ensureCaptionSpan(card));
+        // Focus the span
+        const range = document.createRange();
+        range.setStart(span, 0);
+        range.collapse(true);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
+    ensureCaptionSpan(card) {
         let figcaption = card.querySelector(':scope > figcaption');
         if (!figcaption) {
             figcaption = document.createElement('figcaption');
@@ -186,15 +177,7 @@ export default class QuoteCard extends Module {
             figcaption.appendChild(span);
         }
         this.setupCards(this.instance.editorEl);
-        // Focus the span
-        const range = document.createRange();
-        range.setStart(span, 0);
-        range.collapse(true);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-        this.instance.sync();
-        this.endHistoryBatch();
+        return span;
     }
 
     /**
@@ -205,12 +188,11 @@ export default class QuoteCard extends Module {
         if (!this.isQuoteCard(card)) return;
         const figcaption = card.querySelector(':scope > figcaption');
         if (!figcaption) return;
-        this.beginHistoryBatch();
-        figcaption.querySelectorAll(':scope > span').forEach(s => s.remove());
-        const hasImg = !!figcaption.querySelector(':scope > img');
-        if (!hasImg) figcaption.remove();
-        this.instance.sync();
-        this.endHistoryBatch();
+        this.transact(() => {
+            figcaption.querySelectorAll(':scope > span').forEach(s => s.remove());
+            const hasImg = !!figcaption.querySelector(':scope > img');
+            if (!hasImg) figcaption.remove();
+        });
     }
 
     hasCaptionText(card) {
@@ -277,7 +259,7 @@ export default class QuoteCard extends Module {
             if (this.browseUrl) {
                 photoBrowseContainer = document.createElement('div');
                 photoBrowseContainer.style.marginBottom = '12px';
-                const imageModule = this.instance.modules.find(m => m.constructor.name === 'Image');
+                const imageModule = this.getModule('Image');
                 const browseBtn = document.createElement('button');
                 browseBtn.type = 'button';
                 browseBtn.textContent = this.t('image.chooseFromUploaded');
@@ -297,14 +279,13 @@ export default class QuoteCard extends Module {
             const photoGrid = document.createElement('div');
             photoGrid.className = 'redactix-modal-grid';
 
-            const urlGroup = this.createInputGroup(this.t('quoteCard.photoUrl'), 'text', data.photoUrl);
-            urlGroup.className = 'redactix-modal-full-width';
-            photoUrlInput = urlGroup.querySelector('input');
-            photoUrlInput.placeholder = 'https://...';
+            const urlGroup = inputGroup(this.t('quoteCard.photoUrl'), 'text', data.photoUrl, { placeholder: 'https://...' });
+            urlGroup.classList.add('redactix-modal-full-width');
+            photoUrlInput = urlGroup.field;
 
-            const altGroup = this.createInputGroup(this.t('quoteCard.photoAlt'), 'text', data.photoAlt);
-            altGroup.className = 'redactix-modal-full-width';
-            photoAltInput = altGroup.querySelector('input');
+            const altGroup = inputGroup(this.t('quoteCard.photoAlt'), 'text', data.photoAlt);
+            altGroup.classList.add('redactix-modal-full-width');
+            photoAltInput = altGroup.field;
 
             photoGrid.append(urlGroup, altGroup);
             photoSection.appendChild(photoGrid);
@@ -328,10 +309,10 @@ export default class QuoteCard extends Module {
         authorTitle.style.fontSize = '14px';
         authorSection.appendChild(authorTitle);
 
-        const nameGroup = this.createInputGroup(this.t('quoteCard.authorName'), 'text', data.authorText);
-        nameGroup.className = 'redactix-modal-full-width';
-        const nameInput = nameGroup.querySelector('input');
-        nameInput.placeholder = this.t('quoteCard.authorNamePlaceholder');
+        const nameGroup = inputGroup(this.t('quoteCard.authorName'), 'text', data.authorText,
+            { placeholder: this.t('quoteCard.authorNamePlaceholder') });
+        nameGroup.classList.add('redactix-modal-full-width');
+        const nameInput = nameGroup.field;
 
         authorSection.appendChild(nameGroup);
         form.appendChild(authorSection);
@@ -345,10 +326,9 @@ export default class QuoteCard extends Module {
                 text: this.t('quoteCard.removeAll'),
                 danger: true,
                 onClick: () => {
-                    this.beginHistoryBatch();
-                    if (figcaption) figcaption.remove();
-                    this.instance.sync();
-                    this.endHistoryBatch();
+                    if (figcaption && this.instance.editorEl.contains(figcaption)) {
+                        this.transact(() => figcaption.remove());
+                    }
                     this.instance.modal.close();
                 }
             });
@@ -363,10 +343,9 @@ export default class QuoteCard extends Module {
                 const photoAlt = photoAltInput ? photoAltInput.value.trim() : '';
                 const authorText = nameInput.value.trim();
 
-                this.beginHistoryBatch();
-                this.applyAuthor(card, { photoUrl, photoAlt, authorText });
-                this.instance.sync();
-                this.endHistoryBatch();
+                // The card may have been deleted / replaced (undo) meanwhile.
+                if (!this.instance.editorEl.contains(card)) return;
+                this.transact(() => this.applyAuthor(card, { photoUrl, photoAlt, authorText }));
             }
         });
     }
@@ -446,14 +425,13 @@ export default class QuoteCard extends Module {
         if (!this.isQuoteCard(card)) return;
         const figcaption = card.querySelector(':scope > figcaption');
         if (!figcaption) return;
-        this.beginHistoryBatch();
-        const img = figcaption.querySelector(':scope > img');
-        if (img) img.remove();
-        if (!this.hasCaptionText(card)) {
-            figcaption.remove();
-        }
-        this.instance.sync();
-        this.endHistoryBatch();
+        this.transact(() => {
+            const img = figcaption.querySelector(':scope > img');
+            if (img) img.remove();
+            if (!this.hasCaptionText(card)) {
+                figcaption.remove();
+            }
+        });
     }
 
     /**
@@ -469,99 +447,167 @@ export default class QuoteCard extends Module {
     // ---------- Migration ----------
 
     /**
-     * Migrate legacy blockquotes to figure.quote-card.
-     * - Wrap top-level <blockquote> in <figure class="quote-card">
-     * - Move blockquote classes to figure
-     * - Wrap bare text inside blockquote in <p>
-     * - Drop <cite>, move its text into a new figcaption span
+     * Migrate legacy blockquotes to figure.quote-card. Idempotent.
+     * - Nested blockquotes are flattened into their outer quote first
+     *   (a quote card can't contain another one).
+     * - A class-less <figure><blockquote/><figcaption/></figure> — the
+     *   standard semantic markup for an attributed quote — is upgraded in
+     *   place to figure.quote-card.
+     * - Any other <blockquote> outside a card is wrapped in a new card;
+     *   its classes (presets) move to the figure.
+     * - An attribution <cite> (direct child, or alone in a wrapper such as
+     *   <footer>) becomes the figcaption author, inline links kept.
      */
     migrate(rootEl) {
         const root = rootEl || this.instance.editorEl;
 
+        this.flattenNestedQuotes(root);
+
         const orphans = Array.from(root.querySelectorAll('blockquote'))
-            .filter(bq => !bq.closest('figure.quote-card'));
+            .filter(bq => !this.isCardBody(bq));
 
         orphans.forEach(bq => {
-            const figure = document.createElement('figure');
-            figure.className = 'quote-card';
+            if (!bq.parentNode) return;
+            let figure = bq.parentElement;
+            const upgrade = this.isPlainQuoteFigure(figure, bq);
+            if (!upgrade) {
+                figure = document.createElement('figure');
+                bq.parentNode.replaceChild(figure, bq);
+                figure.appendChild(bq);
+            }
+            figure.classList.add('quote-card');
             // Carry over blockquote's own classes (presets) onto the figure
             if (bq.className) {
-                figure.className = ('quote-card ' + bq.className).trim();
+                bq.classList.forEach(cls => figure.classList.add(cls));
                 bq.removeAttribute('class');
             }
 
-            // Pull cite out before wrapping
-            const cite = bq.querySelector(':scope > cite');
-            let citeText = '';
-            if (cite) {
-                citeText = cite.textContent.trim();
-                cite.remove();
-            }
-
-            // Wrap bare text / inline content in <p>
-            this.normalizeBlockquoteChildren(bq);
-
-            bq.parentNode.replaceChild(figure, bq);
-            figure.appendChild(bq);
-
-            if (citeText) {
+            const hasCaption = !!figure.querySelector(':scope > figcaption');
+            const citeHtml = this.extractCite(bq);
+            if (citeHtml && !hasCaption) {
                 const figcaption = document.createElement('figcaption');
                 const span = document.createElement('span');
-                span.textContent = citeText;
+                span.innerHTML = citeHtml;
                 figcaption.appendChild(span);
                 figure.appendChild(figcaption);
             }
         });
     }
 
+    /** Is `bq` the content body of a quote-card (figure.quote-card > blockquote)? */
+    isCardBody(bq) {
+        const parent = bq.parentElement;
+        return !!parent && this.isQuoteCard(parent);
+    }
+
     /**
-     * Ensure every direct child of blockquote is a P/H1-3/UL/OL.
-     * Bare inline content gets wrapped in <p>; disallowed blocks get
-     * unwrapped to <p>.
+     * Unwrap blockquotes nested inside other blockquotes (deepest first),
+     * so their content joins the outer quote. Blockquotes that are the body
+     * of a quote-card nested somewhere inside are left alone — that whole
+     * card is moved out by the body normalisation instead.
+     */
+    flattenNestedQuotes(root) {
+        const nested = Array.from(root.querySelectorAll('blockquote blockquote'))
+            .filter(bq => !this.isCardBody(bq))
+            .reverse();
+        nested.forEach(bq => {
+            const parent = bq.parentNode;
+            if (!parent) return;
+            while (bq.firstChild) parent.insertBefore(bq.firstChild, bq);
+            bq.remove();
+        });
+    }
+
+    /**
+     * <figure> whose only element children are this blockquote and an
+     * optional figcaption, and which no other module claims.
+     */
+    isPlainQuoteFigure(figure, bq) {
+        if (!figure || figure.tagName !== 'FIGURE') return false;
+        if (this.isQuoteCard(figure)) return false;
+        if (Array.from(figure.classList).some(c => c.startsWith('redactix-'))) return false;
+        let quotes = 0;
+        for (const node of figure.childNodes) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                if (node.textContent.trim()) return false;
+                continue;
+            }
+            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+            if (node === bq) quotes++;
+            else if (node.tagName !== 'FIGCAPTION') return false;
+        }
+        return quotes === 1;
+    }
+
+    /**
+     * Pull attribution <cite> elements out of a legacy blockquote and return
+     * their content as sanitised inline HTML ('' if none). A <cite> counts
+     * as an attribution when it's a direct child of the quote or the only
+     * text of the wrapper chain up to the quote (<footer>— <cite>X</cite>
+     * </footer>, <p><cite>X</cite></p>). A <cite> inside running text
+     * (a cited work's title) stays where it is.
+     */
+    extractCite(bq) {
+        const parts = [];
+        Array.from(bq.querySelectorAll('cite')).forEach(cite => {
+            if (!bq.contains(cite)) return;
+            const citeText = cite.textContent.trim();
+            let wrapper = cite;
+            while (wrapper.parentElement && wrapper.parentElement !== bq) {
+                const parentText = wrapper.parentElement.textContent.replace(/^[\s—–-]+/, '').trim();
+                if (parentText !== citeText) return;
+                wrapper = wrapper.parentElement;
+            }
+            if (wrapper.parentElement !== bq) return;
+            const html = sanitizeInlineHtml(cite.innerHTML).trim();
+            if (html) parts.push(html);
+            wrapper.remove();
+        });
+        return parts.join(' ');
+    }
+
+    /**
+     * Normalise the body of every quote-card (not only freshly migrated
+     * ones — content pasted into an existing card needs it too): inline
+     * runs → <p>, disallowed blocks (pre, table, figure, …) moved out after
+     * the card, body never empty. See core/schema.js.
+     */
+    normalizeBodies(rootEl) {
+        const root = rootEl || this.instance.editorEl;
+        root.querySelectorAll('figure.quote-card').forEach(card => {
+            const bq = this.ensureBody(card);
+            coercePlainDivs(bq);
+            normalizeContainerChildren(bq, this.instance.editorEl);
+        });
+    }
+
+    /**
+     * Exactly one <blockquote> per card, first; figcaption last. Extra
+     * blockquotes are merged into the first one.
+     */
+    ensureBody(card) {
+        const quotes = Array.from(card.children).filter(c => c.tagName === 'BLOCKQUOTE');
+        let bq = quotes[0];
+        if (!bq) {
+            bq = document.createElement('blockquote');
+            bq.innerHTML = '<p><br></p>';
+        }
+        quotes.slice(1).forEach(extra => {
+            while (extra.firstChild) bq.appendChild(extra.firstChild);
+            extra.remove();
+        });
+        if (card.firstElementChild !== bq) card.insertBefore(bq, card.firstChild);
+        const figcaption = card.querySelector(':scope > figcaption');
+        if (figcaption && card.lastElementChild !== figcaption) card.appendChild(figcaption);
+        return bq;
+    }
+
+    /**
+     * Backwards-compatible name: normalise one blockquote body.
      */
     normalizeBlockquoteChildren(bq) {
-        const children = Array.from(bq.childNodes);
-        let pendingP = null;
-
-        const flushP = () => {
-            if (pendingP && pendingP.childNodes.length > 0) {
-                bq.appendChild(pendingP);
-            }
-            pendingP = null;
-        };
-
-        bq.innerHTML = '';
-
-        for (const node of children) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-                const tag = node.tagName;
-                if (this.isAllowedInnerTag(tag)) {
-                    flushP();
-                    bq.appendChild(node);
-                    continue;
-                }
-                if (tag === 'BR') {
-                    // Treat as soft break inside current paragraph
-                    if (!pendingP) pendingP = document.createElement('p');
-                    pendingP.appendChild(node);
-                    continue;
-                }
-                // Other element (span, b, i, a, etc.) — wrap in p
-                if (!pendingP) pendingP = document.createElement('p');
-                pendingP.appendChild(node);
-            } else if (node.nodeType === Node.TEXT_NODE) {
-                if (!pendingP) pendingP = document.createElement('p');
-                pendingP.appendChild(node);
-            }
-        }
-        flushP();
-
-        // If blockquote ended up empty, give it an empty paragraph
-        if (bq.childNodes.length === 0) {
-            const p = document.createElement('p');
-            p.innerHTML = '<br>';
-            bq.appendChild(p);
-        }
+        coercePlainDivs(bq);
+        normalizeContainerChildren(bq, this.instance.editorEl);
     }
 
     // ---------- contenteditable wiring ----------
@@ -580,14 +626,7 @@ export default class QuoteCard extends Module {
             if (bq) bq.setAttribute('contenteditable', 'true');
             const figcaption = card.querySelector(':scope > figcaption');
             if (figcaption) {
-                // Eject anything that doesn't belong in the figcaption
-                // (only <img> and <span> are allowed). Foreign children
-                // are moved out, after the card, so no content is lost.
-                Array.from(figcaption.children).forEach(child => {
-                    if (child.tagName !== 'IMG' && child.tagName !== 'SPAN') {
-                        card.parentNode.insertBefore(child, card.nextSibling);
-                    }
-                });
+                this.normalizeCaption(card, figcaption);
 
                 // figcaption itself is non-editable so that the browser can't
                 // drop arbitrary nodes (paragraphs, lists, etc.) into it.
@@ -602,6 +641,54 @@ export default class QuoteCard extends Module {
                 }
             }
         });
+    }
+
+    /**
+     * A caption is [<img>] [<span>author</span>]. Bring anything else into
+     * that shape without losing content:
+     *  - loose text / inline elements (`<figcaption>John</figcaption>`,
+     *    `— <a>John</a>`, several spans) are gathered, in order, into ONE
+     *    <span> — otherwise they'd be uneditable and dropped on save;
+     *  - block elements are moved out, after the card, in their order;
+     *  - the photo goes first.
+     */
+    normalizeCaption(card, figcaption) {
+        const nodes = Array.from(figcaption.childNodes);
+        const spans = nodes.filter(n => n.nodeType === Node.ELEMENT_NODE && n.tagName === 'SPAN');
+        const loose = nodes.filter(n => {
+            if (n.nodeType === Node.TEXT_NODE) return !!n.textContent.trim();
+            if (n.nodeType !== Node.ELEMENT_NODE) return false;
+            return n.tagName !== 'SPAN' && n.tagName !== 'IMG' && !isBlockLike(n);
+        });
+        const blocks = nodes.filter(n => n.nodeType === Node.ELEMENT_NODE && isBlockLike(n));
+
+        if (blocks.length && card.parentNode) {
+            const ref = card.nextSibling;
+            blocks.forEach(b => card.parentNode.insertBefore(b, ref));
+        }
+
+        if (loose.length || spans.length > 1) {
+            const span = spans.find(sp => !sp.classList.contains('spoiler')) || document.createElement('span');
+            const parts = Array.from(figcaption.childNodes).filter(n => n.nodeName !== 'IMG');
+            // Trim whitespace-only text at the edges; keep it between parts.
+            while (parts.length && parts[0].nodeType === Node.TEXT_NODE && !parts[0].textContent.trim()) parts.shift().remove();
+            while (parts.length && parts[parts.length - 1].nodeType === Node.TEXT_NODE && !parts[parts.length - 1].textContent.trim()) parts.pop().remove();
+            const merged = document.createDocumentFragment();
+            parts.forEach(n => {
+                if (n.nodeType === Node.ELEMENT_NODE && n.tagName === 'SPAN' && !n.classList.contains('spoiler')) {
+                    while (n.firstChild) merged.appendChild(n.firstChild);
+                    if (n !== span) n.remove();
+                } else {
+                    merged.appendChild(n);
+                }
+            });
+            span.innerHTML = '';
+            span.appendChild(merged);
+            figcaption.appendChild(span);
+        }
+
+        const img = figcaption.querySelector(':scope > img');
+        if (img && figcaption.firstChild !== img) figcaption.insertBefore(img, figcaption.firstChild);
     }
 
     /**
@@ -620,12 +707,13 @@ export default class QuoteCard extends Module {
 
             // figcaption can only legally contain <img> and <span>. Anything
             // else that crept in (rogue paragraph, list, etc.) is moved
-            // OUTSIDE the figure to avoid silent data loss.
+            // OUTSIDE the figure, in order, to avoid silent data loss.
             const figcaption = card.querySelector(':scope > figcaption');
-            if (figcaption) {
+            if (figcaption && card.parentNode) {
+                const ref = card.nextSibling;
                 Array.from(figcaption.children).forEach(child => {
                     if (child.tagName !== 'IMG' && child.tagName !== 'SPAN') {
-                        card.parentNode.insertBefore(child, card.nextSibling);
+                        card.parentNode.insertBefore(child, ref);
                     }
                 });
             }
@@ -650,7 +738,7 @@ export default class QuoteCard extends Module {
                 const blocks = Array.from(bq.children);
                 for (let i = blocks.length - 1; i > 0; i--) {
                     const block = blocks[i];
-                    if (isBlockEmpty(block, 'img, iframe')) block.remove();
+                    if (isBlockEmpty(block, QUOTE_RULE.mediaSelector)) block.remove();
                     else break;
                 }
             }
@@ -734,32 +822,58 @@ export default class QuoteCard extends Module {
         return zone;
     }
 
-    // ---------- Form helpers ----------
+    // ---------- BlockControl menu hook ----------
 
-    createInputGroup(labelText, type, value = '') {
-        const div = document.createElement('div');
-        const label = document.createElement('label');
-        label.textContent = labelText;
-        const input = document.createElement('input');
-        input.type = type;
-        input.value = value;
-        div.append(label, input);
-        return div;
-    }
-
-    // ---------- History helpers ----------
-
-    beginHistoryBatch() {
-        const history = this.instance.modules.find(m => m.constructor.name === 'History');
-        if (history) history.beginBatch();
-    }
-
-    endHistoryBatch() {
-        const history = this.instance.modules.find(m => m.constructor.name === 'History');
-        if (history) history.endBatch();
+    /** Caption and author-photo entries for the block menu of a card. */
+    getBlockMenuItems(block) {
+        if (!this.isQuoteCard(block)) return [];
+        const groups = [];
+        const hasText = this.hasCaptionText(block);
+        groups.push({
+            label: this.t('quoteCard.menuCaption'),
+            items: [{
+                icon: hasText ? '✕' : '✎',
+                label: this.t(hasText ? 'quoteCard.removeCaption' : 'quoteCard.addCaption'),
+                action: () => (hasText ? this.removeCaption(block) : this.addCaption(block))
+            }]
+        });
+        // Author photo — not in lite mode
+        if (!this.liteMode) {
+            const hasPhoto = this.hasAuthorPhoto(block);
+            const items = [{
+                icon: '🖼',
+                label: this.t(hasPhoto ? 'quoteCard.editAuthor' : 'quoteCard.addAuthor'),
+                action: () => this.openAuthorModal(block)
+            }];
+            if (hasPhoto) {
+                items.push({ icon: '✕', label: this.t('quoteCard.removePhoto'), action: () => this.removeAuthorPhoto(block) });
+            }
+            groups.push({ label: this.t('quoteCard.menuPhoto'), items });
+        }
+        return groups;
     }
 
     getButtons() {
         return [];
+    }
+
+    // ---------- content lifecycle hooks (called by RedactixInstance) ----------
+
+    setupContent(root) {
+        this.migrate(root);
+        this.normalizeBodies(root);
+        this.setupCards(root);
+    }
+
+    cleanForSync(clone) {
+        this.cleanCardsForSync(clone);
+    }
+
+    ownsFigure(figure) {
+        return figure.classList.contains('quote-card');
+    }
+
+    get pasteAllowedClasses() {
+        return ['quote-card'];
     }
 }

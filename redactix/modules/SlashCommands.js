@@ -1,12 +1,22 @@
 import Module from '../core/Module.js';
 import Icons from '../ui/Icons.js';
 import { isBlockEmpty } from '../core/dom-utils.js';
+import { getEditingContext, isAllowedIn, findHostChild, normalizeContainerChildren, TEXT_BLOCK_TAGS } from '../core/schema.js';
+import { pushEscapeLayer } from '../core/layers.js';
+import { placePopover, getSelectionRect } from '../ui/popover.js';
+
+// Commands that transform the current block in place — meaningless with the
+// caret in a list item (they would put a heading / callout into <ul>).
+const BLOCK_CONVERSION_IDS = ['h1', 'h2', 'h3', 'callout', 'ol', 'ul'];
+const LINE_BLOCK_SELECTOR = 'p, h1, h2, h3, h4, h5, h6, li';
 
 /**
  * Slash Commands Module
  * Notion-like "/" command menu for quick block insertion
  */
 export default class SlashCommands extends Module {
+    static moduleName = 'SlashCommands';
+
     constructor(instance) {
         super(instance);
         this.menu = null;
@@ -14,21 +24,26 @@ export default class SlashCommands extends Module {
         this.filteredCommands = [];
         this.slashRange = null; // Range where "/" was typed
         this.isOpen = false;
+        this.popEscape = null;
         this.liteMode = instance.config.liteMode || false;
     }
 
     init() {
         this.createMenu();
         this.bindEvents();
+        this.instance.onDestroy(() => this.closeMenu());
     }
 
     /**
-     * Available commands configuration
+     * Available commands configuration. `kind` is the block the command
+     * produces (checked against the container rules), `modal` marks
+     * commands that open another module's modal.
      */
     getCommands() {
         const commands = [
             {
                 id: 'h1',
+                kind: 'H1',
                 label: this.t('slashCommands.heading1'),
                 description: this.t('slashCommands.heading1Desc'),
                 icon: Icons.h1,
@@ -37,6 +52,7 @@ export default class SlashCommands extends Module {
             },
             {
                 id: 'h2',
+                kind: 'H2',
                 label: this.t('slashCommands.heading2'),
                 description: this.t('slashCommands.heading2Desc'),
                 icon: Icons.h2,
@@ -45,6 +61,7 @@ export default class SlashCommands extends Module {
             },
             {
                 id: 'h3',
+                kind: 'H3',
                 label: this.t('slashCommands.heading3'),
                 description: this.t('slashCommands.heading3Desc'),
                 icon: Icons.h3,
@@ -53,6 +70,7 @@ export default class SlashCommands extends Module {
             },
             {
                 id: 'quote',
+                kind: 'FIGURE',
                 label: this.t('slashCommands.quote'),
                 description: this.t('slashCommands.quoteDesc'),
                 icon: Icons.blockquote,
@@ -61,6 +79,7 @@ export default class SlashCommands extends Module {
             },
             {
                 id: 'callout',
+                kind: 'ASIDE',
                 label: this.t('slashCommands.callout'),
                 description: this.t('slashCommands.calloutDesc'),
                 icon: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
@@ -69,42 +88,52 @@ export default class SlashCommands extends Module {
             },
             {
                 id: 'code',
+                kind: 'PRE',
+                modal: true,
                 label: this.t('slashCommands.codeBlock'),
                 description: this.t('slashCommands.codeBlockDesc'),
                 icon: Icons.codeblock,
                 keywords: ['code', 'pre', 'snippet', 'programming', 'код'],
-                action: () => this.insertCodeBlock()
+                action: () => this.openModuleModal('Code')
             },
             {
                 id: 'image',
+                kind: 'FIGURE',
+                modal: true,
                 label: this.t('slashCommands.image'),
                 description: this.t('slashCommands.imageDesc'),
                 icon: Icons.image,
                 keywords: ['image', 'picture', 'photo', 'img', 'изображение', 'картинка'],
-                action: () => this.openImageModal()
+                action: () => this.openModuleModal('Image')
             },
             {
                 id: 'video',
+                kind: 'FIGURE',
+                modal: true,
                 label: this.t('slashCommands.video'),
                 description: this.t('slashCommands.videoDesc'),
                 icon: Icons.video,
                 keywords: ['video', 'mp4', 'movie', 'clip', 'видео', 'ролик'],
-                action: () => this.openVideoModal()
+                action: () => this.openModuleModal('Video')
             },
             {
                 id: 'gallery',
+                kind: 'FIGURE',
+                modal: true,
                 label: this.t('slashCommands.gallery'),
                 description: this.t('slashCommands.galleryDesc'),
                 icon: Icons.gallery,
                 keywords: ['gallery', 'photos', 'mosaic', 'multiple', 'images', 'галерея', 'фото'],
                 category: 'gallery',
-                action: () => this.openGalleryModal()
+                action: () => this.openModuleModal('Gallery')
             },
             // Universal embed — provider auto-detected from the pasted URL.
             // Keywords cover popular services so /youtube, /spotify, /tiktok
             // etc. all surface the same command.
             {
                 id: 'embed',
+                kind: 'FIGURE',
+                modal: true,
                 label: this.t('slashCommands.embed'),
                 description: this.t('slashCommands.embedDesc'),
                 icon: Icons.youtube,
@@ -116,18 +145,21 @@ export default class SlashCommands extends Module {
                     'tiktok', 'reddit', 'bluesky', 'bsky',
                     'map', 'maps'],
                 category: 'embed',
-                action: () => this.openEmbedModal()
+                action: () => this.openModuleModal('Embed')
             },
             {
                 id: 'table',
+                kind: 'TABLE',
+                modal: true,
                 label: this.t('slashCommands.table'),
                 description: this.t('slashCommands.tableDesc'),
                 icon: Icons.table,
                 keywords: ['table', 'grid', 'spreadsheet', 'таблица'],
-                action: () => this.openTableModal()
+                action: () => this.openModuleModal('Table')
             },
             {
                 id: 'hr',
+                kind: 'HR',
                 label: this.t('slashCommands.divider'),
                 description: this.t('slashCommands.dividerDesc'),
                 icon: Icons.hr,
@@ -136,6 +168,7 @@ export default class SlashCommands extends Module {
             },
             {
                 id: 'ol',
+                kind: 'OL',
                 label: this.t('slashCommands.numberedList'),
                 description: this.t('slashCommands.numberedListDesc'),
                 icon: Icons.ol,
@@ -144,6 +177,7 @@ export default class SlashCommands extends Module {
             },
             {
                 id: 'ul',
+                kind: 'UL',
                 label: this.t('slashCommands.bulletList'),
                 description: this.t('slashCommands.bulletListDesc'),
                 icon: Icons.ul,
@@ -156,12 +190,15 @@ export default class SlashCommands extends Module {
     }
 
     /**
-     * Create the menu element
+     * Create the menu element. It lives in the wrapper (inherits the theme
+     * variables) but is position: fixed and placed in viewport coordinates,
+     * so the wrapper's overflow never clips it in short editors.
      */
     createMenu() {
         this.menu = document.createElement('div');
         this.menu.className = 'redactix-slash-menu';
         this.menu.style.display = 'none';
+        this.menu.setAttribute('role', 'listbox');
         this.instance.wrapper.appendChild(this.menu);
     }
 
@@ -174,12 +211,14 @@ export default class SlashCommands extends Module {
             this.handleInput(e);
         });
 
-        // Handle keyboard navigation
+        // Keyboard navigation. Capture phase: runs before the core's own
+        // Enter / Tab handling on the same element, so Enter picks the
+        // highlighted command instead of splitting the paragraph.
         this.instance.editorEl.addEventListener('keydown', (e) => {
             if (this.isOpen) {
                 this.handleKeydown(e);
             }
-        });
+        }, true);
 
         // Close menu on click outside (via registry - removed in destroy())
         this.instance.listen(document, 'click', (e) => {
@@ -188,18 +227,20 @@ export default class SlashCommands extends Module {
             }
         });
 
-        // Close menu on scroll
-        this.instance.editorEl.addEventListener('scroll', () => {
-            if (this.isOpen) {
-                this.updateMenuPosition();
-            }
-        });
+        // Fixed positioning: follow any scroll (page, editor with maxHeight,
+        // fullscreen container) and resizes.
+        const reposition = () => {
+            if (this.isOpen) this.updateMenuPosition();
+        };
+        this.instance.listen(window, 'scroll', reposition, true);
+        this.instance.listen(window, 'resize', reposition);
     }
 
     /**
      * Handle input events to detect "/" trigger
      */
     handleInput(e) {
+        if (e && e.isComposing) return;
         const selection = window.getSelection();
         if (!selection.rangeCount) return;
 
@@ -207,7 +248,15 @@ export default class SlashCommands extends Module {
         const node = range.startContainer;
 
         // Only work with text nodes
-        if (node.nodeType !== Node.TEXT_NODE) {
+        if (!range.collapsed || node.nodeType !== Node.TEXT_NODE) {
+            if (this.isOpen) this.closeMenu();
+            return;
+        }
+
+        // No block commands in table cells, captions or code.
+        const ctx = getEditingContext(node, this.instance.editorEl);
+        if (!ctx.inRoot || ctx.inTable || ctx.inFigcaption || ctx.inPre ||
+            !node.parentElement || !node.parentElement.isContentEditable) {
             if (this.isOpen) this.closeMenu();
             return;
         }
@@ -236,8 +285,9 @@ export default class SlashCommands extends Module {
         // Get the filter text after "/"
         const filterText = textBeforeCursor.substring(lastSlashIndex + 1);
 
-        // Check if there's a space after "/" - this means command is completed
-        if (filterText.includes(' ')) {
+        // Whitespace after "/" (incl. the nbsp the core inserts for a
+        // second space) means the command is finished / abandoned.
+        if (/\s/.test(filterText)) {
             if (this.isOpen) this.closeMenu();
             return;
         }
@@ -248,7 +298,7 @@ export default class SlashCommands extends Module {
         this.slashRange.setEnd(node, offset);
 
         // Filter and show commands
-        this.filterCommands(filterText);
+        this.filterCommands(filterText, ctx);
 
         if (this.filteredCommands.length > 0) {
             this.openMenu();
@@ -258,10 +308,13 @@ export default class SlashCommands extends Module {
     }
 
     /**
-     * Filter commands based on search text
+     * Commands that make sense at the caret: lite-mode restrictions plus the
+     * container rules (a quote-card body accepts P/H1-H3/lists only, a
+     * callout also <hr>), and no in-place block conversions in list items.
      */
-    filterCommands(searchText) {
+    getAvailableCommands(ctx) {
         let commands = this.getCommands();
+        const root = this.instance.editorEl;
 
         // Lite mode: hide every embed entry (universal /embed and all
         // provider aliases) plus galleries. Image / table / code are
@@ -270,17 +323,22 @@ export default class SlashCommands extends Module {
             commands = commands.filter(cmd => cmd.category !== 'embed' && cmd.category !== 'gallery');
         }
 
-        // Inside a quote-card, only allow text-level blocks: H1-H3 + UL/OL.
-        // No nested cards, callouts, images, tables, code, hr, or videos.
-        // Inside a callout we also allow hr.
-        if (this.isCursorInsideQuoteCard()) {
-            const allowed = ['h1', 'h2', 'h3', 'ol', 'ul'];
-            commands = commands.filter(cmd => allowed.includes(cmd.id));
-        } else if (this.isCursorInsideCallout()) {
-            const allowed = ['h1', 'h2', 'h3', 'ol', 'ul', 'hr'];
-            commands = commands.filter(cmd => allowed.includes(cmd.id));
+        if (ctx) {
+            if (ctx.inListItem) {
+                commands = commands.filter(cmd => !BLOCK_CONVERSION_IDS.includes(cmd.id));
+            }
+            if (ctx.container) {
+                commands = commands.filter(cmd => isAllowedIn(ctx.host, cmd.kind, root));
+            }
         }
+        return commands;
+    }
 
+    /**
+     * Filter commands based on search text
+     */
+    filterCommands(searchText, ctx = null) {
+        const commands = this.getAvailableCommands(ctx);
         const search = searchText.toLowerCase().trim();
 
         if (!search) {
@@ -298,62 +356,48 @@ export default class SlashCommands extends Module {
     }
 
     /**
-     * True if the current selection is inside a quote-card figure.
-     */
-    isCursorInsideQuoteCard() {
-        const sel = window.getSelection();
-        if (!sel.rangeCount) return false;
-        const node = sel.getRangeAt(0).startContainer;
-        const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-        return !!(el && el.closest && el.closest('figure.quote-card'));
-    }
-
-    /**
-     * True if the current selection is inside an <aside> callout.
-     */
-    isCursorInsideCallout() {
-        const sel = window.getSelection();
-        if (!sel.rangeCount) return false;
-        const node = sel.getRangeAt(0).startContainer;
-        const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-        return !!(el && el.closest && el.closest('aside'));
-    }
-
-    /**
-     * Insert a new empty quote-card via QuoteCard module.
-     */
-    insertQuoteCard() {
-        const quoteCardModule = this.instance.modules.find(m => m.constructor.name === 'QuoteCard');
-        if (quoteCardModule) {
-            quoteCardModule.insertEmpty();
-        }
-    }
-
-    /**
-     * Render menu items
+     * Render menu items. Labels come from locale files — set as text, never
+     * interpolated into markup; icons are the library's static SVGs.
      */
     renderMenu() {
         this.menu.innerHTML = '';
 
         if (this.filteredCommands.length === 0) {
-            this.menu.innerHTML = `<div class="redactix-slash-empty">${this.t('slashCommands.noCommands')}</div>`;
+            const empty = document.createElement('div');
+            empty.className = 'redactix-slash-empty';
+            empty.textContent = this.t('slashCommands.noCommands');
+            this.menu.appendChild(empty);
             return;
         }
 
         this.filteredCommands.forEach((cmd, index) => {
             const item = document.createElement('div');
             item.className = 'redactix-slash-item' + (index === this.selectedIndex ? ' selected' : '');
-            item.innerHTML = `
-                <div class="redactix-slash-icon">${cmd.icon}</div>
-                <div class="redactix-slash-content">
-                    <div class="redactix-slash-label">${cmd.label}</div>
-                    <div class="redactix-slash-desc">${cmd.description}</div>
-                </div>
-            `;
+            item.setAttribute('role', 'option');
+
+            const icon = document.createElement('div');
+            icon.className = 'redactix-slash-icon';
+            icon.innerHTML = cmd.icon;
+
+            const content = document.createElement('div');
+            content.className = 'redactix-slash-content';
+            const label = document.createElement('div');
+            label.className = 'redactix-slash-label';
+            label.textContent = cmd.label;
+            const desc = document.createElement('div');
+            desc.className = 'redactix-slash-desc';
+            desc.textContent = cmd.description;
+            content.append(label, desc);
+            item.append(icon, content);
 
             item.addEventListener('mouseenter', () => {
                 this.selectedIndex = index;
                 this.updateSelection();
+            });
+
+            // mousedown: keep the editor's focus and caret
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();
             });
 
             item.addEventListener('click', (e) => {
@@ -383,36 +427,36 @@ export default class SlashCommands extends Module {
     }
 
     /**
-     * Handle keyboard navigation
+     * Handle keyboard navigation (Escape is handled by the layer stack).
      */
     handleKeydown(e) {
+        if (e.isComposing || e.keyCode === 229) return;
+        const count = this.filteredCommands.length;
+        const consume = () => {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        };
         switch (e.key) {
             case 'ArrowDown':
-                e.preventDefault();
-                this.selectedIndex = (this.selectedIndex + 1) % this.filteredCommands.length;
-                this.updateSelection();
+                consume();
+                if (count) {
+                    this.selectedIndex = (this.selectedIndex + 1) % count;
+                    this.updateSelection();
+                }
                 break;
 
             case 'ArrowUp':
-                e.preventDefault();
-                this.selectedIndex = (this.selectedIndex - 1 + this.filteredCommands.length) % this.filteredCommands.length;
-                this.updateSelection();
+                consume();
+                if (count) {
+                    this.selectedIndex = (this.selectedIndex - 1 + count) % count;
+                    this.updateSelection();
+                }
                 break;
 
             case 'Enter':
-                e.preventDefault();
-                if (this.filteredCommands[this.selectedIndex]) {
-                    this.executeCommand(this.filteredCommands[this.selectedIndex]);
-                }
-                break;
-
-            case 'Escape':
-                e.preventDefault();
-                this.closeMenu();
-                break;
-
             case 'Tab':
-                e.preventDefault();
+                if (e.shiftKey && e.key === 'Enter') return;
+                consume();
                 if (this.filteredCommands[this.selectedIndex]) {
                     this.executeCommand(this.filteredCommands[this.selectedIndex]);
                 }
@@ -421,143 +465,102 @@ export default class SlashCommands extends Module {
     }
 
     /**
-     * Execute selected command
+     * Execute selected command. The typed "/command" text is removed first;
+     * for modal commands that happens when the modal opens (cancelling the
+     * modal leaves the caret in the now-empty block).
      */
     executeCommand(cmd) {
-        // For modal commands (image, video, embed/aliases, table, code),
-        // don't delete "/" immediately — save the range for later deletion
-        // if the modal action succeeds.
-        const modalCommands = ['image', 'video', 'gallery', 'table', 'code'];
-        if (cmd.category === 'embed') modalCommands.push(cmd.id);
+        const slashRange = this.slashRange ? this.slashRange.cloneRange() : null;
+        this.closeMenu();
 
-        if (modalCommands.includes(cmd.id)) {
-            // Save range for deferred deletion
-            this.pendingSlashRange = this.slashRange ? this.slashRange.cloneRange() : null;
-            this.closeMenu();
+        if (cmd.modal) {
+            const block = this.transact(() => this.deleteSlash(slashRange));
+            this.instance.selection.save();
             cmd.action();
+            this.restoreCursorOnModalClose(block);
         } else {
-            // For immediate commands, delete "/" right away
-            this.deleteSlashAndPreserveBlock();
-            this.closeMenu();
-            cmd.action();
+            this.transact(() => {
+                this.deleteSlash(slashRange);
+                cmd.action();
+            });
         }
     }
 
     /**
-     * Delete "/" and preserve empty block with <br>
+     * Delete the "/command" text. If its block ends up empty it keeps a
+     * <br> (height + caret). Leaves the caret where the slash was.
+     * @returns {Element|null} the block the slash was typed in
      */
-    deleteSlashAndPreserveBlock() {
-        if (!this.slashRange) return;
+    deleteSlash(range) {
+        const root = this.instance.editorEl;
+        if (!range || !root.contains(range.startContainer)) return null;
+
+        const startEl = range.startContainer.nodeType === Node.ELEMENT_NODE
+            ? range.startContainer : range.startContainer.parentElement;
+        let block = startEl ? startEl.closest(LINE_BLOCK_SELECTOR) : null;
+        if (!block || !root.contains(block)) {
+            const point = findHostChild(range.startContainer, root);
+            block = point && point.block.nodeType === Node.ELEMENT_NODE ? point.block : null;
+        }
 
         try {
-            // Get the block element before deleting
-            let block = this.slashRange.startContainer;
-            while (block && block !== this.instance.editorEl) {
-                if (block.nodeType === Node.ELEMENT_NODE &&
-                    ['P', 'DIV', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'ASIDE', 'LI'].includes(block.tagName)) {
-                    break;
-                }
-                block = block.parentNode;
-            }
-
-            // Select and delete the "/" content
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(this.slashRange);
-            this.slashRange.deleteContents();
-
-            // Note: For immediate commands (formatBlock, insertList, etc.), 
-            // we don't need to preserve the block because the command will transform it
+            range.deleteContents();
         } catch (e) {
-            // Range may be invalid
+            return block;
         }
+
+        const sel = window.getSelection();
+        const caret = document.createRange();
+        if (block && isBlockEmpty(block, 'img, iframe, hr, table, video')) {
+            // Drop leftover empty text nodes, keep the block tall
+            Array.from(block.childNodes).forEach(n => {
+                if (n.nodeType === Node.TEXT_NODE && !n.data) n.remove();
+            });
+            if (!block.querySelector('br')) block.appendChild(document.createElement('br'));
+            caret.setStart(block, 0);
+        } else {
+            caret.setStart(range.startContainer, range.startOffset);
+        }
+        caret.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(caret);
+        return block;
     }
 
     /**
-     * Delete the pending "/" from modal command and save cursor position
-     * Called when modal action succeeds
+     * After a modal command: if the modal is closed without inserting
+     * anything (Cancel / Escape), put the caret back into the block the
+     * command was typed in — otherwise focus returns to the start of the
+     * editor.
+     *
+     * The other modules open their modals themselves, so a close listener
+     * is attached to the modal they opened (their own onClose stays intact).
      */
-    deletePendingSlash() {
-        if (this.pendingSlashRange) {
-            try {
-                // Get the block element before deleting
-                let block = this.pendingSlashRange.startContainer;
-                while (block && block !== this.instance.editorEl) {
-                    if (block.nodeType === Node.ELEMENT_NODE &&
-                        ['P', 'DIV', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'ASIDE', 'LI'].includes(block.tagName)) {
-                        break;
-                    }
-                    block = block.parentNode;
-                }
-
-                // Delete the "/" content
-                this.pendingSlashRange.deleteContents();
-
-                // If the block is now empty, append a <br> via DOM API to
-                // keep it visually tall — but DON'T touch innerHTML, that
-                // would detach the text node window.getSelection() is still
-                // pointing at and silently invalidate the saved range we
-                // restore later (then insertNode bails with no insert).
-                if (block && block !== this.instance.editorEl) {
-                    const isEmpty = isBlockEmpty(block, 'img, iframe, hr, table');
-                    if (isEmpty && !block.querySelector('br')) {
-                        block.appendChild(document.createElement('br'));
-                    }
-
-                    // Re-anchor the live selection to the start of the
-                    // block. After deleteContents() the live range can be
-                    // pointing at an empty/detached text node leftover from
-                    // the "/command" — the subsequent selection.save()
-                    // would then capture an out-of-editor range and
-                    // insertNode() would fall back to appending the
-                    // inserted figure at the end of the editor.
-                    const sel = window.getSelection();
-                    const newRange = document.createRange();
-                    newRange.setStart(block, 0);
-                    newRange.collapse(true);
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-
-                    // Save this block for cursor restoration after modal closes
-                    this.cursorRestoreBlock = block;
-                }
-            } catch (e) {
-                // Range may be invalid if DOM changed
-            }
-            this.pendingSlashRange = null;
-        }
+    restoreCursorOnModalClose(block) {
+        const modal = this.instance.modal;
+        if (!block || !modal || !modal.isOpen) return;
+        modal.addCloseListener(() => this.restoreCursor(block));
     }
 
-    /**
-     * Restore cursor to the saved block (called after modal closes)
-     */
-    restoreCursor() {
-        if (this.cursorRestoreBlock && this.instance.editorEl.contains(this.cursorRestoreBlock)) {
-            this.instance.editorEl.focus();
-
-            const selection = window.getSelection();
-            const range = document.createRange();
-
-            // Place cursor at the start of the block
-            if (this.cursorRestoreBlock.firstChild) {
-                range.setStart(this.cursorRestoreBlock, 0);
-            } else {
-                range.setStart(this.cursorRestoreBlock, 0);
-            }
-            range.collapse(true);
-
-            selection.removeAllRanges();
-            selection.addRange(range);
+    restoreCursor(block) {
+        const root = this.instance.editorEl;
+        // The module inserted something and placed the caret itself.
+        const sel = window.getSelection();
+        if (sel.rangeCount && root.contains(sel.getRangeAt(0).startContainer) &&
+            document.activeElement === root) {
+            return;
         }
-        this.cursorRestoreBlock = null;
-    }
-
-    /**
-     * Clear pending slash without deleting
-     * Called when modal is cancelled
-     */
-    clearPendingSlash() {
-        this.pendingSlashRange = null;
+        if (!block || !block.isConnected || !root.contains(block)) {
+            // Saved / inserted content took the block's place.
+            if (sel.rangeCount && root.contains(sel.getRangeAt(0).startContainer)) root.focus({ preventScroll: true });
+            return;
+        }
+        root.focus({ preventScroll: true });
+        const range = document.createRange();
+        range.setStart(block, 0);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
     }
 
     /**
@@ -566,6 +569,9 @@ export default class SlashCommands extends Module {
     openMenu() {
         this.isOpen = true;
         this.menu.style.display = 'block';
+        if (!this.popEscape) {
+            this.popEscape = pushEscapeLayer(() => this.closeMenu(), { scope: this.instance.wrapper });
+        }
         this.updateMenuPosition();
     }
 
@@ -574,272 +580,140 @@ export default class SlashCommands extends Module {
      */
     closeMenu() {
         this.isOpen = false;
-        this.menu.style.display = 'none';
+        if (this.menu) this.menu.style.display = 'none';
         this.slashRange = null;
         this.selectedIndex = 0;
+        if (this.popEscape) {
+            this.popEscape();
+            this.popEscape = null;
+        }
     }
 
-    /** Close slash menu (called when entering HTML mode). */
+    /** Close slash menu (HTML mode, content replaced). */
     hideUI() {
         if (this.isOpen) this.closeMenu();
     }
 
     /**
-     * Update menu position based on cursor
+     * Position the menu under the "/" (flips above when there's no room
+     * below in the viewport).
      */
     updateMenuPosition() {
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        const wrapperRect = this.instance.wrapper.getBoundingClientRect();
-        const editorRect = this.instance.editorEl.getBoundingClientRect();
-
-        // Calculate position
-        let left = rect.left - wrapperRect.left;
-        let top = rect.bottom - wrapperRect.top + 5;
-
-        // Get menu dimensions
-        const menuRect = this.menu.getBoundingClientRect();
-
-        // Adjust horizontal position if needed
-        if (left + menuRect.width > wrapperRect.width - 10) {
-            left = wrapperRect.width - menuRect.width - 10;
+        let rect = null;
+        if (this.slashRange && this.instance.editorEl.contains(this.slashRange.startContainer)) {
+            const r = this.slashRange.getBoundingClientRect();
+            if (r && (r.width || r.height)) rect = r;
         }
-        if (left < 10) left = 10;
-
-        // Check if menu would go below editor - show above instead
-        const spaceBelow = editorRect.bottom - rect.bottom;
-        if (spaceBelow < menuRect.height + 20 && rect.top - editorRect.top > menuRect.height) {
-            top = rect.top - wrapperRect.top - menuRect.height - 5;
-        }
-
-        this.menu.style.left = `${left}px`;
-        this.menu.style.top = `${top}px`;
+        if (!rect) rect = getSelectionRect();
+        if (!rect) return;
+        placePopover(this.menu, rect, { side: 'bottom', align: 'start', offset: 5 });
     }
 
     // ==================== Command Actions ====================
 
+    /** Current block for in-place commands: { host, block } or null. */
+    getCaretBlock() {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return null;
+        const root = this.instance.editorEl;
+        const node = selection.getRangeAt(0).startContainer;
+        const point = findHostChild(node, root);
+        if (!point) return null;
+
+        // Naked inline content directly in a host — wrap it first
+        if (point.block.nodeType !== Node.ELEMENT_NODE || !TEXT_BLOCK_TAGS.includes(point.block.tagName)) {
+            if (point.block.nodeType === Node.TEXT_NODE) {
+                const p = document.createElement('p');
+                point.host.insertBefore(p, point.block);
+                p.appendChild(point.block);
+                return { host: point.host, block: p };
+            }
+            return null;
+        }
+        return point;
+    }
+
     /**
-     * Format current block to specified tag
+     * Turn the current text block into `tagName` (h1-h3 or a callout).
      */
     formatBlock(tagName) {
+        const point = this.getCaretBlock();
+        if (!point) return;
+        const block = point.block;
+        const root = this.instance.editorEl;
+
+        const newBlock = document.createElement(tagName);
+        while (block.firstChild) {
+            newBlock.appendChild(block.firstChild);
+        }
+
+        // Keep the author's classes
+        if (block.className) {
+            newBlock.className = block.className;
+        }
+
+        // Ensure the block has content for proper height
+        if (!newBlock.textContent.trim() && !newBlock.querySelector('br, img, iframe')) {
+            newBlock.innerHTML = '<br>';
+        }
+
+        block.parentNode.replaceChild(newBlock, block);
+
+        // Callout contract: <aside> is a block container, direct children
+        // must be P/H1-H3/UL/OL/HR.
+        let cursorTarget = newBlock;
+        if (tagName.toLowerCase() === 'aside') {
+            normalizeContainerChildren(newBlock, root);
+            cursorTarget = newBlock.firstElementChild || newBlock;
+        }
+
+        // Place cursor in the new block
         const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-
-        const range = selection.getRangeAt(0);
-        let block = range.startContainer;
-
-        // Find the block element
-        while (block && block !== this.instance.editorEl) {
-            if (block.nodeType === Node.ELEMENT_NODE) {
-                const tag = block.tagName;
-                if (['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'ASIDE', 'DIV'].includes(tag)) {
-                    break;
-                }
-            }
-            block = block.parentNode;
-        }
-
-        if (!block || block === this.instance.editorEl) {
-            // Create a new block if none found
-            document.execCommand('formatBlock', false, `<${tagName}>`);
-
-            // Ensure the new block has content for proper height
-            const newSelection = window.getSelection();
-            if (newSelection.rangeCount) {
-                let newBlock = newSelection.getRangeAt(0).startContainer;
-                while (newBlock && newBlock.nodeType !== Node.ELEMENT_NODE) {
-                    newBlock = newBlock.parentNode;
-                }
-                if (newBlock && !newBlock.textContent.trim() && !newBlock.querySelector('br')) {
-                    newBlock.innerHTML = '<br>';
-                    const br = newBlock.querySelector('br');
-                    const newRange = document.createRange();
-                    newRange.setStartBefore(br);
-                    newRange.collapse(true);
-                    newSelection.removeAllRanges();
-                    newSelection.addRange(newRange);
-                }
-            }
+        const newRange = document.createRange();
+        if (cursorTarget.firstChild && cursorTarget.firstChild.nodeType === Node.TEXT_NODE) {
+            newRange.setStart(cursorTarget.firstChild, 0);
+        } else if (cursorTarget.firstChild) {
+            newRange.setStartBefore(cursorTarget.firstChild);
         } else {
-            // Replace the existing block
-            const newBlock = document.createElement(tagName);
-            while (block.firstChild) {
-                newBlock.appendChild(block.firstChild);
-            }
-
-            // Copy classes for aside/blockquote
-            if (block.className) {
-                newBlock.className = block.className;
-            }
-
-            // Ensure the block has content for proper height
-            if (!newBlock.textContent.trim() && !newBlock.querySelector('br, img, iframe')) {
-                newBlock.innerHTML = '<br>';
-            }
-
-            block.parentNode.replaceChild(newBlock, block);
-
-            // Callout contract: <aside> is a block container, direct children
-            // should be P/H1-H3/UL/OL. Normalize immediately, otherwise until
-            // the next load aside remains "flat" and Enter/Backspace
-            // work on fallback branches in Editor.js.
-            let cursorTarget = newBlock;
-            if (tagName.toLowerCase() === 'aside') {
-                const calloutModule = this.instance.modules.find(m => m.constructor.name === 'Callout');
-                if (calloutModule) {
-                    calloutModule.normalizeChildren(newBlock);
-                    cursorTarget = newBlock.firstElementChild || newBlock;
-                }
-            }
-
-            // Place cursor in the new block
-            const newRange = document.createRange();
-            if (cursorTarget.firstChild && cursorTarget.firstChild.nodeType === Node.TEXT_NODE) {
-                newRange.setStart(cursorTarget.firstChild, 0);
-            } else if (cursorTarget.firstChild) {
-                newRange.setStartBefore(cursorTarget.firstChild);
-            } else {
-                newRange.setStart(cursorTarget, 0);
-            }
-            newRange.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
+            newRange.setStart(cursorTarget, 0);
         }
-
-        this.instance.sync();
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
     }
 
     /**
-     * Insert a code block
+     * Open another module's modal (image, gallery, video, embed, table, code).
      */
-    insertCodeBlock() {
-        const codeModule = this.instance.modules.find(m => m.constructor.name === 'Code');
-        if (codeModule) {
-            this.deletePendingSlash();
-            this.setupModalCloseHandler();
-            codeModule.openModal();
+    openModuleModal(name) {
+        if (name === 'Gallery' && this.liteMode) return;
+        const module = this.getModule(name);
+        if (module && typeof module.openModal === 'function') {
+            module.openModal();
         }
     }
 
     /**
-     * Open image modal
+     * Insert a new empty quote-card via QuoteCard module.
      */
-    openImageModal() {
-        const imageModule = this.instance.modules.find(m => m.constructor.name === 'Image');
-        if (imageModule) {
-            this.deletePendingSlash();
-            this.instance.selection.save();
-            this.setupModalCloseHandler();
-            imageModule.openModal();
+    insertQuoteCard() {
+        const quoteCardModule = this.getModule('QuoteCard');
+        if (quoteCardModule) {
+            quoteCardModule.insertEmpty();
         }
     }
 
     /**
-     * Open the photo-gallery modal.
-     */
-    openGalleryModal() {
-        const galleryModule = this.instance.modules.find(m => m.constructor.name === 'Gallery');
-        if (galleryModule && !this.liteMode) {
-            this.deletePendingSlash();
-            this.instance.selection.save();
-            this.setupModalCloseHandler();
-            galleryModule.openModal();
-        }
-    }
-
-    /**
-     * Open native HTML5 video modal (file upload + URL).
-     */
-    openVideoModal() {
-        const videoModule = this.instance.modules.find(m => m.constructor.name === 'Video');
-        if (videoModule) {
-            this.deletePendingSlash();
-            this.instance.selection.save();
-            this.setupModalCloseHandler();
-            videoModule.openModal();
-        }
-    }
-
-    /**
-     * Open universal Embed modal. Provider is auto-detected from the URL
-     * the user types into the modal.
-     */
-    openEmbedModal() {
-        const embedModule = this.instance.modules.find(m => m.constructor.name === 'Embed');
-        if (embedModule) {
-            this.deletePendingSlash();
-            this.setupModalCloseHandler();
-            embedModule.openModal();
-        }
-    }
-
-    /**
-     * Open table modal
-     */
-    openTableModal() {
-        const tableModule = this.instance.modules.find(m => m.constructor.name === 'Table');
-        if (tableModule) {
-            this.deletePendingSlash();
-            this.setupModalCloseHandler();
-            tableModule.openModal();
-        }
-    }
-
-    /**
-     * Setup handler to restore cursor when modal closes
-     */
-    setupModalCloseHandler() {
-        // Store existing onClose if any
-        const existingOnClose = this.instance.modal.onClose;
-
-        this.instance.modal.onClose = () => {
-            // Call existing handler first
-            if (existingOnClose) {
-                existingOnClose();
-            }
-            // Restore cursor position
-            this.restoreCursor();
-        };
-    }
-
-    /**
-     * Insert horizontal separator
+     * Insert horizontal separator (Separator module owns the markup).
      */
     insertSeparator() {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'redactix-separator';
-        wrapper.contentEditable = 'false';
-        const hr = document.createElement('hr');
-        wrapper.appendChild(hr);
-
-        const nextP = document.createElement('p');
-        nextP.innerHTML = '<br>';
-
-        this.instance.selection.insertNode(wrapper);
-
-        // Insert paragraph after separator
-        if (wrapper.nextSibling) {
-            wrapper.parentNode.insertBefore(nextP, wrapper.nextSibling);
-        } else {
-            wrapper.parentNode.appendChild(nextP);
-        }
-
-        // Place cursor in new paragraph
-        const range = document.createRange();
-        range.setStart(nextP, 0);
-        range.collapse(true);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        this.instance.sync();
+        const separator = this.getModule('Separator');
+        if (separator) separator.insertSeparator();
     }
 
     /**
-     * Insert list (ordered or unordered)
+     * Insert list (ordered or unordered): replaces an empty text block,
+     * otherwise goes right after the current block.
      */
     insertList(type) {
         const list = document.createElement(type);
@@ -847,50 +721,25 @@ export default class SlashCommands extends Module {
         li.innerHTML = '<br>';
         list.appendChild(li);
 
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-
-        const range = selection.getRangeAt(0);
-        let block = range.startContainer;
-
-        // Find the block element
-        while (block && block !== this.instance.editorEl) {
-            if (block.nodeType === Node.ELEMENT_NODE) {
-                const tag = block.tagName;
-                if (['P', 'DIV'].includes(tag)) {
-                    break;
-                }
-            }
-            block = block.parentNode;
-        }
-
-        if (block && block !== this.instance.editorEl && ['P', 'DIV'].includes(block.tagName)) {
-            // Replace empty block with list (text-only check - atomic
-            // blocks inside P/DIV should not be replaced, but they do not exist anyway).
-            const isEmpty = isBlockEmpty(block, null);
-            if (isEmpty) {
+        const point = this.getCaretBlock();
+        if (point) {
+            const { block } = point;
+            if (isBlockEmpty(block, 'img, iframe, video')) {
                 block.parentNode.replaceChild(list, block);
             } else {
-                // Insert after current block
-                if (block.nextSibling) {
-                    block.parentNode.insertBefore(list, block.nextSibling);
-                } else {
-                    block.parentNode.appendChild(list);
-                }
+                block.parentNode.insertBefore(list, block.nextSibling);
             }
         } else {
-            // Just insert
             this.instance.selection.insertNode(list);
         }
 
         // Place cursor in the list item
+        const selection = window.getSelection();
         const newRange = document.createRange();
         newRange.setStart(li, 0);
         newRange.collapse(true);
         selection.removeAllRanges();
         selection.addRange(newRange);
-
-        this.instance.sync();
     }
 
     getButtons() {

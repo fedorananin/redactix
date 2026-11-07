@@ -1,3 +1,6 @@
+import { isBlockTag, isAtomicBlock } from './dom-utils.js';
+import { findInsertionPoint, blockKind } from './schema.js';
+
 export default class Selection {
     constructor(editor) {
         this.editor = editor;
@@ -5,24 +8,29 @@ export default class Selection {
     }
 
     /**
-     * Saves the current selection (Range)
+     * Saves the current selection (Range) — only if it is inside this editor.
      */
     save() {
         const sel = window.getSelection();
         if (sel.rangeCount > 0) {
-            this.savedRange = sel.getRangeAt(0).cloneRange();
+            const range = sel.getRangeAt(0);
+            if (this.editor.el.contains(range.startContainer)) {
+                this.savedRange = range.cloneRange();
+            }
         }
     }
 
     /**
-     * Restores the saved selection
+     * Restores the saved selection (if its nodes are still in this editor).
      */
     restore() {
-        if (this.savedRange) {
+        if (this.savedRange && this.editor.el.contains(this.savedRange.startContainer)) {
             const sel = window.getSelection();
             sel.removeAllRanges();
             sel.addRange(this.savedRange);
+            return true;
         }
+        return false;
     }
 
     /**
@@ -33,92 +41,112 @@ export default class Selection {
         return sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
     }
 
+    /** Range to insert at: the live selection if it is inside the editor, else the saved one. */
+    getInsertionRange() {
+        const liveRange = this.getRange();
+        if (liveRange && this.editor.el.contains(liveRange.startContainer)) return liveRange;
+        if (this.savedRange && this.editor.el.contains(this.savedRange.startContainer)) return this.savedRange;
+        return null;
+    }
+
     /**
-     * Inserts a node at the current cursor position
-     * @param {Node} node 
+     * Inserts a node (or a DocumentFragment) at the current cursor position.
+     *
+     * Block content is inserted at block level, respecting container rules:
+     * a table can't go into a quote-card, so it lands after the card; with the
+     * caret in a list item it lands after the list, in a table cell — after
+     * the table. An empty paragraph at the caret is replaced.
+     *
+     * @param {Node} node
      */
     insertNode(node) {
-        const isBlockElement = node.nodeType === Node.ELEMENT_NODE &&
-            ['FIGURE', 'DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'TABLE', 'BLOCKQUOTE', 'PRE', 'HR', 'ASIDE'].includes(node.tagName);
+        const isFragment = node.nodeType === Node.DOCUMENT_FRAGMENT_NODE;
+        const topNodes = isFragment ? Array.from(node.childNodes) : [node];
+        const elements = topNodes.filter(n => n.nodeType === Node.ELEMENT_NODE);
+        const isBlockContent = elements.length > 0 && elements.every(el => isBlockTag(el.tagName) && el.tagName !== 'LI');
 
-        // Pick the range to insert at. Prefer the live selection, but if
-        // it points outside the editor (Chrome doesn't always honour
-        // addRange() when focus is on a modal button — the live range
-        // ends up still in the modal), fall back to the explicitly saved
-        // range. As a last resort, append the block to the end of the
-        // editor so the user at least sees the result instead of a silent
-        // no-op. Inline inserts have no good last-resort, so they bail.
-        const liveRange = this.getRange();
-        let range = null;
-        if (liveRange && this.editor.el.contains(liveRange.startContainer)) {
-            range = liveRange;
-        } else if (this.savedRange && this.editor.el.contains(this.savedRange.startContainer)) {
-            range = this.savedRange;
-        }
+        // Prefer the live selection, but if it points outside the editor
+        // (Chrome doesn't always honour addRange() when focus is on a modal
+        // button), fall back to the explicitly saved range. As a last resort,
+        // append the block to the end of the editor so the user at least
+        // sees the result. Inline inserts have no good last-resort, so they bail.
+        const range = this.getInsertionRange();
+        const root = this.editor.el;
 
-        if (!range) {
-            if (!isBlockElement) return;
-            this.editor.el.appendChild(node);
-            const newRange = document.createRange();
-            newRange.setStartAfter(node);
-            newRange.setEndAfter(node);
+        if (!isBlockContent) {
+            if (!range) return;
+            range.deleteContents();
+            range.insertNode(node);
+            const last = topNodes[topNodes.length - 1];
+            const r = document.createRange();
+            if (last && last.parentNode) r.setStartAfter(last);
+            else r.setStart(range.startContainer, range.startOffset);
+            r.collapse(true);
             const sel = window.getSelection();
             sel.removeAllRanges();
-            sel.addRange(newRange);
+            sel.addRange(r);
             return;
         }
 
-        if (isBlockElement) {
-            // For block elements: insert at block level
-            let block = range.startContainer;
-            
-            // Find the nearest block parent
-            while (block && block !== this.editor.el) {
-                if (block.nodeType === Node.ELEMENT_NODE && 
-                    ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'FIGURE', 'PRE', 'ASIDE'].includes(block.tagName)) {
-                    break;
-                }
-                block = block.parentNode;
-            }
+        const kinds = elements.map(el => blockKind(el));
+        const point = range ? findInsertionPoint(range.startContainer, kinds, root) : null;
 
-            if (block && block !== this.editor.el && block.parentNode) {
-                // Check if the current block is empty
-                const isEmpty = block.textContent.trim() === '' && 
-                    !block.querySelector('img, iframe, video, audio, table');
-                
-                // Insert after the current block
-                block.parentNode.insertBefore(node, block.nextSibling);
-                
-                // Remove empty block
-                if (isEmpty) {
-                    block.remove();
-                }
-            } else {
-                // If block not found, append to the end of the editor
-                this.editor.el.appendChild(node);
-            }
-
-            // Move cursor after the inserted element
-            const newRange = document.createRange();
-            newRange.setStartAfter(node);
-            newRange.setEndAfter(node);
-            
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(newRange);
+        if (point) {
+            const { host, block } = point;
+            const isEmptyTextBlock = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(block.tagName) &&
+                block.textContent.trim() === '' &&
+                !block.querySelector('img, iframe, video, audio, table');
+            host.insertBefore(node, block.nextSibling);
+            if (isEmptyTextBlock) block.remove();
+        } else if (range && range.startContainer === root) {
+            // Caret between two top-level blocks.
+            root.insertBefore(node, root.childNodes[range.startOffset] || null);
         } else {
-            // For inline elements: standard behavior
-            range.deleteContents();
-            range.insertNode(node);
-            
-            // Move cursor after the inserted element
-            range.setStartAfter(node);
-            range.setEndAfter(node); 
-            
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
+            root.appendChild(node);
         }
+
+        this.placeCaretAfterBlock(topNodes[topNodes.length - 1]);
+    }
+
+    /**
+     * After inserting a block, put the caret somewhere the user can type:
+     * the next editable block, or a new paragraph if the inserted block is
+     * atomic and nothing editable follows it.
+     */
+    placeCaretAfterBlock(block) {
+        if (!block || !block.parentNode) return;
+        const sel = window.getSelection();
+        const r = document.createRange();
+
+        let target = block.nodeType === Node.ELEMENT_NODE && !isAtomicBlock(block) && block.isContentEditable
+            ? block : null;
+        if (!target) {
+            const next = block.nextElementSibling;
+            if (next && !isAtomicBlock(next) && next.isContentEditable) {
+                r.setStart(next, 0);
+                r.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(r);
+                return;
+            }
+            if (isAtomicBlock(block)) {
+                const p = document.createElement('p');
+                p.innerHTML = '<br>';
+                block.parentNode.insertBefore(p, block.nextSibling);
+                r.setStart(p, 0);
+                r.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(r);
+                return;
+            }
+            r.setStartAfter(block);
+            r.collapse(true);
+        } else {
+            r.selectNodeContents(target);
+            r.collapse(false);
+        }
+        sel.removeAllRanges();
+        sel.addRange(r);
     }
 
     /**
@@ -134,11 +162,11 @@ export default class Selection {
         if (range.endContainer.nodeType === Node.TEXT_NODE) {
             const text = range.endContainer.textContent;
             let endOffset = range.endOffset;
-            
+
             const startOffset = (range.startContainer === range.endContainer) ? range.startOffset : 0;
 
             // Check spaces (normal and non-breaking)
-            while (endOffset > startOffset && /[\s\u00A0]/.test(text[endOffset - 1])) {
+            while (endOffset > startOffset && /[\s ]/.test(text[endOffset - 1])) {
                 endOffset--;
             }
 

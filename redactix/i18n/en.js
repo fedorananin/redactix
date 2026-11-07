@@ -8,7 +8,9 @@ export default {
 
     // Editor
     editor: {
-        placeholder: 'Start typing...'
+        placeholder: 'Start typing...',
+        captionPlaceholder: 'Add caption...',
+        uploading: 'Uploading...'
     },
 
     // Modal buttons
@@ -66,7 +68,7 @@ export default {
         removeImage: 'Remove Image',
         uploadReplace: 'Replace image: click to upload',
         uploadClick: 'Click to upload or drag & drop',
-        uploadFormats: 'JPG, PNG, GIF, WebP, AVIF, HEIC, SVG',
+        uploadFormats: 'JPG, PNG, GIF, WebP, AVIF, HEIC',
         uploading: 'Uploading...',
         uploadSuccess: 'Uploaded successfully',
         chooseFromUploaded: 'Choose from uploaded images',
@@ -77,7 +79,9 @@ export default {
         closeGallery: 'Close gallery',
         deleteConfirm: 'Delete',
         deleteTooltip: 'Delete image',
-        confirmDelete: 'Delete {filename}?'
+        confirmDelete: 'Delete {filename}?',
+        invalidUrl: 'Enter a valid image URL (http, https or a relative path)',
+        invalidLinkUrl: 'Enter a valid link URL'
     },
 
     // Gallery module (multiple images grouped under one figure)
@@ -102,7 +106,9 @@ export default {
         noImages: 'No images uploaded yet',
         drag: 'Drag to reorder',
         edit: 'Edit gallery',
-        menuGroup: 'Gallery'
+        menuGroup: 'Gallery',
+        invalidUrls: 'Add at least one image with a valid URL',
+        uploadFailed: 'Could not upload {filename}: {error}'
     },
 
     // Video module (native HTML5 <video>, off by default)
@@ -130,7 +136,8 @@ export default {
         edit: 'Edit video',
         menuGroup: 'Video',
         deleteTooltip: 'Delete video',
-        confirmDelete: 'Delete {filename}?'
+        confirmDelete: 'Delete {filename}?',
+        invalidUrl: 'Enter a valid video URL (http or https)'
     },
 
     // Link module
@@ -144,7 +151,8 @@ export default {
         nofollow: 'nofollow',
         removeLink: 'Remove Link',
         relExceptNofollow: 'Rel (except nofollow)',
-        relPlaceholder: 'sponsored, ugc, ...'
+        relPlaceholder: 'sponsored, ugc, ...',
+        invalidUrl: 'Link URL is not allowed. Use http(s)://, mailto:, tel: or a relative address.'
     },
 
     // Table module
@@ -160,6 +168,7 @@ export default {
         makeRegular: 'Make regular (TD)',
         makeHeader: 'Make header (TH)',
         makeRowHeader: 'Make row a header',
+        makeRowRegular: 'Make row regular',
         cellAttributes: 'Cell Attributes',
         rowAttributes: 'Row Attributes',
         deleteColumn: 'Delete column',
@@ -182,7 +191,9 @@ export default {
         captionLabel: 'Caption',
         captionPlaceholder: 'Optional',
         edit: 'Edit embed',
-        menuGroup: 'Embed'
+        menuGroup: 'Embed',
+        invalidUrl: 'This link is not supported. Use a link from one of the services above, or the Custom HTML tab.',
+        invalidHtml: 'Paste an <iframe> code whose src starts with https://'
     },
 
     // Code module
@@ -192,7 +203,8 @@ export default {
         language: 'Programming Language',
         languageNone: 'None',
         codePlaceholder: 'Paste your code here...',
-        removeCodeBlock: 'Remove Code Block'
+        removeCodeBlock: 'Remove Code Block',
+        code: 'Code'
     },
 
     // Find & Replace module
@@ -203,6 +215,7 @@ export default {
         replaceAll: 'All',
         noResults: 'No results',
         ofCount: 'of',
+        matchCount: '{current} of {total}',
         previousTooltip: 'Previous (Shift+Enter)',
         nextTooltip: 'Next (Enter)',
         closeTooltip: 'Close (Esc)'
@@ -267,7 +280,8 @@ export default {
         idPlaceholder: 'example-anchor',
         linkPrefix: 'Link',
         classes: 'Classes (space separated)',
-        quickSelect: 'Quick select'
+        quickSelect: 'Quick select',
+        reservedClass: 'These classes can\'t be used here (reserved by the editor): {classes}'
     },
 
     // Slash Commands
@@ -313,7 +327,11 @@ export default {
         connectionError: 'Connection error',
         serverError: 'Server error',
         invalidResponse: 'Invalid server response',
-        remove: 'Remove'
+        remove: 'Remove',
+        tooLarge: 'File is too large',
+        pending: 'Wait until the upload finishes',
+        progress: 'Uploading… {percent}%',
+        loadMore: 'Load more'
     },
 
     // Counter
